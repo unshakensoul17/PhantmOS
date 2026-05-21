@@ -1,0 +1,2 @@
+# data directory — local storage for ChromaDB, browser profiles, temp PDFs
+# This directory is excluded from git (see .gitignore)

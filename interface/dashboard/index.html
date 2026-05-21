@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ghost Protocol // Command Center</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #0a0a0c;
+            --bg-surface: rgba(18, 18, 24, 0.7);
+            --bg-surface-hover: rgba(26, 26, 36, 0.85);
+            --border-color: rgba(255, 255, 255, 0.06);
+            --color-text: #e2e8f0;
+            --color-muted: #94a3b8;
+            --accent-cyan: #00f2fe;
+            --accent-green: #00f5a0;
+            --accent-amber: #ffb703;
+            --accent-coral: #ff5e62;
+            --font-sans: 'Outfit', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --transition: all 0.3s ease;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: var(--bg-base); color: var(--color-text); font-family: var(--font-sans); padding: 2rem; background-image: radial-gradient(circle at 10% 20%, rgba(0, 242, 254, 0.04) 0%, transparent 40%), radial-gradient(circle at 90% 80%, rgba(0, 245, 160, 0.04) 0%, transparent 40%); background-attachment: fixed; min-height: 100vh;}
+        
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1.5rem; margin-bottom: 2rem; }
+        .brand h1 { font-size: 2rem; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .brand p { color: var(--color-muted); font-size: 0.9rem; }
+        
+        /* Harvester */
+        .harvester-bar { display: flex; gap: 1rem; align-items: center; background: var(--bg-surface); padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color); }
+        .harvester-bar input { background: transparent; border: none; color: white; padding: 0.5rem 1rem; outline: none; font-family: var(--font-sans); width: 250px; }
+        .btn { background: rgba(255, 255, 255, 0.05); color: white; border: 1px solid var(--border-color); padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; transition: var(--transition); }
+        .btn:hover { background: rgba(255, 255, 255, 0.1); }
+        .btn-cyan { color: var(--accent-cyan); border-color: rgba(0, 242, 254, 0.3); }
+        .btn-cyan:hover { background: rgba(0, 242, 254, 0.1); }
+        .btn-green { color: var(--accent-green); border-color: rgba(0, 245, 160, 0.3); }
+        .btn-green:hover { background: rgba(0, 245, 160, 0.1); }
+
+        /* Tabs */
+        .tabs { display: flex; gap: 1rem; margin-bottom: 2rem; }
+        .tab { padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; color: var(--color-muted); transition: var(--transition); }
+        .tab.active { background: var(--bg-surface); color: white; border: 1px solid var(--border-color); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Stats */
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 2rem; }
+        .stat-card { background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.5rem; }
+        .stat-val { font-size: 2rem; font-weight: 700; margin-top: 0.5rem; }
+        
+        /* Kanban */
+        .kanban { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+        .kanban-col { background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem; min-height: 500px; }
+        .kanban-header { font-weight: 600; color: var(--color-muted); margin-bottom: 1rem; text-transform: uppercase; font-size: 0.85rem; }
+        .k-card { background: var(--bg-surface); border: 1px solid var(--border-color); padding: 1rem; border-radius: 8px; margin-bottom: 1rem; cursor: pointer; transition: var(--transition); }
+        .k-card:hover { border-color: rgba(255,255,255,0.2); transform: translateY(-2px); }
+        .k-title { font-weight: 600; font-size: 0.95rem; }
+        .k-company { color: var(--color-muted); font-size: 0.8rem; margin-bottom: 0.5rem; }
+        .k-score { font-family: var(--font-mono); font-size: 0.75rem; color: var(--accent-cyan); }
+
+        /* Forms */
+        .form-group { margin-bottom: 1.5rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; color: var(--color-muted); font-size: 0.9rem; }
+        .form-control { width: 100%; background: #060608; border: 1px solid var(--border-color); color: white; padding: 1rem; border-radius: 8px; font-family: var(--font-mono); outline: none; }
+        textarea.form-control { height: 400px; resize: vertical; }
+
+        /* Drawer */
+        .drawer { position: fixed; right: -600px; top: 0; width: 500px; height: 100vh; background: #0a0a0c; border-left: 1px solid var(--border-color); transition: right 0.3s ease; padding: 2rem; overflow-y: auto; z-index: 100; }
+        .drawer.open { right: 0; }
+        .drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; z-index: 99; }
+        .drawer-overlay.open { display: block; }
+        .d-close { background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer; float: right; }
+        .d-section { margin-top: 1.5rem; }
+        .d-section h4 { color: var(--color-muted); margin-bottom: 0.5rem; font-size: 0.85rem; text-transform: uppercase; }
+        .d-box { background: rgba(255,255,255,0.02); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color); font-size: 0.9rem; }
+        pre.d-box { font-family: var(--font-mono); white-space: pre-wrap; font-size: 0.8rem; color: var(--accent-green); }
+        .d-actions { display: flex; gap: 1rem; margin-top: 2rem; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="brand">
+            <h1>Ghost Protocol</h1>
+            <p>Command Center Dashboard</p>
+        </div>
+        <div class="harvester-bar">
+            <input type="text" id="harvest-query" placeholder="e.g. AI Analyst, London" />
+            <button class="btn btn-cyan" onclick="triggerHarvest()" id="btn-harvest">🚀 Deploy Harvester</button>
+        </div>
+    </div>
+
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('radar')">📡 Global Radar</div>
+        <div class="tab" onclick="switchTab('kanban')">📋 CRM Kanban</div>
+        <div class="tab" onclick="switchTab('profile')">🧠 Master Identity</div>
+        <div class="tab" onclick="switchTab('config')">⚙️ System Config</div>
+    </div>
+
+    <!-- RADAR -->
+    <div id="radar" class="tab-content active">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div style="color: var(--color-muted); font-size: 0.9rem;">Discovered</div>
+                <div class="stat-val" id="stat-discovered">0</div>
+            </div>
+            <div class="stat-card">
+                <div style="color: var(--color-muted); font-size: 0.9rem;">Tailored & Ready</div>
+                <div class="stat-val" id="stat-tailored" style="color: var(--accent-cyan);">0</div>
+            </div>
+            <div class="stat-card">
+                <div style="color: var(--color-muted); font-size: 0.9rem;">Autonomously Applied</div>
+                <div class="stat-val" id="stat-applied" style="color: var(--accent-green);">0</div>
+            </div>
+            <div class="stat-card">
+                <div style="color: var(--color-muted); font-size: 0.9rem;">Est. Hours Saved</div>
+                <div class="stat-val" id="stat-hours" style="color: var(--accent-amber);">0</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KANBAN -->
+    <div id="kanban" class="tab-content">
+        <div class="kanban">
+            <div class="kanban-col">
+                <div class="kanban-header">🔍 Discovered</div>
+                <div id="k-discovered"></div>
+            </div>
+            <div class="kanban-col">
+                <div class="kanban-header">⚡ Tailored</div>
+                <div id="k-tailored"></div>
+            </div>
+            <div class="kanban-col">
+                <div class="kanban-header">✅ Applied</div>
+                <div id="k-applied"></div>
+            </div>
+            <div class="kanban-col">
+                <div class="kanban-header">❌ Dismissed</div>
+                <div id="k-dismissed"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PROFILE EDITOR -->
+    <div id="profile" class="tab-content">
+        <div class="form-group">
+            <label>Master Resume JSON</label>
+            <textarea id="profile-json" class="form-control" spellcheck="false"></textarea>
+        </div>
+        <button class="btn btn-green" onclick="saveProfile()">💾 Save Identity</button>
+    </div>
+
+    <!-- CONFIG -->
+    <div id="config" class="tab-content">
+        <div class="stats-grid" style="grid-template-columns: 1fr 1fr;">
+            <div class="form-group">
+                <label>Target Roles (Comma separated)</label>
+                <input type="text" id="env-roles" class="form-control" placeholder='e.g. AI Engineer, Prompt Engineer'>
+            </div>
+            <div class="form-group">
+                <label>Apollo API Key</label>
+                <input type="password" id="env-apollo" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Snov.io Client ID</label>
+                <input type="text" id="env-snov-id" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Snov.io Client Secret</label>
+                <input type="password" id="env-snov-secret" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Groq API Key</label>
+                <input type="password" id="env-groq" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>SerpApi API Key</label>
+                <input type="password" id="env-serp" class="form-control">
+            </div>
+        </div>
+        <button class="btn btn-green" onclick="saveEnv()">💾 Save Configuration</button>
+    </div>
+
+    <!-- DRAWER -->
+    <div class="drawer-overlay" id="overlay" onclick="closeDrawer()"></div>
+    <div class="drawer" id="drawer">
+        <button class="d-close" onclick="closeDrawer()">&times;</button>
+        <h2 id="d-title" style="margin-bottom: 0.2rem;">Title</h2>
+        <p id="d-company" style="color: var(--accent-cyan); font-weight:500;">Company</p>
+        
+        <div class="d-section">
+            <h4>Match Score</h4>
+            <div id="d-score" class="btn" style="cursor:default;">0%</div>
+        </div>
+
+        <div class="d-section">
+            <h4>Generated Cold Email</h4>
+            <pre id="d-email" class="d-box">...</pre>
+        </div>
+
+        <div class="d-actions" id="d-actions">
+            <!-- Buttons injected here -->
+        </div>
+    </div>
+
+    <script>
+        let allLeads = [];
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelector(`.tab[onclick="switchTab('${tabId}')"]`).classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+            
+            if(tabId === 'profile') loadProfile();
+            if(tabId === 'config') loadEnv();
+        }
+
+        async function fetchStats() {
+            const res = await fetch('/api/stats');
+            const data = await res.json();
+            document.getElementById('stat-discovered').innerText = data.discovered || 0;
+            document.getElementById('stat-tailored').innerText = data.tailored || 0;
+            document.getElementById('stat-applied').innerText = data.applied || 0;
+            document.getElementById('stat-hours').innerText = ((data.tailored + data.applied) * 0.5).toFixed(1); // 30 mins saved per job
+        }
+
+        async function fetchLeads() {
+            const res = await fetch('/api/leads');
+            allLeads = await res.json();
+            renderKanban();
+        }
+
+        function renderKanban() {
+            const cols = {
+                discovered: document.getElementById('k-discovered'),
+                tailored: document.getElementById('k-tailored'),
+                applied: document.getElementById('k-applied'),
+                dismissed: document.getElementById('k-dismissed')
+            };
+            Object.values(cols).forEach(c => c.innerHTML = '');
+
+            allLeads.forEach(lead => {
+                let s = (lead.status || 'discovered').toLowerCase();
+                if(s === 'sent') s = 'tailored';
+                if(!cols[s]) s = 'discovered';
+
+                const card = document.createElement('div');
+                card.className = 'k-card';
+                card.onclick = () => openDrawer(lead);
+                card.innerHTML = `
+                    <div class="k-title">${lead.title}</div>
+                    <div class="k-company">${lead.company}</div>
+                    <div class="k-score">${Math.round(lead.match_score * 100)}% Match</div>
+                `;
+                cols[s].appendChild(card);
+            });
+        }
+
+        function openDrawer(lead) {
+            document.getElementById('d-title').innerText = lead.title;
+            document.getElementById('d-company').innerText = lead.company;
+            document.getElementById('d-score').innerText = `${Math.round(lead.match_score * 100)}%`;
+            document.getElementById('d-email').innerText = lead.cold_email || "Not generated yet.";
+
+            const actions = document.getElementById('d-actions');
+            actions.innerHTML = '';
+            
+            if(['tailored', 'sent', 'applied'].includes(lead.status.toLowerCase())) {
+                actions.innerHTML += `<a href="/resumes/${lead.job_id}.pdf" target="_blank" class="btn btn-cyan" style="flex:1; text-align:center; text-decoration:none;">📄 View PDF</a>`;
+            }
+            if(!['applied', 'dismissed'].includes(lead.status.toLowerCase())) {
+                actions.innerHTML += `<button class="btn btn-green" style="flex:1;" onclick="updateStatus('${lead.job_id}', 'Applied')">✅ Mark Applied</button>`;
+                actions.innerHTML += `<button class="btn" style="flex:1; border-color: var(--accent-coral); color: var(--accent-coral);" onclick="updateStatus('${lead.job_id}', 'Dismissed')">❌ Dismiss</button>`;
+            }
+
+            document.getElementById('drawer').classList.add('open');
+            document.getElementById('overlay').classList.add('open');
+        }
+
+        function closeDrawer() {
+            document.getElementById('drawer').classList.remove('open');
+            document.getElementById('overlay').classList.remove('open');
+        }
+
+        async function updateStatus(jobId, status) {
+            await fetch(`/api/leads/${jobId}/status`, {
+                method: 'POST',
+                headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({status})
+            });
+            closeDrawer();
+            fetchStats();
+            fetchLeads();
+        }
+
+        async function triggerHarvest() {
+            const q = document.getElementById('harvest-query').value;
+            if(!q) return;
+            const btn = document.getElementById('btn-harvest');
+            btn.innerText = "⏳ Deploying...";
+            await fetch('/api/harvest', {
+                method: 'POST',
+                headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({query: q})
+            });
+            setTimeout(() => {
+                btn.innerText = "🚀 Deploy Harvester";
+                document.getElementById('harvest-query').value = '';
+                fetchStats(); fetchLeads();
+            }, 1500); // UI feedback
+        }
+
+        async function loadProfile() {
+            const res = await fetch('/api/profile');
+            const data = await res.json();
+            document.getElementById('profile-json').value = JSON.stringify(data, null, 4);
+        }
+
+        async function saveProfile() {
+            const jsonStr = document.getElementById('profile-json').value;
+            try {
+                const data = JSON.parse(jsonStr);
+                await fetch('/api/profile', {
+                    method: 'POST',
+                    headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({resume_data: data})
+                });
+                alert("Identity Saved!");
+            } catch(e) {
+                alert("Invalid JSON format.");
+            }
+        }
+
+        async function loadEnv() {
+            const res = await fetch('/api/env');
+            const data = await res.json();
+            document.getElementById('env-roles').value = data.TARGET_ROLES;
+            document.getElementById('env-apollo').value = data.APOLLO_API_KEY;
+            document.getElementById('env-snov-id').value = data.SNOV_CLIENT_ID;
+            document.getElementById('env-snov-secret').value = data.SNOV_CLIENT_SECRET;
+            document.getElementById('env-groq').value = data.GROQ_API_KEY;
+            document.getElementById('env-serp').value = data.SERPAPI_API_KEY;
+        }
+
+        async function saveEnv() {
+            const payload = {
+                TARGET_ROLES: document.getElementById('env-roles').value,
+                APOLLO_API_KEY: document.getElementById('env-apollo').value,
+                SNOV_CLIENT_ID: document.getElementById('env-snov-id').value,
+                SNOV_CLIENT_SECRET: document.getElementById('env-snov-secret').value,
+                GROQ_API_KEY: document.getElementById('env-groq').value,
+                SERPAPI_API_KEY: document.getElementById('env-serp').value
+            };
+            await fetch('/api/env', {
+                method: 'POST',
+                headers:{'Content-Type':'application/json'},
+                body: JSON.stringify(payload)
+            });
+            alert("Configuration Saved! The engine will use these values on the next run.");
+        }
+
+        setInterval(() => { fetchStats(); fetchLeads(); }, 10000);
+        fetchStats(); fetchLeads();
+    </script>
+</body>
+</html>

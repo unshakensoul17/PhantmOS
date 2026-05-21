@@ -1,0 +1,13 @@
+supabase
+python-dotenv
+fastembed
+numpy
+google-search-results
+httpx
+groq
+fastapi
+uvicorn
+python-telegram-bot
+duckduckgo-search
+rendercv[full]
+apscheduler
