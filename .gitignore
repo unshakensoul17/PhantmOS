@@ -7,30 +7,45 @@ __pycache__/
 *.pyo
 *.pyd
 .Python
+*.python-version
+*.pyi
+*.pyd
+*.pyo
+*.pyd
+*.tmp
+*.log
+*.sqlite3
+*.db
 *.egg
 *.egg-info/
-dist/
 build/
+dist/
 .eggs/
 *.so
 venv/
 .venv/
 env/
 ENV/
+.pytest_cache/
+.mypy_cache/
+.pyre/
+.ipynb_checkpoints/
 
 # ── Local data & generated artifacts ─────────
 data/*
 !data/.gitkeep
-*.pdf
 logs/
 *.pdf
-logs/
+*.sqlite3
+*.db
 
-# ── IDE ──────────────────────────────────────
+# ── IDE / editor files ───────────────────────
 .idea/
 .vscode/
 *.swp
 *.swo
+*.coverage
+coverage.xml
 
 # ── OS ───────────────────────────────────────
 .DS_Store

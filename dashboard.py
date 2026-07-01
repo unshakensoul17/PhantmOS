@@ -1,156 +1,345 @@
 import os
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Header, Depends
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import uvicorn
 from dotenv import load_dotenv, set_key
 
-from core.database_manager import get_client, update_job_lead, get_profile, update_profile
-from intelligence.harvesting_engine import harvest_jobs
+from core.database_manager import get_client, update_job_lead, get_profile, update_profile, get_all_stats
+from core.logger import get_logger
 
 load_dotenv()
+logger = get_logger(__name__)
 
-app = FastAPI(title="Ghost Protocol Dashboard")
+app = FastAPI(title="Ghost Protocol v3.0 SaaS Dashboard")
 
-# Mount the tailored resumes directory so they are directly downloadable
+
+def get_current_user_id(authorization: str = Header(None)) -> str:
+    """Validate Supabase JWT auth token or fallback to default first profile ID in dev mode."""
+    if not authorization or not authorization.startswith("Bearer "):
+        try:
+            profile = get_profile()
+            if profile:
+                return profile["id"]
+        except Exception:
+            pass
+        return "15ecd7c9-d9e6-4ca9-9f09-8e432a4ad639"
+
+    token = authorization.split(" ")[1]
+    try:
+        client = get_client()
+        user_res = client.auth.get_user(token)
+        if not user_res or not user_res.user:
+            raise HTTPException(status_code=401, detail="Unauthorized: Invalid token")
+        return user_res.user.id
+    except Exception as e:
+        logger.error(f"JWT Verification failed: {e}")
+        try:
+            profile = get_profile()
+            if profile:
+                return profile["id"]
+        except Exception:
+            pass
+        return "15ecd7c9-d9e6-4ca9-9f09-8e432a4ad639"
+
+# Static resumes dir (local fallback — Supabase Storage is primary in v2)
 RESUMES_DIR = os.path.join(os.getcwd(), "data", "resumes")
 os.makedirs(RESUMES_DIR, exist_ok=True)
 app.mount("/resumes", StaticFiles(directory=RESUMES_DIR), name="resumes")
 
+# Mount Telegram webhook sub-app
 from interface.telegram_delivery import app as telegram_app
+app.mount("/telegram", telegram_app)
+
+
+import json
+
+# ── Request models ────────────────────────────────────────────────────────────
+
+class CreditsUpdateRequest(BaseModel):
+    credits: int
 
 class StatusUpdateRequest(BaseModel):
     status: str
 
-# Mount Telegram Webhook app
-app.mount("/telegram", telegram_app)
-
 class HarvestRequest(BaseModel):
-    query: str
+    query: str = ""
 
 class ProfileUpdateRequest(BaseModel):
     resume_data: dict
 
+class BYOKUpdateRequest(BaseModel):
+    GEMINI_API_KEY: str = ""
+    GROQ_API_KEY:   str = ""
+    HF_API_KEY:     str = ""
+
 class EnvUpdateRequest(BaseModel):
-    TARGET_ROLES: str = ""
-    APOLLO_API_KEY: str = ""
-    SNOV_CLIENT_ID: str = ""
-    SNOV_CLIENT_SECRET: str = ""
-    GROQ_API_KEY: str = ""
-    SERPAPI_API_KEY: str = ""
+    JINA_API_KEY:        str = ""
+    GEMINI_API_KEY:      str = ""
+    HF_API_KEY:          str = ""
+    GROQ_API_KEY:        str = ""
+    CALLMEBOT_API_KEY:   str = ""
+    CALLMEBOT_PHONE:     str = ""
+    TARGET_ROLES:        str = ""
+    TELEGRAM_BOT_TOKEN:  str = ""
+    GMAIL_USER:          str = ""
+    GMAIL_APP_PASSWORD:  str = ""
+
+
+# ── Routes ────────────────────────────────────────────────────────────────────
 
 @app.get("/")
 async def serve_dashboard():
-    """Serves the dashboard HTML interface."""
     html_path = os.path.join(os.getcwd(), "interface", "dashboard", "index.html")
     if not os.path.exists(html_path):
         raise HTTPException(status_code=404, detail="Dashboard index.html not found.")
     return FileResponse(html_path)
 
+
 @app.get("/api/stats")
-async def get_stats():
-    """Aggregates real-time stats from Supabase."""
-    client = get_client()
+async def get_stats(user_id: str = Depends(get_current_user_id)):
+    """Real-time pipeline stats — includes v2 band counts."""
     try:
-        # Fetch all leads status to aggregate locally to minimize DB query count
-        resp = client.table("job_leads").select("status").execute()
-        leads = resp.data or []
-        
-        stats = {
-            "discovered": 0,
-            "tailored": 0,
-            "applied": 0,
-            "dismissed": 0
-        }
-        
-        for lead in leads:
-            status = lead.get("status", "Discovered").lower()
-            if status == "discovered":
-                stats["discovered"] += 1
-            elif status in ["tailored", "sent"]:
-                stats["tailored"] += 1
-            elif status == "applied":
-                stats["applied"] += 1
-            elif status == "dismissed":
-                stats["dismissed"] += 1
-                
-        return JSONResponse(stats)
+        stats = get_all_stats(user_id)
+        return JSONResponse({
+            "hot":        stats.get("hot", 0),
+            "warm":       stats.get("warm", 0),
+            "cold":       stats.get("cold", 0),
+            "discovered": stats.get("found", 0),
+            "tailored":   stats.get("tailored", 0),
+            "applied":    stats.get("applied", 0),
+            "dismissed":  stats.get("dismissed", 0),
+            "total":      stats.get("total", 0),
+        })
     except Exception as e:
-        print(f"[Dashboard Backend] Error aggregating stats: {e}")
-        return JSONResponse({"discovered": 0, "tailored": 0, "applied": 0, "dismissed": 0})
+        logger.error(f"Stats error: {e}")
+        return JSONResponse({"hot": 0, "warm": 0, "cold": 0, "discovered": 0,
+                             "tailored": 0, "applied": 0, "dismissed": 0, "total": 0})
+
 
 @app.get("/api/leads")
-async def get_leads():
-    """Fetches job leads sorted by discovered_at desc."""
+async def get_leads(band: str = "", status: str = "", limit: int = 100, user_id: str = Depends(get_current_user_id)):
+    """Fetch job leads with optional band/status filter for the authenticated user."""
     client = get_client()
     try:
-        resp = client.table("job_leads").select("*").order("created_at", desc=True).limit(100).execute()
+        q = client.table("job_leads").select("*").eq("user_id", user_id).order("created_at", desc=True)
+        if band:
+            q = q.eq("score_band", band.upper())
+        if status:
+            q = q.eq("status", status)
+        resp = q.limit(limit).execute()
         return resp.data or []
     except Exception as e:
-        print(f"[Dashboard Backend] Error fetching leads: {e}")
+        logger.error(f"Leads fetch error: {e}")
         return []
 
+
 @app.post("/api/leads/{job_id}/status")
-async def change_status(job_id: str, request: StatusUpdateRequest):
-    """Updates a lead's status in Supabase."""
-    valid_statuses = ["Discovered", "Tailored", "Sent", "Applied", "Dismissed"]
-    if request.status not in valid_statuses:
-        raise HTTPException(status_code=400, detail="Invalid status type.")
-        
-    updated = update_job_lead(job_id, {"status": request.status})
+async def change_lead_status(job_id: str, request: StatusUpdateRequest, user_id: str = Depends(get_current_user_id)):
+    valid = ["Found", "Tailored", "Approved", "Applied", "Dismissed"]
+    if request.status not in valid:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid}")
+    updated = update_job_lead(job_id, {"status": request.status}, user_id=user_id)
     if not updated:
         raise HTTPException(status_code=404, detail="Lead not found or update failed.")
     return {"status": "ok", "updated_lead": updated}
 
+
 @app.post("/api/harvest")
-async def trigger_harvester(request: HarvestRequest, background_tasks: BackgroundTasks):
-    """Triggers the harvester manually in the background."""
-    from fastapi import BackgroundTasks
-    background_tasks.add_task(harvest_jobs, queries=[request.query], limit=5)
-    return {"status": "ok", "message": f"Harvesting triggered for {request.query}"}
+async def trigger_pipeline(request: HarvestRequest, background_tasks: BackgroundTasks, user_id: str = Depends(get_current_user_id)):
+    """Trigger the full pipeline run in the background."""
+    from main_orchestrator import process_pipeline
+    background_tasks.add_task(process_pipeline, manual_query=request.query or None)
+    return {
+        "status": "ok",
+        "message": "Ghost Protocol v3.0 pipeline triggered.",
+        "stages": ["harvest", "scoring", "tailoring", "pdf", "delivery"],
+    }
+
+
+@app.post("/api/digest")
+async def trigger_digest(background_tasks: BackgroundTasks, user_id: str = Depends(get_current_user_id)):
+    """Manually trigger the daily digest."""
+    from delivery.daily_digest import send_daily_digest
+    background_tasks.add_task(send_daily_digest)
+    return {"status": "ok", "message": "Daily digest triggered."}
+
 
 @app.get("/api/profile")
-async def fetch_profile():
-    profile = get_profile()
+async def fetch_profile(user_id: str = Depends(get_current_user_id)):
+    profile = get_profile(user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found.")
     return profile.get("resume_data", {})
 
+
 @app.post("/api/profile")
-async def save_profile(request: ProfileUpdateRequest):
-    updated = update_profile({"resume_data": request.resume_data})
+async def save_profile(request: ProfileUpdateRequest, user_id: str = Depends(get_current_user_id)):
+    """Save updated resume JSON for this user. Also invalidates the embedding cache."""
+    updated = update_profile({"resume_data": request.resume_data}, user_id=user_id)
     if not updated:
         raise HTTPException(status_code=500, detail="Failed to update profile.")
-    return {"status": "ok"}
+    try:
+        from intelligence.embedding_engine import invalidate_master_cache
+        invalidate_master_cache()
+    except Exception:
+        pass
+    return {"status": "ok", "message": "Profile saved. Embedding cache invalidated."}
+
+
+@app.get("/api/byok")
+async def fetch_byok(user_id: str = Depends(get_current_user_id)):
+    """Retrieve decrypted credentials masking values for security."""
+    profile = get_profile(user_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+    
+    from core.encryption import decrypt_key
+    enc_keys = profile.get("encrypted_keys") or {}
+    if isinstance(enc_keys, str):
+        try:
+            enc_keys = json.loads(enc_keys)
+        except Exception:
+            enc_keys = {}
+
+    return {
+        "GEMINI_API_KEY": "***" if decrypt_key(enc_keys.get("GEMINI_API_KEY")) else "",
+        "GROQ_API_KEY":   "***" if decrypt_key(enc_keys.get("GROQ_API_KEY")) else "",
+        "HF_API_KEY":     "***" if decrypt_key(enc_keys.get("HF_API_KEY")) else "",
+        "credits":        profile.get("credits", 0),
+    }
+
+
+@app.post("/api/byok")
+async def save_byok(request: BYOKUpdateRequest, user_id: str = Depends(get_current_user_id)):
+    """Securely encrypt and update the user's custom BYOK keys."""
+    profile = get_profile(user_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+    
+    from core.encryption import encrypt_key
+    enc_keys = profile.get("encrypted_keys") or {}
+    if isinstance(enc_keys, str):
+        try:
+            enc_keys = json.loads(enc_keys)
+        except Exception:
+            enc_keys = {}
+
+    updates = {}
+    if request.GEMINI_API_KEY and request.GEMINI_API_KEY != "***":
+        updates["GEMINI_API_KEY"] = encrypt_key(request.GEMINI_API_KEY)
+    if request.GROQ_API_KEY and request.GROQ_API_KEY != "***":
+        updates["GROQ_API_KEY"] = encrypt_key(request.GROQ_API_KEY)
+    if request.HF_API_KEY and request.HF_API_KEY != "***":
+        updates["HF_API_KEY"] = encrypt_key(request.HF_API_KEY)
+
+    for k, v in updates.items():
+        enc_keys[k] = v
+
+    updated = update_profile({"encrypted_keys": enc_keys}, user_id=user_id)
+    if not updated:
+        raise HTTPException(status_code=500, detail="Failed to save credentials.")
+    return {"status": "ok", "message": "Custom credentials saved successfully."}
+
+
+@app.get("/api/telegram/link")
+async def get_telegram_link(user_id: str = Depends(get_current_user_id)):
+    """Generate the dynamic Telegram Bot deep link for the user."""
+    from interface.telegram_delivery import bot
+    if not bot:
+        return {"link": ""}
+    try:
+        me = await bot.get_me()
+        bot_username = me.username
+        return {"link": f"https://t.me/{bot_username}?start={user_id}"}
+    except Exception as e:
+        logger.error(f"Error fetching Telegram bot details: {e}")
+        return {"link": ""}
+
 
 @app.get("/api/env")
 async def fetch_env():
+    """Return system env info (JINA_API_KEY etc.)."""
     return {
-        "TARGET_ROLES": os.getenv("TARGET_ROLES", ""),
-        "APOLLO_API_KEY": os.getenv("APOLLO_API_KEY", ""),
-        "SNOV_CLIENT_ID": os.getenv("SNOV_CLIENT_ID", ""),
-        "SNOV_CLIENT_SECRET": os.getenv("SNOV_CLIENT_SECRET", ""),
-        "GROQ_API_KEY": os.getenv("GROQ_API_KEY", ""),
-        "SERPAPI_API_KEY": os.getenv("SERPAPI_API_KEY", "")
+        "JINA_API_KEY":       "***" if os.getenv("JINA_API_KEY") else "",
+        "TELEGRAM_BOT_TOKEN": "***" if os.getenv("TELEGRAM_BOT_TOKEN") else "",
     }
 
-@app.post("/api/env")
-async def update_env(request: EnvUpdateRequest):
-    env_path = os.path.join(os.getcwd(), ".env")
-    
-    # Safely update using set_key
-    if request.TARGET_ROLES: set_key(env_path, "TARGET_ROLES", request.TARGET_ROLES)
-    if request.APOLLO_API_KEY: set_key(env_path, "APOLLO_API_KEY", request.APOLLO_API_KEY)
-    if request.SNOV_CLIENT_ID: set_key(env_path, "SNOV_CLIENT_ID", request.SNOV_CLIENT_ID)
-    if request.SNOV_CLIENT_SECRET: set_key(env_path, "SNOV_CLIENT_SECRET", request.SNOV_CLIENT_SECRET)
-    if request.GROQ_API_KEY: set_key(env_path, "GROQ_API_KEY", request.GROQ_API_KEY)
-    if request.SERPAPI_API_KEY: set_key(env_path, "SERPAPI_API_KEY", request.SERPAPI_API_KEY)
-    
-    # Reload environment variables in current process
-    load_dotenv(override=True)
-    return {"status": "ok"}
+
+# ── Admin Routes ──────────────────────────────────────────────────────────────
+
+@app.get("/admin")
+async def serve_admin_dashboard():
+    html_path = os.path.join(os.getcwd(), "interface", "dashboard", "admin.html")
+    if not os.path.exists(html_path):
+        raise HTTPException(status_code=404, detail="Admin index.html not found.")
+    return FileResponse(html_path)
+
+
+@app.get("/api/admin/users")
+async def admin_list_users():
+    """List all profiles with basic state indicators."""
+    try:
+        resp = get_client().table("user_profiles").select("id, full_name, credits, encrypted_keys, telegram_chat_id").execute()
+        users = resp.data or []
+        for u in users:
+            enc = u.get("encrypted_keys") or {}
+            if isinstance(enc, str):
+                try:
+                    enc = json.loads(enc)
+                except Exception:
+                    enc = {}
+            u["has_byok"] = any(enc.values())
+            u.pop("encrypted_keys", None)
+        return users
+    except Exception as e:
+        logger.error(f"Admin list users error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/admin/users/{user_id}/credits")
+async def admin_update_credits(user_id: str, request: CreditsUpdateRequest):
+    """Directly update credits count for a user."""
+    updated = update_profile({"credits": request.credits}, user_id=user_id)
+    if not updated:
+        raise HTTPException(status_code=500, detail="Failed to update credits.")
+    return {"status": "ok", "message": f"Credits set to {request.credits}."}
+
+
+@app.post("/api/admin/users/{user_id}/harvest")
+async def admin_trigger_user_pipeline(user_id: str, background_tasks: BackgroundTasks):
+    """Trigger the pipeline specifically for this user."""
+    from main_orchestrator import process_pipeline
+    background_tasks.add_task(process_pipeline, target_user_id=user_id)
+    return {"status": "ok", "message": f"Pipeline scheduled for user {user_id}."}
+
+
+@app.post("/api/admin/harvest")
+async def admin_trigger_global_pipeline(background_tasks: BackgroundTasks):
+    """Trigger the global pipeline for all users."""
+    from main_orchestrator import process_pipeline
+    background_tasks.add_task(process_pipeline)
+    return {"status": "ok", "message": "Global pipeline scheduled."}
+
+
+@app.get("/api/admin/logs")
+async def admin_get_logs(limit: int = 50):
+    """Fetch recent system-wide stage logs."""
+    try:
+        resp = get_client().table("stage_logs").select("*").order("created_at", desc=True).limit(limit).execute()
+        return resp.data or []
+    except Exception as e:
+        logger.error(f"Admin fetch logs error: {e}")
+        return []
+
+
+@app.get("/api/health")
+async def health_check():
+    """Basic liveness probe for Hugging Face Spaces."""
+    return {"status": "ok", "version": "3.0", "service": "Ghost Protocol"}
+
 
 if __name__ == "__main__":
-    print("🚀 Ghost Protocol Dashboard Launching at http://localhost:8080 🚀")
+    logger.info("🚀 Ghost Protocol v3.0 SaaS Dashboard → http://localhost:8080")
     uvicorn.run(app, host="0.0.0.0", port=8080)

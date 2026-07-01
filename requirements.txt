@@ -1,13 +1,46 @@
-supabase
-python-dotenv
-fastembed
-numpy
-google-search-results
-httpx
-groq
+# Ghost Protocol v2.0 — Python Dependencies
+# ─────────────────────────────────────────────────────────
+
+# Core framework
 fastapi
-uvicorn
-python-telegram-bot
-duckduckgo-search
-rendercv[full]
+uvicorn[standard]
+python-dotenv
+pydantic
+cryptography
+
+# Database
+supabase
+
+# HTTP client (used by all API adapters)
+httpx
+
+# Scheduling
 apscheduler
+
+# Telegram bot
+python-telegram-bot
+
+# ── Stage 1: Harvesting ───────────────────────────────────
+# (All free APIs — no SerpApi needed)
+duckduckgo-search      # context researcher + genuity checker
+
+# ── Stage 2: Embeddings ───────────────────────────────────
+numpy
+sentence-transformers  # local fallback model (paraphrase-MiniLM-L3-v2, ~50MB)
+# Jina AI: called via httpx — no package needed
+# NOTE: sentence-transformers pulls torch; if RAM is tight on HF Spaces,
+#       set JINA_API_KEY and the local model is never loaded.
+
+# ── Stage 3: LLM providers ────────────────────────────────
+# Groq: called via httpx — no package needed
+# Gemini: called via httpx REST API — no SDK needed
+# HuggingFace: called via httpx — no package needed
+
+# ── Stage 4: PDF generation ───────────────────────────────
+jinja2
+weasyprint              # Requires system libs — see Dockerfile
+
+# ── Legacy / utility ──────────────────────────────────────
+# google-search-results  ← REMOVED (replaced by free APIs)
+# rendercv[full]         ← REMOVED (replaced by WeasyPrint)
+# fastembed              ← REMOVED (replaced by Jina AI + sentence-transformers)

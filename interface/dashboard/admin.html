@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ghost Protocol // Admin Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #060608;
+            --bg-surface: rgba(22, 18, 24, 0.75);
+            --bg-surface-hover: rgba(32, 24, 36, 0.85);
+            --border-color: rgba(255, 94, 98, 0.1);
+            --border-color-active: rgba(255, 94, 98, 0.3);
+            --color-text: #f1f5f9;
+            --color-muted: #94a3b8;
+            --accent-red: #ff5e62;
+            --accent-orange: #ff9966;
+            --accent-cyan: #00f2fe;
+            --accent-green: #00f5a0;
+            --font-sans: 'Outfit', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--bg-base);
+            color: var(--color-text);
+            font-family: var(--font-sans);
+            padding: 2rem;
+            background-image: radial-gradient(circle at 10% 20%, rgba(255, 94, 98, 0.05) 0%, transparent 40%), radial-gradient(circle at 90% 80%, rgba(255, 153, 102, 0.05) 0%, transparent 40%);
+            background-attachment: fixed;
+            min-height: 100vh;
+        }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1.5rem; margin-bottom: 2rem; }
+        .brand h1 { font-size: 2rem; background: linear-gradient(135deg, var(--accent-red), var(--accent-orange)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .brand p { color: var(--color-muted); font-size: 0.9rem; }
+        
+        .nav-links { display: flex; gap: 1rem; }
+        .btn { background: rgba(255, 255, 255, 0.03); color: white; border: 1px solid var(--border-color); padding: 0.6rem 1.2rem; border-radius: 8px; cursor: pointer; transition: var(--transition); font-family: var(--font-sans); font-weight: 500; font-size: 0.9rem; }
+        .btn:hover { background: rgba(255, 94, 98, 0.1); border-color: var(--accent-red); }
+        .btn-red { color: var(--accent-red); border-color: rgba(255, 94, 98, 0.3); }
+        .btn-red:hover { background: rgba(255, 94, 98, 0.15); }
+        .btn-orange { color: var(--accent-orange); border-color: rgba(255, 153, 102, 0.3); }
+        .btn-orange:hover { background: rgba(255, 153, 102, 0.15); }
+
+        .dashboard-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; }
+        
+        .card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+            backdrop-filter: blur(10px);
+            margin-bottom: 2rem;
+        }
+        .card-title { font-size: 1.25rem; font-weight: 600; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
+        
+        /* Users Table */
+        .users-table-container { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th { padding: 1rem; border-bottom: 1px solid var(--border-color); color: var(--color-muted); font-size: 0.85rem; text-transform: uppercase; font-weight: 600; }
+        td { padding: 1rem; border-bottom: 1px solid rgba(255,255,255,0.02); font-size: 0.95rem; vertical-align: middle; }
+        tr:hover td { background: rgba(255,255,255,0.01); }
+        
+        .credits-badge { display: inline-flex; align-items: center; gap: 0.5rem; background: rgba(255, 153, 102, 0.1); color: var(--accent-orange); padding: 0.25rem 0.75rem; border-radius: 20px; font-weight: 600; font-family: var(--font-mono); font-size: 0.85rem; }
+        .byok-badge { display: inline-flex; align-items: center; background: rgba(0, 245, 160, 0.1); color: var(--accent-green); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+        .no-byok-badge { display: inline-flex; align-items: center; background: rgba(255, 94, 98, 0.1); color: var(--accent-red); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+
+        /* System Info */
+        .sys-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .sys-item { background: rgba(255,255,255,0.02); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color); }
+        .sys-label { font-size: 0.8rem; color: var(--color-muted); text-transform: uppercase; margin-bottom: 0.25rem; }
+        .sys-val { font-size: 1.1rem; font-weight: 500; font-family: var(--font-mono); }
+
+        /* Logs console */
+        .logs-console {
+            background: #020203;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1rem;
+            height: 400px;
+            overflow-y: auto;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+        .log-row { margin-bottom: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.02); padding-bottom: 0.5rem; }
+        .log-time { color: var(--accent-orange); margin-right: 0.5rem; }
+        .log-success { color: var(--accent-green); font-weight: bold; margin-right: 0.5rem; }
+        .log-failure { color: var(--accent-red); font-weight: bold; margin-right: 0.5rem; }
+        .log-stage { color: var(--accent-cyan); font-weight: 500; }
+        .log-msg { color: var(--color-text); margin-top: 0.25rem; display: block; word-break: break-all; }
+
+        /* Modal / Edit Dialog */
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .overlay.open { display: flex; }
+        .dialog { background: #0c0a0f; border: 1px solid var(--accent-red); padding: 2rem; border-radius: 16px; width: 400px; }
+        .dialog-title { font-size: 1.2rem; font-weight: 600; margin-bottom: 1.5rem; }
+        .form-group { margin-bottom: 1.5rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; color: var(--color-muted); font-size: 0.9rem; }
+        .form-control { width: 100%; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); color: white; padding: 0.8rem; border-radius: 8px; font-family: var(--font-sans); outline: none; }
+        .form-control:focus { border-color: var(--accent-red); }
+        .dialog-actions { display: flex; gap: 1rem; justify-content: flex-end; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="brand">
+            <h1>Ghost Protocol</h1>
+            <p>Admin Operations & Telemetry Control</p>
+        </div>
+        <div class="nav-links">
+            <a href="/" class="btn">👤 User Dashboard</a>
+            <button class="btn btn-red" onclick="triggerGlobalHarvest()">🚀 Global Scraper Run</button>
+        </div>
+    </div>
+
+    <div class="dashboard-grid">
+        <!-- Main Column: User Registry -->
+        <div>
+            <div class="card">
+                <div class="card-title">
+                    <span>👥 User Accounts & Tenancy</span>
+                    <button class="btn btn-orange" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="loadUsers()">🔄 Refresh Registry</button>
+                </div>
+                <div class="users-table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name / ID</th>
+                                <th>Telegram Chat ID</th>
+                                <th>Credits Balance</th>
+                                <th>BYOK Keys Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-body">
+                            <!-- Dynamic content -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar: System Health & Telemetry -->
+        <div>
+            <div class="card">
+                <div class="card-title">🩺 Core System Status</div>
+                <div class="sys-grid">
+                    <div class="sys-item">
+                        <div class="sys-label">Jina AI Key</div>
+                        <div class="sys-val" id="sys-jina">Checking...</div>
+                    </div>
+                    <div class="sys-item">
+                        <div class="sys-label">Telegram Bot</div>
+                        <div class="sys-val" id="sys-telegram">Checking...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom: 0;">
+                <div class="card-title">
+                    <span>📡 Live Telemetry Feed</span>
+                    <button class="btn" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" onclick="loadLogs()">🔄 Refresh</button>
+                </div>
+                <div class="logs-console" id="logs-container">
+                    <!-- Logs output here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Credits Modal -->
+    <div class="overlay" id="credits-overlay">
+        <div class="dialog">
+            <div class="dialog-title">Modify Credits Balance</div>
+            <div class="form-group">
+                <label>User ID</label>
+                <input type="text" id="edit-user-id" class="form-control" readonly style="opacity: 0.5;">
+            </div>
+            <div class="form-group">
+                <label>Credits count</label>
+                <input type="number" id="edit-user-credits" class="form-control" min="0">
+            </div>
+            <div class="dialog-actions">
+                <button class="btn" onclick="closeCreditsModal()">Cancel</button>
+                <button class="btn btn-red" onclick="saveCredits()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function loadUsers() {
+            try {
+                const res = await fetch('/api/admin/users');
+                const users = await res.json();
+                const tbody = document.getElementById('users-body');
+                tbody.innerHTML = '';
+
+                if (users.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--color-muted);">No user profiles found.</td></tr>';
+                    return;
+                }
+
+                users.forEach(user => {
+                    const hasByok = user.has_byok;
+                    const byokBadge = hasByok 
+                        ? '<span class="byok-badge">Active</span>' 
+                        : '<span class="no-byok-badge">Inactive</span>';
+
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>
+                            <div style="font-weight: 600;">${user.full_name || 'Legacy / Dev User'}</div>
+                            <div style="font-size: 0.75rem; color: var(--color-muted); font-family: var(--font-mono);">${user.id}</div>
+                        </td>
+                        <td style="font-family: var(--font-mono); font-size: 0.85rem;">
+                            ${user.telegram_chat_id || '<span style="color: var(--accent-red);">Unregistered</span>'}
+                        </td>
+                        <td>
+                            <div class="credits-badge">🪙 ${user.credits}</div>
+                        </td>
+                        <td>${byokBadge}</td>
+                        <td>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button class="btn" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;" onclick="openCreditsModal('${user.id}', ${user.credits})">🪙 Adjust Credits</button>
+                                <button class="btn btn-orange" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;" onclick="triggerUserHarvest('${user.id}')">🚀 Run Run</button>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch(e) {
+                console.error(e);
+            }
+        }
+
+        async function loadSystemStatus() {
+            try {
+                const res = await fetch('/api/env');
+                const data = await res.json();
+                
+                const jinaEl = document.getElementById('sys-jina');
+                jinaEl.innerText = data.JINA_API_KEY ? "CONNECTED" : "MISSING";
+                jinaEl.style.color = data.JINA_API_KEY ? "var(--accent-green)" : "var(--accent-red)";
+
+                const telegramEl = document.getElementById('sys-telegram');
+                telegramEl.innerText = data.TELEGRAM_BOT_TOKEN ? "CONNECTED" : "MISSING";
+                telegramEl.style.color = data.TELEGRAM_BOT_TOKEN ? "var(--accent-green)" : "var(--accent-red)";
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function loadLogs() {
+            try {
+                const res = await fetch('/api/admin/logs');
+                const logs = await res.json();
+                const container = document.getElementById('logs-container');
+                container.innerHTML = '';
+
+                if (logs.length === 0) {
+                    container.innerHTML = '<div style="color: var(--color-muted); text-align: center; margin-top: 2rem;">No system logs available.</div>';
+                    return;
+                }
+
+                logs.forEach(log => {
+                    const statusClass = log.status === 'success' ? 'log-success' : 'log-failure';
+                    const date = new Date(log.created_at).toLocaleTimeString();
+                    
+                    const logRow = document.createElement('div');
+                    logRow.className = 'log-row';
+                    logRow.innerHTML = `
+                        <div>
+                            <span class="log-time">[${date}]</span>
+                            <span class="${statusClass}">${log.status.toUpperCase()}</span>
+                            <span class="log-stage">&lt;${log.stage}&gt;</span>
+                            ${log.job_id ? `<span style="font-size: 0.75rem; color: var(--color-muted);">[Job: ${log.job_id.slice(0,8)}]</span>` : ''}
+                        </div>
+                        <span class="log-msg">${log.message}</span>
+                    `;
+                    container.appendChild(logRow);
+                });
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function openCreditsModal(userId, credits) {
+            document.getElementById('edit-user-id').value = userId;
+            document.getElementById('edit-user-credits').value = credits;
+            document.getElementById('credits-overlay').classList.add('open');
+        }
+
+        function closeCreditsModal() {
+            document.getElementById('credits-overlay').classList.remove('open');
+        }
+
+        async function saveCredits() {
+            const userId = document.getElementById('edit-user-id').value;
+            const credits = document.getElementById('edit-user-credits').value;
+
+            try {
+                await fetch(`/api/admin/users/${userId}/credits`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ credits: parseInt(credits) })
+                });
+                closeCreditsModal();
+                loadUsers();
+            } catch(e) {
+                alert("Failed to update credits");
+            }
+        }
+
+        async function triggerUserHarvest(userId) {
+            try {
+                alert("Running scraper pipeline for this specific user...");
+                await fetch(`/api/admin/users/${userId}/harvest`, { method: 'POST' });
+            } catch(e) {
+                alert("Failed to run pipeline");
+            }
+        }
+
+        async function triggerGlobalHarvest() {
+            try {
+                alert("Running global pipeline for all users...");
+                await fetch('/api/admin/harvest', { method: 'POST' });
+            } catch(e) {
+                alert("Failed to trigger pipeline");
+            }
+        }
+
+        // Init
+        loadUsers();
+        loadSystemStatus();
+        loadLogs();
+        setInterval(loadLogs, 15000);
+    </script>
+</body>
+</html>

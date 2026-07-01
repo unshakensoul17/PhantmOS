@@ -85,9 +85,12 @@
             <h1>Ghost Protocol</h1>
             <p>Command Center Dashboard</p>
         </div>
-        <div class="harvester-bar">
-            <input type="text" id="harvest-query" placeholder="e.g. AI Analyst, London" />
-            <button class="btn btn-cyan" onclick="triggerHarvest()" id="btn-harvest">🚀 Deploy Harvester</button>
+        <div style="display: flex; gap: 1rem; align-items: center;">
+            <a href="/admin" class="btn" style="border-color: rgba(255, 94, 98, 0.3); color: var(--accent-coral); text-decoration: none;">⚙️ Admin Panel</a>
+            <div class="harvester-bar">
+                <input type="text" id="harvest-query" placeholder="e.g. AI Analyst, London" />
+                <button class="btn btn-cyan" onclick="triggerHarvest()" id="btn-harvest">🚀 Deploy Harvester</button>
+            </div>
         </div>
     </div>
 
@@ -95,6 +98,7 @@
         <div class="tab active" onclick="switchTab('radar')">📡 Global Radar</div>
         <div class="tab" onclick="switchTab('kanban')">📋 CRM Kanban</div>
         <div class="tab" onclick="switchTab('profile')">🧠 Master Identity</div>
+        <div class="tab" onclick="switchTab('byok')">🔑 BYOK Credentials</div>
         <div class="tab" onclick="switchTab('config')">⚙️ System Config</div>
     </div>
 
@@ -182,6 +186,43 @@
         <button class="btn btn-green" onclick="saveEnv()">💾 Save Configuration</button>
     </div>
 
+    <!-- BYOK CREDENTIALS -->
+    <div id="byok" class="tab-content">
+        <div style="background: var(--bg-surface); padding: 2rem; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 2rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h3 style="font-size: 1.3rem; font-weight: 600; color: white;">Bring Your Own Key (BYOK) Credentials</h3>
+                <div style="background: rgba(255, 183, 3, 0.1); color: var(--accent-amber); padding: 0.5rem 1rem; border-radius: 20px; font-weight: 700; font-family: var(--font-mono); font-size: 0.9rem;">
+                    🪙 Credits Remaining: <span id="byok-credits">Checking...</span>
+                </div>
+            </div>
+            <p style="color: var(--color-muted); font-size: 0.9rem; margin-bottom: 1.5rem; line-height: 1.5;">
+                If your system credits are exhausted, the platform automatically falls back to your custom API keys. 
+                Symmetric encryption secures your keys at rest in the database. Leave fields empty if you wish to use default system-funded keys.
+            </p>
+            <div class="stats-grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+                <div class="form-group">
+                    <label>Gemini API Key</label>
+                    <input type="password" id="byok-gemini" class="form-control" placeholder="AIzaSy...">
+                </div>
+                <div class="form-group">
+                    <label>Groq API Key</label>
+                    <input type="password" id="byok-groq" class="form-control" placeholder="gsk_...">
+                </div>
+                <div class="form-group">
+                    <label>Hugging Face Token</label>
+                    <input type="password" id="byok-hf" class="form-control" placeholder="hf_...">
+                </div>
+                <div class="form-group">
+                    <label>Telegram Bot Delivery Connection</label>
+                    <div style="display: flex; gap: 0.5rem; align-items: center; height: 50px;">
+                        <a id="telegram-link" href="#" target="_blank" class="btn btn-cyan" style="flex: 1; text-align: center; text-decoration: none; padding: 0.8rem 0;">🔗 Connect Telegram Bot</a>
+                    </div>
+                </div>
+            </div>
+            <button class="btn btn-green" onclick="saveBYOK()">💾 Save BYOK Credentials</button>
+        </div>
+    </div>
+
     <!-- DRAWER -->
     <div class="drawer-overlay" id="overlay" onclick="closeDrawer()"></div>
     <div class="drawer" id="drawer">
@@ -215,6 +256,7 @@
             
             if(tabId === 'profile') loadProfile();
             if(tabId === 'config') loadEnv();
+            if(tabId === 'byok') loadBYOK();
         }
 
         async function fetchStats() {
@@ -242,8 +284,9 @@
             Object.values(cols).forEach(c => c.innerHTML = '');
 
             allLeads.forEach(lead => {
-                let s = (lead.status || 'discovered').toLowerCase();
-                if(s === 'sent') s = 'tailored';
+                let s = (lead.status || 'found').toLowerCase();
+                if(s === 'found') s = 'discovered';
+                if(s === 'sent' || s === 'approved') s = 'tailored';
                 if(!cols[s]) s = 'discovered';
 
                 const card = document.createElement('div');
@@ -297,7 +340,10 @@
 
         async function triggerHarvest() {
             const q = document.getElementById('harvest-query').value;
-            if(!q) return;
+            if(!q) {
+                alert("Please enter a job role and location first! (e.g. AI Analyst, London)");
+                return;
+            }
             const btn = document.getElementById('btn-harvest');
             btn.innerText = "⏳ Deploying...";
             await fetch('/api/harvest', {
@@ -359,6 +405,49 @@
                 body: JSON.stringify(payload)
             });
             alert("Configuration Saved! The engine will use these values on the next run.");
+        }
+
+        async function loadBYOK() {
+            try {
+                const res = await fetch('/api/byok');
+                const data = await res.json();
+                document.getElementById('byok-credits').innerText = data.credits;
+                document.getElementById('byok-gemini').value = data.GEMINI_API_KEY;
+                document.getElementById('byok-groq').value = data.GROQ_API_KEY;
+                document.getElementById('byok-hf').value = data.HF_API_KEY;
+
+                const tgRes = await fetch('/api/telegram/link');
+                const tgData = await tgRes.json();
+                const tgLink = document.getElementById('telegram-link');
+                if (tgData.link) {
+                    tgLink.href = tgData.link;
+                    tgLink.style.display = "inline-block";
+                } else {
+                    tgLink.removeAttribute("href");
+                    tgLink.style.display = "none";
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function saveBYOK() {
+            const payload = {
+                GEMINI_API_KEY: document.getElementById('byok-gemini').value,
+                GROQ_API_KEY: document.getElementById('byok-groq').value,
+                HF_API_KEY: document.getElementById('byok-hf').value
+            };
+            try {
+                await fetch('/api/byok', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                alert("Custom credentials saved securely!");
+                loadBYOK();
+            } catch (e) {
+                alert("Failed to save credentials.");
+            }
         }
 
         setInterval(() => { fetchStats(); fetchLeads(); }, 10000);

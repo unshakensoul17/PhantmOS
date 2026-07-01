@@ -1,105 +1,237 @@
+"""
+main_orchestrator.py — Ghost Protocol v3.0 (Multi-Agent Architecture)
+
+Master pipeline coordinator — delegates ALL business logic to agents.
+
+Schedule:
+  10:00 IST  → Full pipeline run
+  14:30 IST  → Full pipeline run
+  09:00 IST  → Daily digest only
+
+Trigger via Dashboard:  POST /api/harvest  → runs full pipeline in background
+Stage isolation:        One job failing NEVER stops the rest of the pipeline.
+
+The orchestrator ONLY coordinates agents. It contains ZERO business logic.
+"""
 import asyncio
-import os
+import json
 import random
+from datetime import datetime
+
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from dotenv import load_dotenv
 
-from intelligence.harvesting_engine import harvest_jobs
-from core.database_manager import get_leads_by_status, update_job_lead, get_profile
-from synthesis.context_researcher import get_company_context
-from synthesis.resume_tailor import tailor_resume
-from synthesis.pdf_factory import generate_pdf
-from interface.telegram_delivery import send_job_card, app
+from core.config import DEFAULT_TIMEZONE, HARVEST_HOURS, HARVEST_MINUTES, DIGEST_HOUR, DIGEST_MINUTE
+from core.database_manager import get_client, get_leads_by_status
+from core.logger import get_logger
+from core.encryption import decrypt_key
+
+from agents import (
+    DiscoveryAgent,
+    RankingAgent,
+    ResumeAgent,
+    ApplicationAgent,
+    AnalyticsAgent,
+)
 
 load_dotenv()
-DEFAULT_TIMEZONE = os.getenv("DEFAULT_TIMEZONE", "Asia/Kolkata")
+logger = get_logger(__name__)
 
-async def process_pipeline():
-    """Central unified orchestration loop for Ghost Protocol."""
-    print("\n--- [Orchestrator] Starting Intelligence Pipeline Run ---")
-    
-    # 1. Harvest & Filter Engine
-    print("[Orchestrator] Step 1: Harvesting Jobs via SerpApi...")
-    # This runs synchronously; in a full prod setup, you might offload to a thread pool
-    harvest_jobs()
-    
-    # 2. Synthesis Factory
-    print("[Orchestrator] Step 2: Synthesis for 'Discovered' leads...")
-    leads_to_tailor = get_leads_by_status("Discovered")
-    profile = get_profile()
-    master_resume_json = profile.get("resume_data", {}) if profile else {}
-    
-    if not master_resume_json:
-        print("[Orchestrator] Cannot run synthesis: Master resume JSON empty.")
+# ── Instantiate agents (lightweight — no state, no heavy init) ────────────────
+discovery_agent   = DiscoveryAgent()
+ranking_agent     = RankingAgent()
+resume_agent      = ResumeAgent()
+application_agent = ApplicationAgent()
+analytics_agent   = AnalyticsAgent()
+
+
+# ─────────────────────────────────────────────────────────
+#  MAIN PIPELINE
+# ─────────────────────────────────────────────────────────
+
+async def process_pipeline(manual_query: str = None, target_user_id: str = None) -> dict:
+    """
+    Full end-to-end Ghost Protocol pipeline.
+    Coordinates agents in sequence — contains no business logic itself.
+    """
+    logger.info("\n========================================")
+    logger.info("  GHOST PROTOCOL v3.0 — Pipeline Start")
+    logger.info(f"  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    logger.info("========================================\n")
+
+    summary = {}
+
+    # ── STAGE 1: Discovery Agent (global harvest) ─────────────────────────────
+    try:
+        logger.info(">>> STAGE 1: Discovery Agent")
+        raw_jobs = await discovery_agent.run()
+        summary["harvest"] = {"raw_fetched": len(raw_jobs)}
+    except Exception as e:
+        logger.error(f"Stage 1 FAILED: {e}")
+        summary["harvest"] = {"error": str(e)}
+        return summary
+
+    # ── Fetch user profiles ───────────────────────────────────────────────────
+    try:
+        resp = get_client().table("user_profiles").select("*").execute()
+        profiles = resp.data or []
+    except Exception as e:
+        logger.error(f"Failed to fetch user profiles: {e}")
+        return {"error": f"Failed to fetch profiles: {e}"}
+
+    if target_user_id:
+        profiles = [p for p in profiles if p.get("id") == target_user_id]
+
+    summary["users_processed"] = len(profiles)
+    summary["details"] = {}
+
+    for profile in profiles:
+        user_id = profile.get("id")
+        email = profile.get("email", "unknown")
+        logger.info(f"\n>>> Processing pipeline for user: {email} ({user_id})")
+
+        user_summary = {}
+
+        # ── Discovery: Save leads for this user ───────────────────────────────
+        try:
+            saved = discovery_agent.save_leads(raw_jobs, user_id)
+            user_summary["harvest"] = {"new_saved": saved, "skipped": len(raw_jobs) - saved}
+        except Exception as e:
+            logger.error(f"User {user_id} save leads FAILED: {e}")
+            user_summary["harvest"] = {"error": str(e)}
+            summary["details"][user_id] = user_summary
+            continue
+
+        # ── Check Credits & BYOK keys ─────────────────────────────────────────
+        api_keys = _resolve_api_keys(profile)
+        credits = profile.get("credits", 0) or 0
+        has_byok = bool(api_keys)
+
+        if credits <= 0 and not has_byok:
+            logger.warning(f"User {user_id} has no credits and no BYOK — skipping LLM pipeline.")
+            user_summary["status"] = "skipped_insufficient_balance"
+            summary["details"][user_id] = user_summary
+            continue
+
+        if not has_byok:
+            from core.database_manager import deduct_credit
+            if not deduct_credit(user_id):
+                logger.warning(f"User {user_id} credit deduction failed — skipping.")
+                user_summary["status"] = "skipped_credit_deduction_failed"
+                summary["details"][user_id] = user_summary
+                continue
+            logger.info(f"User {user_id}: deducted 1 credit. Remaining: {credits - 1}")
+
+        # ── STAGE 2: Ranking Agent ────────────────────────────────────────────
+        try:
+            logger.info(f"User {user_id}: >>> STAGE 2: Ranking Agent")
+            user_summary["scoring"] = await ranking_agent.run(profile)
+        except Exception as e:
+            logger.error(f"User {user_id} Stage 2 FAILED: {e}")
+            user_summary["scoring"] = {"error": str(e)}
+
+        # ── STAGE 3: Resume Agent ─────────────────────────────────────────────
+        try:
+            logger.info(f"User {user_id}: >>> STAGE 3: Resume Agent")
+            user_summary["tailoring"] = await resume_agent.run(profile, api_keys)
+        except Exception as e:
+            logger.error(f"User {user_id} Stage 3 FAILED: {e}")
+            user_summary["tailoring"] = {"error": str(e)}
+
+        # ── STAGE 4: Application Agent (PDFs) ─────────────────────────────────
+        try:
+            logger.info(f"User {user_id}: >>> STAGE 4: Application Agent (PDF)")
+            user_summary["pdf"] = await application_agent.generate_pdfs(profile)
+        except Exception as e:
+            logger.error(f"User {user_id} Stage 4 FAILED: {e}")
+            user_summary["pdf"] = {"error": str(e)}
+
+        summary["details"][user_id] = user_summary
+
+    # ── STAGE 5: Application Agent (Delivery Queue) ───────────────────────────
+    try:
+        logger.info(">>> STAGE 5: Application Agent (Delivery)")
+        summary["delivery"] = await application_agent.process_deliveries()
+    except Exception as e:
+        logger.error(f"Stage 5 FAILED: {e}")
+        summary["delivery"] = {"error": str(e)}
+
+    # ── Record pipeline run ───────────────────────────────────────────────────
+    logger.info("\n========================================")
+    logger.info("  GHOST PROTOCOL v3.0 — Pipeline Done")
+    logger.info("========================================\n")
+    analytics_agent.record(summary)
+    return summary
+
+
+# ─────────────────────────────────────────────────────────
+#  HELPERS
+# ─────────────────────────────────────────────────────────
+
+def _resolve_api_keys(profile: dict) -> dict:
+    """Extract and decrypt BYOK keys from user profile."""
+    enc_keys_raw = profile.get("encrypted_keys") or {}
+    if isinstance(enc_keys_raw, str):
+        try:
+            enc_keys = json.loads(enc_keys_raw)
+        except Exception:
+            enc_keys = {}
     else:
-        for lead in leads_to_tailor:
-            job_id = lead["job_id"]
-            company = lead.get("company", "")
-            description = lead.get("raw_description", "")
-            
-            # Deep Research
-            hooks = get_company_context(company)
-            
-            # Surgical Tailoring
-            tailored_data = await tailor_resume(master_resume_json, description, hooks)
-            if not tailored_data or "updated_resume_json" not in tailored_data:
-                print(f"[Orchestrator] Tailoring failed for lead {job_id}")
-                continue
-                
-            # PDF Generation
-            pdf_dir = os.path.join(os.getcwd(), "data", "resumes")
-            pdf_path = os.path.join(pdf_dir, f"{job_id}.pdf")
-            
-            final_pdf_path = generate_pdf(
-                updated_resume_json=tailored_data["updated_resume_json"],
-                output_path=pdf_path
-            )
-            
-            if not final_pdf_path:
-                print(f"[Orchestrator] PDF Generation failed for lead {job_id}")
-                continue
-            
-            # Update State
-            update_job_lead(job_id, {
-                "status": "Tailored",
-                "cold_email": tailored_data.get("cold_email", ""),
-                "rationale": tailored_data.get("rationale", ""),
-                "resume_path": final_pdf_path
-            })
-            print(f"[Orchestrator] Completed synthesis for {company}")
-        
-    # 3. Delivery Hub
-    print("[Orchestrator] Step 3: Delivering 'Tailored' leads via Telegram...")
-    ready_leads = get_leads_by_status("Tailored")
-    for lead in ready_leads:
-        await send_job_card(lead)
-        
-    print("--- [Orchestrator] Pipeline Run Complete ---\n")
+        enc_keys = enc_keys_raw
 
-async def scheduled_tick():
-    """Wrapper to add an irregular delay before running the pipeline."""
-    # Irregular time buffer (1 to 20 minutes)
-    delay = random.randint(60, 1200)
-    print(f"[Orchestrator] Scheduled run triggered. Waiting for {delay} seconds (irregular buffer) to avoid robotic patterns...")
+    keys = {}
+    for env_name in ("GEMINI_API_KEY", "GROQ_API_KEY", "HF_API_KEY"):
+        decrypted = decrypt_key(enc_keys.get(env_name))
+        if decrypted:
+            keys[env_name] = decrypted
+    return keys
+
+
+# ─────────────────────────────────────────────────────────
+#  SCHEDULER
+# ─────────────────────────────────────────────────────────
+
+async def _scheduled_pipeline():
+    """Adds random jitter before running to avoid robotic patterns."""
+    delay = random.randint(30, 600)
+    logger.info(f"Scheduled run: waiting {delay}s before starting…")
     await asyncio.sleep(delay)
     await process_pipeline()
 
+
+async def _scheduled_digest():
+    """Daily digest wrapper — delegates to AnalyticsAgent."""
+    await analytics_agent.send_digest()
+
+
 async def main():
-    """Initializes and starts the APScheduler in a pure asyncio loop."""
+    """Initialise and start APScheduler in a pure asyncio loop."""
     scheduler = AsyncIOScheduler(timezone=DEFAULT_TIMEZONE)
-    # Execute twice daily inside standard Indian business operational windows
-    scheduler.add_job(scheduled_tick, 'cron', hour=10, minute=0)
-    scheduler.add_job(scheduled_tick, 'cron', hour=14, minute=30)
-    
-    print("[Orchestrator] Starting APScheduler...")
+
+    for hour, minute in zip(HARVEST_HOURS, HARVEST_MINUTES):
+        scheduler.add_job(
+            _scheduled_pipeline, "cron",
+            hour=hour, minute=minute,
+            id=f"pipeline_{hour}_{minute}",
+        )
+        logger.info(f"Scheduled pipeline run at {hour:02d}:{minute:02d} {DEFAULT_TIMEZONE}")
+
+    scheduler.add_job(
+        _scheduled_digest, "cron",
+        hour=DIGEST_HOUR, minute=DIGEST_MINUTE,
+        id="daily_digest",
+    )
+    logger.info(f"Scheduled daily digest at {DIGEST_HOUR:02d}:{DIGEST_MINUTE:02d} {DEFAULT_TIMEZONE}")
+
     scheduler.start()
-    print("Ghost Protocol Data Stream Pipeline Started (Pure Scheduler)...")
-    
+    logger.info("Ghost Protocol v3.0 Scheduler active. Waiting…")
+
     try:
         while True:
             await asyncio.sleep(3600)
     except (KeyboardInterrupt, SystemExit):
-        print("Shutting down Ghost Protocol.")
+        logger.info("Ghost Protocol shutting down.")
+
 
 if __name__ == "__main__":
     asyncio.run(main())
