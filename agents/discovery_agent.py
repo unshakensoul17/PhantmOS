@@ -31,14 +31,14 @@ logger = get_logger(__name__)
 class DiscoveryAgent:
     """Owns the entire job discovery pipeline (Stage 1)."""
 
-    async def run(self) -> list[dict]:
+    async def run(self, search_query: str = None) -> list[dict]:
         """
         Harvest jobs from all sources, apply keyword filter, return normalized list.
         Does NOT persist to DB — call save_leads() per user for that.
         """
-        logger.info("DiscoveryAgent: starting harvest")
+        logger.info(f"DiscoveryAgent: starting harvest{f' for query {search_query}' if search_query else ''}")
         try:
-            jobs = await run_harvest()
+            jobs = await run_harvest(search_query=search_query)
             logger.info(f"DiscoveryAgent: {len(jobs)} jobs after filtering")
             return jobs
         except Exception as e:

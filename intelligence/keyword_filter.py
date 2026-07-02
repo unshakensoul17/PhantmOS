@@ -11,14 +11,21 @@ from core.logger import get_logger
 logger = get_logger(__name__)
 
 
-def passes_keyword_filter(title: str, description: str) -> bool:
+def passes_keyword_filter(title: str, description: str, search_query: str = None) -> bool:
     """
     Returns True if the job passes all keyword rules:
       - Contains at least ONE tech_stack keyword
       - Contains at least ONE role_type keyword
       - Contains NONE of the hard-exclude keywords
+      - If search_query is provided, ONLY passes if the query is strictly present.
     """
     combined = (title + " " + description).lower()
+    
+    if search_query:
+        if search_query.lower() not in combined:
+            logger.debug(f"Rejected (strict match failed for '{search_query}'): {title[:60]}")
+            return False
+        return True
 
     # Hard exclusions — reject immediately
     for kw in EXCLUDE_KEYWORDS:

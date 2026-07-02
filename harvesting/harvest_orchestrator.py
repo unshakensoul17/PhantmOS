@@ -24,7 +24,7 @@ from harvesting.source_hn import fetch_hn_hiring
 logger = get_logger(__name__)
 
 
-async def run_harvest(include_hn: bool = False) -> list[dict]:
+async def run_harvest(include_hn: bool = False, search_query: str = None) -> list[dict]:
     """
     Execute the full Stage 1 pipeline:
       1. Fetch all sources in parallel
@@ -32,6 +32,7 @@ async def run_harvest(include_hn: bool = False) -> list[dict]:
 
     Args:
         include_hn: If True, also scrape HN Who's Hiring (run monthly, on 1st).
+        search_query: Optional search term for targeted harvesting.
 
     Returns:
         List of filtered job dicts.
@@ -40,10 +41,10 @@ async def run_harvest(include_hn: bool = False) -> list[dict]:
 
     # ── 1. Fetch all sources in parallel ─────────────────────────────────────
     fetch_tasks = [
-        _safe_fetch("Remotive",  fetch_remotive()),
-        _safe_fetch("RemoteOK",  fetch_remoteok()),
-        _safe_fetch("Arbeitnow", fetch_arbeitnow()),
-        _safe_fetch("Himalayas", fetch_himalayas()),
+        _safe_fetch("Remotive",  fetch_remotive(search_query=search_query)),
+        _safe_fetch("RemoteOK",  fetch_remoteok(search_query=search_query)),
+        _safe_fetch("Arbeitnow", fetch_arbeitnow(search_query=search_query)),
+        _safe_fetch("Himalayas", fetch_himalayas(search_query=search_query)),
     ]
     if include_hn or _is_first_of_month():
         fetch_tasks.append(_safe_fetch("HN", fetch_hn_hiring()))
@@ -63,7 +64,7 @@ async def run_harvest(include_hn: bool = False) -> list[dict]:
     # ── 3. Keyword pre-filter ─────────────────────────────────────────────────
     filtered: list[dict] = [
         j for j in raw_jobs
-        if passes_keyword_filter(j.get("title", ""), j.get("raw_description", ""))
+        if passes_keyword_filter(j.get("title", ""), j.get("raw_description", ""), search_query)
     ]
     logger.info(
         f"Keyword filter: {len(raw_jobs) - len(filtered)} rejected, "

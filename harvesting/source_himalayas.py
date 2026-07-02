@@ -16,11 +16,12 @@ SEARCH_TERMS = [
     "python developer",
 ]
 
-async def fetch_himalayas(limit_per_term: int = 20) -> list[dict]:
+async def fetch_himalayas(limit_per_term: int = 20, search_query: str = None) -> list[dict]:
     """Fetch jobs from Himalayas Remote Jobs Search API."""
     results: list[dict] = []
     async with httpx.AsyncClient(timeout=20.0) as client:
-        for term in SEARCH_TERMS:
+        terms_to_search = [search_query] if search_query else SEARCH_TERMS
+        for term in terms_to_search:
             try:
                 resp = await client.get(
                     BASE_URL,
