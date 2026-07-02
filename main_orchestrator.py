@@ -64,8 +64,18 @@ async def process_pipeline(manual_query: str = None, target_user_id: str = None)
     # ── STAGE 1: Discovery Agent (global harvest) ─────────────────────────────
     try:
         logger.info(">>> STAGE 1: Discovery Agent")
-        raw_jobs = await discovery_agent.run()
+        raw_jobs = await discovery_agent.run(search_query=manual_query)
         summary["harvest"] = {"raw_fetched": len(raw_jobs)}
+        
+        # Save exact matches to a dedicated file if it's a targeted search
+        if manual_query:
+            import os
+            os.makedirs("data/searches", exist_ok=True)
+            filename = f"data/searches/jobs_{manual_query.replace(' ', '_')}.json"
+            with open(filename, "w", encoding="utf-8") as f:
+                json.dump(raw_jobs, f, indent=4)
+            logger.info(f"Targeted search results securely saved to {filename}")
+
     except Exception as e:
         logger.error(f"Stage 1 FAILED: {e}")
         summary["harvest"] = {"error": str(e)}

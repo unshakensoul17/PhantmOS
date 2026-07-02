@@ -19,9 +19,9 @@ BASE_URL = "https://remoteok.com/api"
 TAGS = ["machine-learning", "python", "ai", "data-science", "nlp", "deep-learning"]
 
 
-async def fetch_remoteok() -> list[dict]:
+async def fetch_remoteok(search_query: str = None) -> list[dict]:
     """
-    Fetch jobs from RemoteOK for each target tag.
+    Fetch jobs from RemoteOK for each target tag or a specific query.
     Returns a normalised list of job dicts.
     """
     results: list[dict] = []
@@ -30,7 +30,8 @@ async def fetch_remoteok() -> list[dict]:
         timeout=20.0,
         headers={"User-Agent": "GhostProtocol/2.0 (job-search-bot)"},
     ) as client:
-        for tag in TAGS:
+        tags_to_search = [search_query] if search_query else TAGS
+        for tag in tags_to_search:
             try:
                 resp = await client.get(BASE_URL, params={"tag": tag})
                 resp.raise_for_status()

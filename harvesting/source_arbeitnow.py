@@ -22,15 +22,16 @@ SEARCH_TERMS = [
 ]
 
 
-async def fetch_arbeitnow() -> list[dict]:
+async def fetch_arbeitnow(search_query: str = None) -> list[dict]:
     """
-    Fetch remote jobs from Arbeitnow for each target search term.
+    Fetch remote jobs from Arbeitnow for each target search term or a specific query.
     Returns normalised job dicts.
     """
     results: list[dict] = []
 
     async with httpx.AsyncClient(timeout=20.0) as client:
-        for term in SEARCH_TERMS:
+        terms_to_search = [search_query] if search_query else SEARCH_TERMS
+        for term in terms_to_search:
             try:
                 resp = await client.get(
                     BASE_URL,

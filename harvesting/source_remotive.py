@@ -23,15 +23,16 @@ SEARCH_TERMS = [
 ]
 
 
-async def fetch_remotive(limit_per_term: int = 20) -> list[dict]:
+async def fetch_remotive(limit_per_term: int = 20, search_query: str = None) -> list[dict]:
     """
-    Fetch jobs from Remotive across all target search terms.
+    Fetch jobs from Remotive across all target search terms or a specific query.
     Returns a normalised list of job dicts.
     """
     results: list[dict] = []
 
     async with httpx.AsyncClient(timeout=20.0) as client:
-        for term in SEARCH_TERMS:
+        terms_to_search = [search_query] if search_query else SEARCH_TERMS
+        for term in terms_to_search:
             try:
                 resp = await client.get(
                     BASE_URL,
