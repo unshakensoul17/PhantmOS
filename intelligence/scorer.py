@@ -258,7 +258,13 @@ async def run_scoring(profile: dict) -> dict:
         if band == "REJECT":
             upd["status"] = "Dismissed"
             counts["reject"] += 1
+        elif band in ["HOT", "WARM"]:
+            upd["status"] = "Evaluated"
+            counts[band.lower()] += 1
+            from core.database_manager import queue_delivery
+            queue_delivery(job_id, user_id)
         else:
+            upd["status"] = "Evaluated"
             counts[band.lower()] += 1
 
         update_tasks.append(_update_lead_async(job_id, upd, user_id))

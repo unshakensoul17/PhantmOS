@@ -42,11 +42,6 @@ LOCAL_EMBED_MODEL: str = "paraphrase-MiniLM-L3-v2"
 TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
 TELEGRAM_CHAT_ID: str = os.getenv("TELEGRAM_ALLOWED_CHAT_ID", "").strip()
 
-# ─────────────────────────────────────────────────────────
-#  WHATSAPP FALLBACK (CallMeBot)
-# ─────────────────────────────────────────────────────────
-CALLMEBOT_API_KEY: str = os.getenv("CALLMEBOT_API_KEY", "").strip()
-CALLMEBOT_PHONE: str = os.getenv("CALLMEBOT_PHONE", "").strip()
 
 # ─────────────────────────────────────────────────────────
 #  EMAIL (Gmail SMTP)

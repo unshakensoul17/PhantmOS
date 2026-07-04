@@ -66,6 +66,13 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _on_review(context, chat_id, payload)
         await query.edit_message_reply_markup(reply_markup=None)
 
+    elif action == "createresume":
+        await _on_create_resume(context, chat_id, payload, query)
+
+    elif action == "sendemail":
+        await _on_send_cold_email(context, chat_id, payload)
+        await query.edit_message_reply_markup(reply_markup=None)
+
     elif action == "skipask":
         # Show skip reason keyboard
         await _show_skip_reasons(context, chat_id, payload)
@@ -177,8 +184,8 @@ async def send_job_card(lead: dict) -> bool:
     try:
         # ── 1. Send the main job card ─────────────────────────────────────────
         card_text = format_job_card(lead)
-        resume_url = lead.get("resume_url")
-        main_keyboard = _build_main_keyboard(job_id, has_resume=bool(resume_url))
+        status = lead.get("status", "")
+        main_keyboard = _build_main_keyboard(job_id, status)
 
         await bot.send_message(
             chat_id=chat_id,
@@ -201,6 +208,121 @@ async def send_job_card(lead: dict) -> bool:
 
 # ── Action handlers ────────────────────────────────────────────────────────────
 
+async def _on_create_resume(context, chat_id: int, job_id: str, query):
+    """Handle Create Resume button — trigger synthesis pipeline."""
+    from core.database_manager import get_profile, get_lead_by_id, update_job_lead, get_client
+    from synthesis.resume_tailor import _tailor_hot, _tailor_warm
+    from synthesis.pdf_factory import generate_and_upload_pdf
+    
+    await query.edit_message_text(
+        text=query.message.text + "\n\n⏳ *Generating highly-tailored resume... Please wait ~15s.*",
+        parse_mode="Markdown"
+    )
+    
+    lead = get_lead_by_id(job_id)
+    if not lead:
+        return
+        
+    user_id = lead.get("user_id")
+    profile = get_profile(user_id)
+    if not profile:
+        return
+        
+    band = lead.get("score_band", "WARM")
+    master_resume = profile.get("resume_data", {})
+    preferences = profile.get("preferences", {})
+    
+    try:
+        if band == "HOT":
+            success = await _tailor_hot(lead, master_resume, user_id=user_id, preferences=preferences)
+        else:
+            success = await _tailor_warm(lead, master_resume, user_id=user_id, preferences=preferences)
+            
+        if success:
+            lead = get_lead_by_id(job_id)
+            notes_raw = lead.get("notes") or "{}"
+            try:
+                notes = json.loads(notes_raw)
+            except Exception:
+                notes = {}
+                
+            resume_data = notes.get("updated_resume_json") or master_resume
+            company = lead.get("company", "")
+            
+            url = await generate_and_upload_pdf(job_id=job_id, resume_data=resume_data, company_name=company)
+            if url:
+                update_job_lead(job_id, {"resume_url": url}, user_id=user_id)
+                lead["resume_url"] = url
+                lead["status"] = "Tailored"
+                
+            new_text = format_job_card(lead)
+            new_kb = _build_main_keyboard(job_id, "Tailored")
+            
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=new_text + "\n\n✅ *Resume successfully generated!*",
+                parse_mode="Markdown",
+                reply_markup=new_kb,
+                disable_web_page_preview=True
+            )
+            # Prevent duplicate delivery loop from database_manager queue_delivery
+            get_client().table("delivery_queue").delete().eq("job_id", job_id).execute()
+        else:
+            await context.bot.send_message(chat_id=chat_id, text="❌ Failed to tailor resume.")
+    except Exception as e:
+        await context.bot.send_message(chat_id=chat_id, text=f"❌ Error generating resume: {e}")
+
+async def _on_send_cold_email(context, chat_id: int, job_id: str):
+    """Handle Send Cold Email button."""
+    from interface.email_dispatcher import send_cold_email
+    from intelligence.email_hunter import find_company_email
+    from core.database_manager import get_profile, update_job_lead
+
+    lead = get_lead_by_id(job_id)
+    if not lead:
+        await context.bot.send_message(chat_id=chat_id, text="Lead not found.")
+        return
+
+    notes_raw = lead.get("notes") or "{}"
+    try:
+        notes = json.loads(notes_raw)
+    except Exception:
+        notes = {}
+
+    cold_email  = notes.get("cold_email", "")
+    resume_url  = lead.get("resume_url") or notes.get("resume_path", "")
+    company     = lead.get("company", "")
+    title       = lead.get("title", "")
+
+    if not cold_email:
+        await context.bot.send_message(chat_id=chat_id, text="⚠️ No cold email generated for this lead.")
+        return
+
+    user_id = lead.get("user_id")
+    target_email = find_company_email(company)
+    
+    if not target_email:
+        target_email = os.getenv("GMAIL_USER", "")
+        await context.bot.send_message(chat_id=chat_id, text=f"⚠️ Could not find recruiter email. Sending to default ({target_email}) for manual forwarding.")
+    else:
+        await context.bot.send_message(chat_id=chat_id, text=f"🎯 Recruiter found: {target_email}. Dispatching…")
+
+    lines   = cold_email.strip().split("\n")
+    subject = (
+        lines[0].replace("Subject: ", "")
+        if lines[0].startswith("Subject:")
+        else f"Application: {title} at {company}"
+    )
+    body    = "\n".join(lines[1:]).strip() if lines[0].startswith("Subject:") else cold_email
+
+    success = send_cold_email(target_email, subject, body, resume_url)
+
+    if success:
+        await handle_apply(job_id)
+        update_job_lead(job_id, {"status": "Applied"}, user_id=user_id)
+        await context.bot.send_message(chat_id=chat_id, text=f"✅ Successfully applied to *{company}*! Cold email sent to {target_email}.", parse_mode="Markdown")
+    else:
+        await context.bot.send_message(chat_id=chat_id, text=f"❌ Failed to send email. Check SMTP credentials.")
 
 async def _on_review(context, chat_id: int, job_id: str):
     """Handle Review button — show JD + tailoring summary."""
@@ -243,15 +365,22 @@ async def _on_skip(context, chat_id: int, job_id: str, reason: str):
 
 # ── Keyboard builders ──────────────────────────────────────────────────────────
 
-def _build_main_keyboard(job_id: str, has_resume: bool = False) -> InlineKeyboardMarkup:
-    """Main action keyboard (optionally with PDF download button)."""
-    buttons = [
-        InlineKeyboardButton("👀 Review",      callback_data=f"review_{job_id}"),
-        InlineKeyboardButton("❌ Skip",        callback_data=f"skipask_{job_id}"),
-    ]
-    if has_resume:
-        buttons.append(InlineKeyboardButton("📄 PDF", callback_data=f"resume_{job_id}"))
-    return InlineKeyboardMarkup([buttons])
+def _build_main_keyboard(job_id: str, status: str) -> InlineKeyboardMarkup:
+    """Main action keyboard (dynamic based on status)."""
+    buttons = []
+    
+    if status == "Tailored":
+        buttons.append(InlineKeyboardButton("🚀 Send Cold Email", callback_data=f"sendemail_{job_id}"))
+        buttons.append(InlineKeyboardButton("📄 View PDF", callback_data=f"resume_{job_id}"))
+    else:
+        buttons.append(InlineKeyboardButton("📄 Create Resume", callback_data=f"createresume_{job_id}"))
+        
+    buttons.append(InlineKeyboardButton("👀 Review", callback_data=f"review_{job_id}"))
+    buttons.append(InlineKeyboardButton("❌ Skip", callback_data=f"skipask_{job_id}"))
+    
+    # Split into rows of 2 for better UI
+    rows = [buttons[i:i+2] for i in range(0, len(buttons), 2)]
+    return InlineKeyboardMarkup(rows)
 
 
 

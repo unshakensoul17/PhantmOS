@@ -2,7 +2,7 @@
 delivery/queue_manager.py — Ghost Protocol v2.0
 
 Supabase-backed delivery queue with retry logic.
-Processes pending deliveries, retries failures, falls back to WhatsApp.
+Processes pending deliveries and retries failures.
 """
 import asyncio
 import json
@@ -22,13 +22,12 @@ logger = get_logger(__name__)
 RETRY_WAITS = [10, 30, 60]
 
 
-async def process_delivery_queue(profile: dict, send_fn, fallback_fn=None) -> dict:
+async def process_delivery_queue(profile: dict, send_fn) -> dict:
     """
     Process all pending items in the delivery queue for a specific user.
 
     Args:
         send_fn:     async fn(lead: dict) -> bool  — primary Telegram sender
-        fallback_fn: async fn(lead: dict) -> bool  — WhatsApp fallback (optional)
 
     Returns:
         Summary dict with sent/failed counts.
@@ -90,7 +89,6 @@ async def process_delivery_queue(profile: dict, send_fn, fallback_fn=None) -> di
             lead=lead,
             attempts=item.get("attempts", 0),
             send_fn=send_fn,
-            fallback_fn=fallback_fn,
         )
 
         if success:
@@ -108,10 +106,9 @@ async def _attempt_delivery(
     lead: dict,
     attempts: int,
     send_fn,
-    fallback_fn,
 ) -> bool:
     """
-    Try primary sender → if fails and attempts exhausted → try fallback.
+    Try primary sender.
     """
     try:
         success = await send_fn(lead)
@@ -132,17 +129,6 @@ async def _attempt_delivery(
         update_delivery_status(delivery_id, "pending", increment_attempts=True)
 
         if new_attempts >= DELIVERY_MAX_ATTEMPTS:
-            # Exhausted all Telegram retries → try WhatsApp fallback
-            if fallback_fn:
-                try:
-                    logger.warning(f"Delivery: falling back to WhatsApp for {job_id}.")
-                    await fallback_fn(lead)
-                    update_delivery_status(delivery_id, "sent")
-                    log_stage_success(job_id, "delivery_whatsapp_fallback")
-                    return True
-                except Exception as fb_e:
-                    logger.error(f"Delivery: WhatsApp fallback also failed for {job_id}: {fb_e}")
-
             update_delivery_status(delivery_id, "failed")
             log_stage_failure(job_id, "delivery", str(e))
             return False

@@ -10,7 +10,6 @@ Responsibilities:
     - PDF upload to Supabase Storage
     - Telegram job card delivery
     - Cold email dispatch via Gmail SMTP
-    - WhatsApp fallback via CallMeBot
     - Delivery queue processing with retry logic
 
 Must NOT:
@@ -25,7 +24,7 @@ Public Methods:
 
 Dependencies:
     synthesis.pdf_factory, delivery.queue_manager, interface.telegram_delivery,
-    delivery.whatsapp_fallback, interface.email_dispatcher
+    interface.email_dispatcher
 """
 import asyncio
 import json
@@ -35,7 +34,6 @@ from core.logger import get_logger
 from synthesis.pdf_factory import generate_and_upload_pdf
 from delivery.queue_manager import process_delivery_queue
 from interface.telegram_delivery import send_job_card
-from delivery.whatsapp_fallback import send_whatsapp_job_alert
 
 logger = get_logger(__name__)
 
@@ -85,11 +83,10 @@ class ApplicationAgent:
         }
 
     async def process_deliveries(self, profile: dict) -> dict:
-        """Process the global delivery queue (Telegram → WhatsApp fallback)."""
+        """Process the global delivery queue."""
         return await process_delivery_queue(
             profile=profile,
-            send_fn=send_job_card, 
-            fallback_fn=send_whatsapp_job_alert
+            send_fn=send_job_card
         )
 
     async def run(self, profile: dict) -> dict:
