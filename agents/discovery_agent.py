@@ -20,7 +20,7 @@ Dependencies:
     harvesting.harvest_orchestrator, intelligence.keyword_filter,
     intelligence.deduplicator, core.database_manager
 """
-from core.database_manager import get_client, upsert_job_lead
+from core.database_manager import get_client, bulk_upsert_job_leads
 from core.logger import get_logger
 from harvesting.harvest_orchestrator import run_harvest, build_lead
 from intelligence.deduplicator import filter_new_jobs
@@ -99,14 +99,12 @@ class DiscoveryAgent:
         if not leads:
             return 0
 
-        saved = 0
-        for lead in leads:
-            try:
-                res = upsert_job_lead(lead)
-                if res:
-                    saved += 1
-            except Exception as e:
-                logger.error(f"DiscoveryAgent: failed to upsert lead {lead.get('job_id')} - {e}")
-                
+        try:
+            res = bulk_upsert_job_leads(leads)
+            saved = len(res)
+        except Exception as e:
+            logger.error(f"DiscoveryAgent: bulk upsert failed - {e}")
+            saved = 0
+            
         logger.info(f"DiscoveryAgent: saved {saved} leads for user {user_id}")
         return saved

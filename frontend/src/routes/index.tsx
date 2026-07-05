@@ -6,7 +6,7 @@ import {
   MapPin, DollarSign, ArrowUpRight, Download, Mail, Check, Circle, TrendingUp, Ghost,
   Target, Send, Calendar, Zap, ChevronRight, Briefcase, FileText, Search, Loader2, BookOpen, AlertTriangle
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useMutation } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/")({
@@ -25,13 +25,18 @@ function HeroStats() {
     }
   });
 
-  const STATS = [
+  const STATS = useMemo(() => [
     { label: "Total Jobs Found", value: stats?.total?.toLocaleString() || "0", delta: "+18.2%", icon: Radar, color: "blue", spark: [3,5,4,7,6,9,8,11,10,13] },
     { label: "High Match", value: ((stats?.hot || 0) + (stats?.warm || 0)).toLocaleString(), delta: "+24.6%", icon: Target, color: "cyan", spark: [2,3,3,5,4,6,7,6,8,10] },
     { label: "Applications Sent", value: stats?.applied?.toLocaleString() || "0", delta: "+12.4%", icon: Send, color: "purple", spark: [4,4,5,6,7,7,8,9,10,11] },
     { label: "Interviews Scheduled", value: "0", delta: "Pending data", icon: Calendar, color: "pink", spark: [1,2,2,3,3,4,5,4,6,7] },
     { label: "Success Rate", value: stats?.total ? `${((stats.applied / stats.total) * 100).toFixed(1)}%` : "0%", delta: "+0pp", icon: TrendingUp, color: "green", spark: [3,4,5,4,6,7,8,7,9,10] },
-  ];
+  ], [
+    stats?.total,
+    stats?.hot,
+    stats?.warm,
+    stats?.applied
+  ]);
   return (
     <section>
       <div className="flex items-end justify-between flex-wrap gap-4 mb-6">

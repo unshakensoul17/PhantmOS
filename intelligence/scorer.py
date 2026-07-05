@@ -238,10 +238,9 @@ async def run_scoring(profile: dict) -> dict:
     tasks = [score_job(lead, master_embedding, resume_skills) for lead in filtered_leads]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    async def _update_lead_async(jid, udict, uid):
-        return await asyncio.to_thread(update_job_lead, jid, udict, user_id=uid)
-
-    update_tasks = []
+    # Bulk update all scored jobs in a single DB request
+    upsert_batch = []
+    
     for lead, result in zip(filtered_leads, results):
         job_id = lead.get("job_id", "")
 
@@ -255,28 +254,35 @@ async def run_scoring(profile: dict) -> dict:
 
         band = result.get("score_band", "REJECT")
         
-        update_data = {
-            "match_score": result.get("match_score", 0),
-            "score_band": band,
-        }
-
+        # Build the updated row
+        updated_lead = dict(lead) # copy original lead
+        updated_lead["match_score"] = result.get("match_score", 0)
+        updated_lead["score_band"] = band
+        updated_lead["score_breakdown"] = result.get("score_breakdown")
+        
         if band == "REJECT":
-            update_data["status"] = "Dismissed"
+            updated_lead["status"] = "Dismissed"
             counts["reject"] += 1
         elif band in ["HOT", "WARM"]:
-            update_data["status"] = "Evaluated"
+            updated_lead["status"] = "Evaluated"
             counts[band.lower()] += 1
+            # We still need to queue delivery for these
             from core.database_manager import queue_delivery
             queue_delivery(job_id, user_id)
         else:
-            update_data["status"] = "Evaluated"
+            updated_lead["status"] = "Evaluated"
             counts[band.lower()] += 1
-
-        update_tasks.append(_update_lead_async(job_id, update_data, user_id))
+            
+        upsert_batch.append(updated_lead)
         log_stage_success(job_id, "scoring")
 
-    if update_tasks:
-        await asyncio.gather(*update_tasks)
+    if upsert_batch:
+        try:
+            from core.database_manager import get_client
+            # Perform a single bulk upsert for all scored leads!
+            get_client().table("user_job_pipelines").upsert(upsert_batch).execute()
+        except Exception as e:
+            logger.error(f"Scorer: bulk upsert failed - {e}")
 
     total = sum(counts.values())
     logger.info(

@@ -1,7 +1,7 @@
 import { apiFetch } from "../lib/api";
 import { createFileRoute } from "@tanstack/react-router";
 import { Layout } from "../components/Layout";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
   Radar, Target, Zap, DollarSign, MapPin, Sparkles, 
   Check, X, Loader2, ArrowUpRight, Search
@@ -25,15 +25,32 @@ function JobDiscoveryPage() {
   const [filterStatus, setFilterStatus] = useState("");
   const [showPipeline, setShowPipeline] = useState(false);
 
-  const { data: leads, isLoading } = useQuery({
+  const { 
+    data, 
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage
+  } = useInfiniteQuery({
     queryKey: ["leads", filterStatus],
-    queryFn: async () => {
-      const url = filterStatus ? `/api/leads?status=${filterStatus}` : `/api/leads`;
-      const res = await apiFetch(url);
+    initialPageParam: "",
+    queryFn: async ({ pageParam = "" }) => {
+      const url = new URL("/api/leads", window.location.origin);
+      if (filterStatus) url.searchParams.set("status", filterStatus);
+      if (pageParam) url.searchParams.set("cursor", pageParam);
+      url.searchParams.set("limit", "20");
+      
+      const res = await apiFetch(url.pathname + url.search);
       if (!res.ok) throw new Error("Failed to fetch leads");
       return res.json();
     },
+    getNextPageParam: (lastPage) => {
+      if (!lastPage || lastPage.length < 20) return undefined;
+      return lastPage[lastPage.length - 1].created_at;
+    }
   });
+
+  const leads = data?.pages.flatMap(page => page) || [];
 
   const harvestMutation = useMutation({
     mutationFn: async (query: string) => {
@@ -237,6 +254,22 @@ function JobDiscoveryPage() {
                   </div>
                 );
               })}
+            </div>
+          )}
+          
+          {hasNextPage && (
+            <div className="mt-8 flex justify-center">
+              <button
+                onClick={() => fetchNextPage()}
+                disabled={isFetchingNextPage}
+                className="px-6 py-2.5 rounded-xl glass text-sm font-medium hover:bg-white/5 transition flex items-center gap-2"
+              >
+                {isFetchingNextPage ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Loading...</>
+                ) : (
+                  'Load More Leads'
+                )}
+              </button>
             </div>
           )}
         </div>

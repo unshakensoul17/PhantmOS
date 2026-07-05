@@ -54,7 +54,8 @@ The output MUST be a JSON object with this exact schema:
   }
 }
 """
-    realtime_context = _get_realtime_news(company_name)
+    import asyncio
+    realtime_context = await asyncio.to_thread(_get_realtime_news, company_name)
     user_prompt = f"Analyze the tech company: {company_name}\n\n{realtime_context}"
 
     try:

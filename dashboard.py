@@ -8,16 +8,21 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import uvicorn
 from dotenv import load_dotenv, set_key
+from concurrent.futures import ProcessPoolExecutor
+import asyncio
 
 from core.database_manager import get_client, update_job_lead, get_profile, update_profile, get_all_stats, _flatten_lead
 from core.logger import get_logger
 from synthesis.llm_groq import call_groq
 from synthesis.company_research import generate_company_intelligence, generate_interview_playbook
 
-load_dotenv()
+load_dotenv(override=True)
 logger = get_logger(__name__)
 
 app = FastAPI(title="Ghost Protocol v3.0 SaaS Dashboard")
+
+# Global ProcessPool to offload the heavy orchestrator without blocking the FastAPI event loop
+process_pool = ProcessPoolExecutor(max_workers=1)
 
 
 import time
@@ -119,8 +124,14 @@ async def get_stats(user_id: str = Depends(get_current_user_id)):
 
 
 @app.get("/api/leads")
-async def get_leads(band: str = "", status: str = "", limit: int = 100, user_id: str = Depends(get_current_user_id)):
-    """Fetch job leads with optional band/status filter for the authenticated user."""
+async def get_leads(
+    band: str = "", 
+    status: str = "", 
+    limit: int = 50, 
+    cursor: str = "", 
+    user_id: str = Depends(get_current_user_id)
+):
+    """Fetch job leads with cursor-based pagination."""
     client = get_client()
     try:
         q = client.table("user_job_pipelines").select("*, global_jobs(*)").eq("user_id", user_id).order("created_at", desc=True)
@@ -128,6 +139,12 @@ async def get_leads(band: str = "", status: str = "", limit: int = 100, user_id:
             q = q.eq("score_band", band.upper())
         if status:
             q = q.eq("status", status)
+        if cursor:
+            # Decode the cursor if it was url-encoded, it should be an ISO timestamp
+            import urllib.parse
+            decoded_cursor = urllib.parse.unquote(cursor)
+            q = q.lt("created_at", decoded_cursor)
+            
         resp = q.limit(limit).execute()
         
         leads = []
@@ -157,10 +174,17 @@ async def change_lead_status(job_id: str, request: StatusUpdateRequest, user_id:
 
 
 @app.post("/api/harvest")
-async def trigger_pipeline(request: HarvestRequest, background_tasks: BackgroundTasks, user_id: str = Depends(get_current_user_id)):
-    """Trigger the full pipeline run in the background."""
+async def trigger_pipeline(request: HarvestRequest, user_id: str = Depends(get_current_user_id)):
+    """Trigger the full pipeline run in an isolated process pool."""
     from main_orchestrator import process_pipeline
-    background_tasks.add_task(process_pipeline, manual_query=request.query or None)
+    
+    # Run in the isolated CPU process to prevent Dashboard API stalling!
+    asyncio.get_running_loop().run_in_executor(
+        process_pool, 
+        process_pipeline, 
+        request.query or None
+    )
+    
     return {
         "status": "ok",
         "message": "Ghost Protocol v3.0 pipeline triggered.",
@@ -169,10 +193,15 @@ async def trigger_pipeline(request: HarvestRequest, background_tasks: Background
 
 
 @app.post("/api/digest")
-async def trigger_digest(background_tasks: BackgroundTasks, user_id: str = Depends(get_current_user_id)):
+async def trigger_digest(user_id: str = Depends(get_current_user_id)):
     """Manually trigger the daily digest."""
     from delivery.daily_digest import send_daily_digest
-    background_tasks.add_task(send_daily_digest)
+    
+    asyncio.get_running_loop().run_in_executor(
+        process_pool, 
+        send_daily_digest
+    )
+    
     return {"status": "ok", "message": "Daily digest triggered."}
 
 
@@ -205,18 +234,10 @@ async def fetch_byok(user_id: str = Depends(get_current_user_id)):
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found.")
     
-    from core.encryption import decrypt_key
-    enc_keys = profile.get("encrypted_keys") or {}
-    if isinstance(enc_keys, str):
-        try:
-            enc_keys = json.loads(enc_keys)
-        except Exception:
-            enc_keys = {}
-
     return {
-        "GEMINI_API_KEY": "***" if decrypt_key(enc_keys.get("GEMINI_API_KEY")) else "",
-        "GROQ_API_KEY":   "***" if decrypt_key(enc_keys.get("GROQ_API_KEY")) else "",
-        "HF_API_KEY":     "***" if decrypt_key(enc_keys.get("HF_API_KEY")) else "",
+        "GEMINI_API_KEY": "***" if profile.get("has_gemini_key") else "",
+        "GROQ_API_KEY":   "***" if profile.get("has_groq_key") else "",
+        "HF_API_KEY":     "***" if profile.get("has_hf_key") else "",
         "credits":        profile.get("credits", 0),
     }
 
@@ -237,17 +258,22 @@ async def save_byok(request: BYOKUpdateRequest, user_id: str = Depends(get_curre
             enc_keys = {}
 
     updates = {}
+    profile_updates = {}
     if request.GEMINI_API_KEY and request.GEMINI_API_KEY != "***":
         updates["GEMINI_API_KEY"] = encrypt_key(request.GEMINI_API_KEY)
+        profile_updates["has_gemini_key"] = True
     if request.GROQ_API_KEY and request.GROQ_API_KEY != "***":
         updates["GROQ_API_KEY"] = encrypt_key(request.GROQ_API_KEY)
+        profile_updates["has_groq_key"] = True
     if request.HF_API_KEY and request.HF_API_KEY != "***":
         updates["HF_API_KEY"] = encrypt_key(request.HF_API_KEY)
+        profile_updates["has_hf_key"] = True
 
     for k, v in updates.items():
         enc_keys[k] = v
 
-    updated = update_profile({"encrypted_keys": enc_keys}, user_id=user_id)
+    profile_updates["encrypted_keys"] = enc_keys
+    updated = update_profile(profile_updates, user_id=user_id)
     if not updated:
         raise HTTPException(status_code=500, detail="Failed to save credentials.")
     return {"status": "ok", "message": "Custom credentials saved successfully."}

@@ -6,7 +6,7 @@ All modules import from here — never from os.getenv directly.
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 # ─────────────────────────────────────────────────────────
 #  SUPABASE

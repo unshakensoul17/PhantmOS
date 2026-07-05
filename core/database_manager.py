@@ -37,32 +37,53 @@ def get_client() -> Client:
 # ─────────────────────────────────────────────────────────
 
 def get_profile(user_id: Optional[str] = None) -> Optional[dict]:
-    """Retrieve user profile by user_id, defaulting to first row if not provided."""
+    """Retrieve user profile by user_id, including external resume_data."""
     try:
-        q = get_client().table("user_profiles").select("*")
+        # OPTIMIZATION 2: Join with partitioned user_resumes table
+        q = get_client().table("user_profiles").select("*, user_resumes(resume_data)")
         if user_id:
             q = q.eq("id", user_id)
         resp = q.limit(1).execute()
-        return resp.data[0] if resp.data else None
+        if not resp.data:
+            return None
+            
+        profile = resp.data[0]
+        # Flatten resume data from partitioned table
+        resumes = profile.pop("user_resumes", None)
+        if resumes:
+            resume_obj = resumes[0] if isinstance(resumes, list) else resumes
+            profile["resume_data"] = resume_obj.get("resume_data", {})
+        elif "resume_data" not in profile or profile["resume_data"] is None:
+            profile["resume_data"] = {}
+            
+        return profile
     except Exception as e:
         logger.error(f"Error fetching profile: {e}")
         return None
 
 
 def update_profile(updates: dict, user_id: Optional[str] = None) -> Optional[dict]:
-    """Update user profile by user_id."""
+    """Update user profile by user_id, supporting partitioned resume table."""
     try:
         profile = get_profile(user_id)
         if not profile:
             return None
-        resp = (
-            get_client()
-            .table("user_profiles")
-            .update(updates)
-            .eq("id", profile["id"])
-            .execute()
-        )
-        return resp.data[0] if resp.data else None
+            
+        client = get_client()
+        resume_data = updates.pop("resume_data", None)
+        
+        # 1. Update core profile if there are core updates
+        if updates:
+            client.table("user_profiles").update(updates).eq("id", profile["id"]).execute()
+            
+        # 2. Upsert resume data into partitioned table if provided
+        if resume_data is not None:
+            client.table("user_resumes").upsert({
+                "user_id": profile["id"],
+                "resume_data": resume_data
+            }).execute()
+            
+        return get_profile(profile["id"])
     except Exception as e:
         logger.error(f"Error updating profile: {e}")
         return None
@@ -73,45 +94,68 @@ def update_profile(updates: dict, user_id: Optional[str] = None) -> Optional[dic
 # ─────────────────────────────────────────────────────────
 
 def upsert_job_lead(lead: dict) -> Optional[dict]:
+    # Keeping this for backward compatibility for single-job operations
     try:
-        job_id = lead.get("job_id")
-        user_id = lead.get("user_id")
-        
-        # 1. Upsert into global_jobs
-        global_job_data = {
-            "job_id": job_id,
-            "company": lead.get("company"),
-            "title": lead.get("title"),
-            "description": lead.get("description") or lead.get("raw_description"),
-            "location": lead.get("location"),
-            "url": lead.get("url") or lead.get("job_url"),
-            "source": lead.get("source"),
-            "dedup_hash": lead.get("dedup_hash")
-        }
-        # Remove None values
-        global_job_data = {k: v for k, v in global_job_data.items() if v is not None}
-        get_client().table("global_jobs").upsert(global_job_data, on_conflict="job_id").execute()
-        
-        # 2. Upsert into user_job_pipelines
-        if user_id:
-            pipeline_data = {
-                "user_id": user_id,
-                "job_id": job_id,
-                "status": lead.get("status", "Found"),
-                "match_score": lead.get("match_score", 0),
-                "score_band": lead.get("score_band"),
-                "notes": lead.get("notes"),
-                "resume_url": lead.get("resume_url"),
-                "resume_tailored": lead.get("resume_tailored")
-            }
-            pipeline_data = {k: v for k, v in pipeline_data.items() if v is not None}
-            resp = get_client().table("user_job_pipelines").upsert(pipeline_data, on_conflict="user_id, job_id").execute()
-            return resp.data[0] if resp.data else None
-            
-        return global_job_data
+        res = bulk_upsert_job_leads([lead])
+        return res[0] if res else None
     except Exception as e:
-        logger.error(f"Error upserting lead {lead.get('job_id')}: {e}")
+        logger.error(f"Error in single upsert: {e}")
         return None
+
+def bulk_upsert_job_leads(leads: list[dict]) -> list[dict]:
+    """Upsert multiple jobs in exactly 2 network roundtrips."""
+    if not leads:
+        return []
+        
+    try:
+        global_jobs_payload = []
+        pipelines_payload = []
+        
+        for lead in leads:
+            # 1. Prepare global_jobs payload
+            g_data = {
+                "job_id": lead.get("job_id"),
+                "company": lead.get("company"),
+                "title": lead.get("title"),
+                "description": lead.get("description") or lead.get("raw_description"),
+                "location": lead.get("location"),
+                "url": lead.get("url") or lead.get("job_url"),
+                "source": lead.get("source"),
+                "dedup_hash": lead.get("dedup_hash")
+            }
+            g_data = {k: v for k, v in g_data.items() if v is not None}
+            global_jobs_payload.append(g_data)
+            
+            # 2. Prepare user_job_pipelines payload
+            user_id = lead.get("user_id")
+            if user_id:
+                p_data = {
+                    "user_id": user_id,
+                    "job_id": lead.get("job_id"),
+                    "status": lead.get("status", "Found"),
+                    "match_score": lead.get("match_score", 0),
+                    "score_band": lead.get("score_band"),
+                    "notes": lead.get("notes"),
+                    "resume_url": lead.get("resume_url"),
+                    "resume_tailored": lead.get("resume_tailored")
+                }
+                p_data = {k: v for k, v in p_data.items() if v is not None}
+                pipelines_payload.append(p_data)
+                
+        client = get_client()
+        # Bulk Upsert 1: global_jobs
+        if global_jobs_payload:
+            client.table("global_jobs").upsert(global_jobs_payload, on_conflict="job_id").execute()
+            
+        # Bulk Upsert 2: user_job_pipelines
+        if pipelines_payload:
+            resp = client.table("user_job_pipelines").upsert(pipelines_payload, on_conflict="user_id, job_id").execute()
+            return resp.data or []
+            
+        return global_jobs_payload
+    except Exception as e:
+        logger.error(f"Error in bulk upsert: {e}")
+        return []
 
 
 def update_job_lead(job_id: str, updates: dict[str, Any], user_id: Optional[str] = None) -> Optional[dict]:
@@ -199,96 +243,133 @@ def get_existing_dedup_hashes(hashes: list[str], user_id: Optional[str] = None) 
     if not hashes:
         return set()
     try:
-        if user_id:
-            # We need to check if the user already has these jobs
-            # user_job_pipelines uses job_id. We must join global_jobs to get dedup_hash
-            # or, more simply, we can just fetch the dedup_hashes for this user.
-            q = get_client().table("user_job_pipelines").select("global_jobs(dedup_hash)").eq("user_id", user_id)
-            resp = q.execute()
-            existing = set()
-            for row in (resp.data or []):
-                gj = row.get("global_jobs")
-                if gj and gj.get("dedup_hash"):
-                    existing.add(gj["dedup_hash"])
-            return existing.intersection(set(hashes))
-        else:
-            # Global dedup check
-            q = get_client().table("global_jobs").select("dedup_hash").in_("dedup_hash", hashes)
-            resp = q.execute()
-            return {row["dedup_hash"] for row in (resp.data or [])}
+        client = get_client()
+        existing = set()
+        
+        # We chunk the hashes in batches of 200 to avoid URL too long / payload issues
+        batch_size = 200
+        for i in range(0, len(hashes), batch_size):
+            chunk = hashes[i:i + batch_size]
+            if user_id:
+                # OPTIMIZATION #4: Use high-performance RPC with array unnesting instead of large IN clause
+                try:
+                    resp = client.rpc("check_existing_hashes", {"user_id_param": user_id, "hashes": chunk}).execute()
+                    for row in (resp.data or []):
+                        existing.add(row["dedup_hash"])
+                except Exception as e:
+                    # Fallback if migration hasn't run
+                    logger.warning(f"Dedup RPC failed, falling back: {e}")
+                    q = client.table("global_jobs").select("dedup_hash").in_("dedup_hash", chunk)
+                    resp = q.execute()
+                    for row in (resp.data or []):
+                        existing.add(row["dedup_hash"])
+            else:
+                # Global check
+                q = client.table("global_jobs").select("dedup_hash").in_("dedup_hash", chunk)
+                resp = q.execute()
+                for row in (resp.data or []):
+                    existing.add(row["dedup_hash"])
+                    
+        return existing
     except Exception as e:
         logger.error(f"Error checking dedup hashes: {e}")
         return set()
 
 
 def get_all_stats(user_id: Optional[str] = None) -> dict:
-    """Aggregate pipeline statistics for the dashboard and daily digest."""
+    """Aggregate pipeline statistics using high-performance SQL RPC and Views."""
+    if not user_id:
+        return {}
+        
     try:
-        q = get_client().table("user_job_pipelines").select("status, score_band, score, global_jobs(source)")
-        if user_id:
-            q = q.eq("user_id", user_id)
+        client = get_client()
+        # 1. Fetch core numeric stats instantly via RPC
+        stats_resp = client.rpc("get_dashboard_stats", {"user_id_param": user_id}).execute()
+        base_stats = stats_resp.data if stats_resp.data else {
+            "total": 0, "found": 0, "tailored": 0, "approved": 0,
+            "applied": 0, "dismissed": 0, "hot": 0, "warm": 0, "cold": 0
+        }
+        
+        # Initialize additional fields
+        base_stats["sources"] = {}
+        base_stats["scores"] = [0] * 20
+        
+        # 2. Fetch lightweight source/score analytics from View instead of full tables
+        # This returns just (score, source) which is orders of magnitude smaller
+        analytics_resp = client.table("user_job_analytics").select("score, source").eq("user_id", user_id).execute()
+        
+        for row in (analytics_resp.data or []):
+            src = row.get("source") or "unknown"
+            base_stats["sources"][src] = base_stats["sources"].get(src, 0) + 1
+            
+            score = row.get("score")
+            if score is not None:
+                bucket = min(19, int(score / 5))
+                base_stats["scores"][bucket] += 1
+                
+        return base_stats
+    except Exception as e:
+        logger.error(f"Error aggregating stats (fallback to old method might be needed if migrations aren't run): {e}")
+        # To avoid breaking the dashboard if they haven't run the SQL yet:
+        return _fallback_get_all_stats(user_id)
+
+def _fallback_get_all_stats(user_id: str) -> dict:
+    try:
+        client = get_client()
+        q = client.table("user_job_pipelines").select("status, score_band, score, global_jobs(source)").eq("user_id", user_id)
         resp = q.execute()
         leads = resp.data or []
 
         stats: dict[str, any] = {
-            "total": len(leads),
-            "found": 0,
-            "tailored": 0,
-            "approved": 0,
-            "applied": 0,
-            "dismissed": 0,
-            "hot": 0,
-            "warm": 0,
-            "cold": 0,
-            "sources": {},
-            "scores": [0] * 20, # 20 buckets for score histogram
+            "total": len(leads), "found": 0, "tailored": 0, "approved": 0,
+            "applied": 0, "dismissed": 0, "hot": 0, "warm": 0, "cold": 0,
+            "sources": {}, "scores": [0] * 20
         }
         for lead in leads:
             s = (lead.get("status") or "").lower()
             b = (lead.get("score_band") or "").lower()
-            
-            # Status
             if s == "found": stats["found"] += 1
             elif s == "tailored": stats["tailored"] += 1
             elif s == "approved": stats["approved"] += 1
             elif s == "applied": stats["applied"] += 1
             elif s == "dismissed": stats["dismissed"] += 1
             
-            # Band
             if b == "hot" or b == "a": stats["hot"] += 1
             elif b == "warm" or b == "b": stats["warm"] += 1
             elif b == "cold" or b == "c": stats["cold"] += 1
             
-            # Source
             src = lead.get("global_jobs", {}).get("source", "unknown")
             stats["sources"][src] = stats["sources"].get(src, 0) + 1
             
-            # Score distribution
             score = lead.get("score")
             if score is not None:
-                bucket = min(19, int(score / 5)) # 0-4, 5-9, ..., 95-100
+                bucket = min(19, int(score / 5))
                 stats["scores"][bucket] += 1
-                
         return stats
     except Exception as e:
-        logger.error(f"Error aggregating stats: {e}")
+        logger.error(f"Fallback stats failed: {e}")
         return {}
 
 
 def deduct_credit(user_id: str) -> bool:
-    """Deduct 1 credit from the user's account. Returns True if successful."""
+    """Deduct 1 credit from the user's account safely using an atomic Postgres RPC."""
     try:
-        profile = get_profile(user_id)
-        if not profile:
-            return False
-        current = profile.get("credits", 0) or 0
-        if current <= 0:
-            return False
-        get_client().table("user_profiles").update({"credits": current - 1}).eq("id", user_id).execute()
-        return True
+        resp = get_client().rpc("decrement_user_credits", {"user_id_param": user_id}).execute()
+        # RPC should return boolean success
+        return bool(resp.data)
     except Exception as e:
-        logger.error(f"Error deducting credit for user {user_id}: {e}")
-        return False
+        # Fallback to the old method if RPC isn't deployed yet
+        logger.warning(f"RPC decrement failed, falling back to Python-level decrement: {e}")
+        try:
+            profile = get_profile(user_id)
+            if not profile: return False
+            current = profile.get("credits", 0) or 0
+            if current <= 0: return False
+            get_client().table("user_profiles").update({"credits": current - 1}).eq("id", user_id).execute()
+            return True
+        except Exception as inner_e:
+            logger.error(f"Error deducting credit for user {user_id}: {inner_e}")
+            return False
 
 
 # ─────────────────────────────────────────────────────────
