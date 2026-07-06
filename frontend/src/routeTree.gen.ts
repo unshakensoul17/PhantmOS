@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ResumeStudioRouteImport } from './routes/resume-studio'
 import { Route as JobDiscoveryRouteImport } from './routes/job-discovery'
+import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CompanyResearchRouteImport } from './routes/company-research'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ApplicationsRouteImport } from './routes/applications'
@@ -30,6 +31,11 @@ const ResumeStudioRoute = ResumeStudioRouteImport.update({
 const JobDiscoveryRoute = JobDiscoveryRouteImport.update({
   id: '/job-discovery',
   path: '/job-discovery',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CompanyResearchRoute = CompanyResearchRouteImport.update({
@@ -58,6 +64,7 @@ export interface FileRoutesByFullPath {
   '/applications': typeof ApplicationsRoute
   '/auth': typeof AuthRoute
   '/company-research': typeof CompanyResearchRoute
+  '/dashboard': typeof DashboardRoute
   '/job-discovery': typeof JobDiscoveryRoute
   '/resume-studio': typeof ResumeStudioRoute
   '/settings': typeof SettingsRoute
@@ -67,6 +74,7 @@ export interface FileRoutesByTo {
   '/applications': typeof ApplicationsRoute
   '/auth': typeof AuthRoute
   '/company-research': typeof CompanyResearchRoute
+  '/dashboard': typeof DashboardRoute
   '/job-discovery': typeof JobDiscoveryRoute
   '/resume-studio': typeof ResumeStudioRoute
   '/settings': typeof SettingsRoute
@@ -77,6 +85,7 @@ export interface FileRoutesById {
   '/applications': typeof ApplicationsRoute
   '/auth': typeof AuthRoute
   '/company-research': typeof CompanyResearchRoute
+  '/dashboard': typeof DashboardRoute
   '/job-discovery': typeof JobDiscoveryRoute
   '/resume-studio': typeof ResumeStudioRoute
   '/settings': typeof SettingsRoute
@@ -88,6 +97,7 @@ export interface FileRouteTypes {
     | '/applications'
     | '/auth'
     | '/company-research'
+    | '/dashboard'
     | '/job-discovery'
     | '/resume-studio'
     | '/settings'
@@ -97,6 +107,7 @@ export interface FileRouteTypes {
     | '/applications'
     | '/auth'
     | '/company-research'
+    | '/dashboard'
     | '/job-discovery'
     | '/resume-studio'
     | '/settings'
@@ -106,6 +117,7 @@ export interface FileRouteTypes {
     | '/applications'
     | '/auth'
     | '/company-research'
+    | '/dashboard'
     | '/job-discovery'
     | '/resume-studio'
     | '/settings'
@@ -116,6 +128,7 @@ export interface RootRouteChildren {
   ApplicationsRoute: typeof ApplicationsRoute
   AuthRoute: typeof AuthRoute
   CompanyResearchRoute: typeof CompanyResearchRoute
+  DashboardRoute: typeof DashboardRoute
   JobDiscoveryRoute: typeof JobDiscoveryRoute
   ResumeStudioRoute: typeof ResumeStudioRoute
   SettingsRoute: typeof SettingsRoute
@@ -142,6 +155,13 @@ declare module '@tanstack/react-router' {
       path: '/job-discovery'
       fullPath: '/job-discovery'
       preLoaderRoute: typeof JobDiscoveryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/company-research': {
@@ -180,6 +200,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApplicationsRoute: ApplicationsRoute,
   AuthRoute: AuthRoute,
   CompanyResearchRoute: CompanyResearchRoute,
+  DashboardRoute: DashboardRoute,
   JobDiscoveryRoute: JobDiscoveryRoute,
   ResumeStudioRoute: ResumeStudioRoute,
   SettingsRoute: SettingsRoute,

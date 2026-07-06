@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { motion, useInView, useScroll, useTransform } from "motion/react";
 import { ArrowRight, ChevronRight } from "lucide-react";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 
 /* ─── Global keyframes + utility classes ─────────────────────────────────── */
 function GlobalStyles() {
   return (
     <style>{`
+      * { cursor: none !important; }
       ::-webkit-scrollbar { width: 0; }
 
       body { background: #000; font-family: 'Plus Jakarta Sans', sans-serif; }
@@ -216,34 +216,19 @@ function Nav() {
 
       {/* Links */}
       <div className="hidden md:flex gap-8 text-white/45 text-sm tracking-wide">
-        {[
-          { label: "Capabilities", href: "#capabilities" },
-          { label: "Workflow", href: "#workflow" },
-          { label: "Intelligence", href: "#intelligence" },
-          { label: "Outcomes", href: "#outcomes" },
-        ].map(l => (
-          <a 
-            key={l.label} 
-            href={l.href} 
-            onClick={(e) => {
-              e.preventDefault();
-              document.querySelector(l.href)?.scrollIntoView({ behavior: 'smooth' });
-            }}
-            className="hover:text-white transition-colors duration-300"
-          >
-            {l.label}
-          </a>
+        {["Capabilities", "Workflow", "Intelligence", "Pricing"].map(l => (
+          <a key={l} href="#" className="hover:text-white transition-colors duration-300">{l}</a>
         ))}
       </div>
 
       {/* Actions */}
       <div className="flex items-center gap-3">
-        <Link to="/auth" className="text-white/50 text-sm hover:text-white transition-colors duration-300 px-4 py-2">
+        <button className="text-white/50 text-sm hover:text-white transition-colors duration-300 px-4 py-2">
           Sign In
-        </Link>
-        <Link to="/dashboard" className="glass glow-btn-glass flex items-center justify-center px-5 py-2.5 rounded-full text-white text-sm font-medium tracking-wide">
+        </button>
+        <button className="glass glow-btn-glass px-5 py-2.5 rounded-full text-white text-sm font-medium tracking-wide">
           Launch Protocol
-        </Link>
+        </button>
       </div>
     </motion.nav>
   );
@@ -464,11 +449,12 @@ const FEATURES = [
 ];
 
 /* ─── App ─────────────────────────────────────────────────────────────────── */
-function App() {
+export default function App() {
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
   const [activeStep, setActiveStep] = useState(0);
   const heroRef   = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
+  const heroY     = useTransform(scrollYProgress, [0, 1], ["0%", "30%"]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.7], [1, 0]);
 
   useEffect(() => {
@@ -488,10 +474,12 @@ function App() {
   return (
     <div className="bg-black text-white min-h-screen overflow-x-hidden" style={{ fontFamily: "Plus Jakarta Sans, sans-serif" }}>
       <GlobalStyles />
+      <Cursor />
       <Nav />
 
       {/* ── HERO ─────────────────────────────────────────────────────────────── */}
-      <section ref={heroRef} className="relative min-h-screen flex items-center overflow-hidden px-6 pt-24">
+      <motion.section ref={heroRef} className="relative min-h-screen flex items-center overflow-hidden px-6 pt-24"
+        style={{ y: heroY }}>
         <ParticleCanvas count={100} />
 
         {/* Scan line */}
@@ -520,7 +508,7 @@ function App() {
 
             <motion.h1 initial={{ opacity: 0, y: 36 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.32, duration: 1, ease: [0.16, 1, 0.3, 1] }}
-              className="heading-gradient text-[clamp(4rem,10vw,8.5rem)] font-black leading-[1.05] tracking-tight mb-8"
+              className="heading-gradient text-[clamp(4rem,10vw,8.5rem)] font-black leading-[0.88] tracking-tight mb-8"
               style={{ fontFamily: "Unbounded, sans-serif" }}>
               GHOST<br />PROTOCOL
             </motion.h1>
@@ -533,13 +521,13 @@ function App() {
 
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.7, duration: 0.8 }} className="flex flex-wrap gap-4 mb-14">
-              <Link to="/dashboard" className="glow-btn-white relative inline-flex items-center justify-center px-8 py-4 bg-white text-black font-semibold text-sm tracking-wide rounded-full transition-all duration-300">
+              <button className="glow-btn-white relative px-8 py-4 bg-white text-black font-semibold text-sm tracking-wide rounded-full transition-all duration-300">
                 Launch Protocol
-              </Link>
-              <Link to="/dashboard" className="glow-btn-glass glass flex items-center gap-2 px-8 py-4 text-white font-medium text-sm tracking-wide rounded-full group transition-all duration-300">
+              </button>
+              <button className="glow-btn-glass glass flex items-center gap-2 px-8 py-4 text-white font-medium text-sm tracking-wide rounded-full group transition-all duration-300">
                 View Demo
                 <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform duration-300" />
-              </Link>
+              </button>
             </motion.div>
 
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
@@ -572,7 +560,7 @@ function App() {
           <span className="text-white/25 text-[10px] tracking-[0.28em]" style={{ fontFamily: "JetBrains Mono, monospace" }}>SCROLL</span>
           <div className="w-px h-10" style={{ background: "linear-gradient(to bottom, rgba(255,255,255,0.3), transparent)", animation: "float-b 2.2s ease-in-out infinite" }} />
         </motion.div>
-      </section>
+      </motion.section>
 
       {/* ── AI WORKFORCE ─────────────────────────────────────────────────────── */}
       <section className="py-36 px-6">
@@ -615,7 +603,7 @@ function App() {
       </section>
 
       {/* ── WORKFLOW ─────────────────────────────────────────────────────────── */}
-      <section id="workflow" className="py-36 px-6">
+      <section className="py-36 px-6">
         <div className="max-w-7xl mx-auto">
           <RevealBlock>
             <div className="text-white/30 text-[10px] tracking-[0.32em] uppercase mb-5"
@@ -646,7 +634,7 @@ function App() {
       </section>
 
       {/* ── GLOBE ────────────────────────────────────────────────────────────── */}
-      <section id="intelligence" className="py-36 px-6">
+      <section className="py-36 px-6">
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           <RevealBlock>
             <div className="text-white/30 text-[10px] tracking-[0.32em] uppercase mb-5"
@@ -800,7 +788,7 @@ function App() {
       </section>
 
       {/* ── FEATURES ─────────────────────────────────────────────────────────── */}
-      <section id="capabilities" className="py-36 px-6">
+      <section className="py-36 px-6">
         <div className="max-w-7xl mx-auto">
           <RevealBlock>
             <div className="text-white/30 text-[10px] tracking-[0.32em] uppercase mb-5"
@@ -830,7 +818,7 @@ function App() {
       </section>
 
       {/* ── TESTIMONIALS ─────────────────────────────────────────────────────── */}
-      <section id="outcomes" className="py-36 px-6">
+      <section className="py-36 px-6">
         <div className="max-w-7xl mx-auto">
           <RevealBlock>
             <div className="text-white/30 text-[10px] tracking-[0.32em] uppercase mb-5"
@@ -880,13 +868,13 @@ function App() {
               Join 12,000+ professionals who let Ghost Protocol run their job search while they build their future.
             </p>
             <div className="flex flex-wrap gap-4 justify-center">
-              <Link to="/auth" className="glow-btn-white inline-flex items-center justify-center px-11 py-5 bg-white text-black font-semibold text-sm tracking-wide rounded-full transition-all duration-300">
+              <button className="glow-btn-white px-11 py-5 bg-white text-black font-semibold text-sm tracking-wide rounded-full transition-all duration-300">
                 Start Free
-              </Link>
-              <Link to="/dashboard" className="glow-btn-glass glass flex items-center justify-center gap-2 px-11 py-5 text-white font-medium text-sm tracking-wide rounded-full group transition-all duration-300">
+              </button>
+              <button className="glow-btn-glass glass flex items-center gap-2 px-11 py-5 text-white font-medium text-sm tracking-wide rounded-full group transition-all duration-300">
                 Launch Dashboard
                 <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform duration-300" />
-              </Link>
+              </button>
             </div>
           </RevealBlock>
         </div>
@@ -932,7 +920,3 @@ function RevealBlock({ children, delay = 0, className = "" }: { children: ReactN
     </motion.div>
   );
 }
-
-export const Route = createFileRoute("/")({
-  component: App,
-});
