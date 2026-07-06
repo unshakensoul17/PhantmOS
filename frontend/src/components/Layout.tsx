@@ -164,7 +164,7 @@ function TopBar() {
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
             placeholder="Search jobs, companies, agents…"
-            className="w-full h-11 pl-10 pr-20 rounded-xl glass text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-neon-blue/50"
+            className="w-full h-11 pl-10 pr-20 rounded-xl glass text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-white/20 transition-all duration-200"
           />
           <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 px-2 py-1 rounded-md bg-white/5 border border-white/10 text-muted-foreground">
             <span className="text-[11px] font-bold">Ctrl</span>

@@ -144,7 +144,7 @@ function ApplicationsPage() {
                   
                   <div className="space-y-3 flex-1">
                     {colApps.map((job: any) => (
-                      <div key={job.job_id} className="glass rounded-xl p-4 border border-white/5 hover:bg-white/[0.06] transition group">
+                      <div key={job.job_id} className="glass rounded-xl p-4 hover:scale-[1.02] hover:bg-[#1A1A1A] transition-all duration-200 group">
                         <div className="flex items-start justify-between mb-2">
                           <h4 className="font-semibold text-sm leading-snug line-clamp-2 pr-4">{job.title}</h4>
                           <Building2 className="w-4 h-4 text-muted-foreground shrink-0" />

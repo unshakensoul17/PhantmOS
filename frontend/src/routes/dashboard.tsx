@@ -166,7 +166,7 @@ function JobRow({ job, index }: any) {
   const dash = (job.score / 100) * circ;
   return (
     <div
-      className="group relative glass rounded-xl p-4 flex items-center gap-4 hover:bg-white/[0.07] transition-all animate-fade-up flex-wrap md:flex-nowrap"
+      className="group relative glass rounded-xl p-4 flex items-center gap-4 hover:scale-[1.01] hover:bg-[#1A1A1A] transition-all animate-fade-up flex-wrap md:flex-nowrap"
       style={{ animationDelay: `${index * 50}ms` }}
     >
       {/* Score ring */}
@@ -230,7 +230,7 @@ function JobRow({ job, index }: any) {
           href={job.source_url || job.url || "#"} 
           target="_blank" 
           rel="noreferrer"
-          className="h-9 px-4 rounded-lg bg-gradient-to-r from-neon-blue to-neon-purple text-white text-xs font-semibold inline-flex items-center gap-1.5 hover:scale-[1.03] transition glow-blue"
+          className="h-9 px-4 rounded-lg bg-gradient-to-r from-neon-blue to-neon-purple text-black text-xs font-semibold inline-flex items-center gap-1.5 hover:scale-[1.03] transition glow-blue"
         >
           Apply <ArrowUpRight className="w-3.5 h-3.5" />
         </a>
@@ -260,7 +260,7 @@ function ResumeStudio() {
         </div>
         <div className="flex items-center gap-2 text-xs">
           <Link to="/resume-studio" className="h-9 px-3 rounded-lg glass hover:bg-white/10 inline-flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" /> Edit JSON Data</Link>
-          <button className="h-9 px-3 rounded-lg bg-gradient-to-r from-neon-purple to-neon-pink text-white font-semibold inline-flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" /> Auto-Tailor</button>
+          <button className="h-9 px-3 rounded-lg bg-gradient-to-r from-neon-purple to-neon-pink text-black font-semibold inline-flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" /> Auto-Tailor</button>
         </div>
       </div>
 
@@ -399,7 +399,7 @@ function CompanyResearch() {
           <button 
             onClick={() => researchMutation.mutate(searchQuery)}
             disabled={!searchQuery || researchMutation.isPending}
-            className="h-10 px-4 rounded-xl bg-gradient-to-r from-neon-blue to-neon-purple text-white text-sm font-semibold inline-flex items-center gap-2 hover:scale-[1.02] transition disabled:opacity-50"
+            className="h-10 px-4 rounded-xl bg-gradient-to-r from-neon-blue to-neon-purple text-black text-sm font-semibold inline-flex items-center gap-2 hover:scale-[1.02] transition disabled:opacity-50"
           >
             {researchMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Radar className="w-4 h-4" />}
             Scan
@@ -794,7 +794,7 @@ function TelegramPanel() {
               const c = COLOR_MAP[m.accent];
               const Icon = m.icon;
               return (
-                <div key={i} className="glass rounded-xl p-3 flex items-center gap-3 hover:bg-white/[0.06] transition">
+                <div key={i} className="glass rounded-xl p-3 flex items-center gap-3 hover:scale-[1.01] hover:bg-[#1A1A1A] transition-all duration-200">
                   <div className={`w-9 h-9 rounded-lg glass grid place-items-center ${c.text} shrink-0`}>
                     <Icon className="w-4 h-4" />
                   </div>
