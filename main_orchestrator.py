@@ -21,7 +21,7 @@ from datetime import datetime
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from dotenv import load_dotenv
 
-from core.config import DEFAULT_TIMEZONE, HARVEST_HOURS, HARVEST_MINUTES, DIGEST_HOUR, DIGEST_MINUTE
+from core.config import DEFAULT_TIMEZONE, DIGEST_HOUR, DIGEST_MINUTE
 from core.database_manager import get_client, get_leads_by_status
 from core.logger import get_logger
 from core.encryption import decrypt_key
@@ -81,6 +81,31 @@ async def process_pipeline(manual_query: str = None, target_user_id: str = None)
     for profile in profiles:
         user_id = profile.get("id")
         email = profile.get("email", "unknown")
+        
+        # Scheduler check
+        if not manual_query and not target_user_id:
+            import time
+            prefs = profile.get("preferences") or {}
+            sched_prefs = prefs.get("scheduler") or {}
+            freq = sched_prefs.get("frequency_hours", 4)
+            last_run = sched_prefs.get("last_run_timestamp", 0)
+            now = time.time()
+            
+            import datetime
+            
+            pause_weekends = sched_prefs.get("pause_weekends", False)
+            if pause_weekends and datetime.datetime.now().weekday() >= 5:
+                continue
+                
+            if now - last_run < (freq * 3600):
+                continue
+                
+            # Update last run timestamp
+            sched_prefs["last_run_timestamp"] = now
+            prefs["scheduler"] = sched_prefs
+            from core.database_manager import update_profile
+            update_profile({"preferences": prefs}, user_id=user_id)
+            
         logger.info(f"\n>>> Processing pipeline for user: {email} ({user_id})")
 
         user_summary = {}
@@ -99,6 +124,12 @@ async def process_pipeline(manual_query: str = None, target_user_id: str = None)
                     query = target_roles[0]
                 elif resume_role:
                     query = resume_role
+                    
+            if not query:
+                logger.warning(f"User {user_id} has no target roles or resume role. Skipping harvest.")
+                user_summary["harvest"] = {"skipped": "No search query available (please set target roles in UI)."}
+                summary["details"][user_id] = user_summary
+                continue
                     
             raw_jobs = await discovery_agent.run_for_user(search_query=query, user_id=user_id)
             
@@ -201,24 +232,9 @@ def _resolve_api_keys(profile: dict) -> dict:
 # ─────────────────────────────────────────────────────────
 
 async def _scheduled_pipeline():
-    """Adds random jitter before running to avoid robotic patterns."""
-    import datetime
-    try:
-        with open("settings.json", "r") as f:
-            settings = json.load(f)
-    except:
-        settings = {}
-    
-    scheduler_settings = settings.get("scheduler", {})
-    pause_weekends = scheduler_settings.get("pause_weekends", False)
-    
-    if pause_weekends and datetime.datetime.now().weekday() >= 5:
-        logger.info("Scheduler: skipping run because pause_weekends is enabled and today is Saturday/Sunday.")
-        return
-
-    delay = random.randint(30, 600)
-    logger.info(f"Scheduled run: waiting {delay}s before starting…")
-    await asyncio.sleep(delay)
+    """Wrapper to run the pipeline."""
+    # Delay is removed since the cron is now running frequently, 
+    # and stagger is naturally handled if we process sequentially.
     await process_pipeline()
 
 
@@ -231,13 +247,14 @@ async def main():
     """Initialise and start APScheduler in a pure asyncio loop."""
     scheduler = AsyncIOScheduler(timezone=DEFAULT_TIMEZONE)
 
-    for hour, minute in zip(HARVEST_HOURS, HARVEST_MINUTES):
-        scheduler.add_job(
-            _scheduled_pipeline, "cron",
-            hour=hour, minute=minute,
-            id=f"pipeline_{hour}_{minute}",
-        )
-        logger.info(f"Scheduled pipeline run at {hour:02d}:{minute:02d} {DEFAULT_TIMEZONE}")
+    # Run the pipeline every hour. The process_pipeline function will 
+    # internally skip users whose frequency_hours haven't elapsed.
+    scheduler.add_job(
+        _scheduled_pipeline, "interval",
+        hours=1,
+        id="hourly_pipeline",
+    )
+    logger.info("Scheduled pipeline check to run every 1 hour.")
 
     scheduler.add_job(
         _scheduled_digest, "cron",

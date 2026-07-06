@@ -8,13 +8,15 @@ from core.logger import get_logger
 logger = get_logger(__name__)
 
 BASE_URL = "https://himalayas.app/jobs/api/search"
-from core.config import DEFAULT_SEARCH_TERMS as SEARCH_TERMS
+
 
 async def fetch_himalayas(limit_per_term: int = 20, search_query: str = None) -> list[dict]:
     """Fetch jobs from Himalayas Remote Jobs Search API."""
     results: list[dict] = []
+    if not search_query:
+        return []
     async with httpx.AsyncClient(timeout=20.0) as client:
-        terms_to_search = [search_query] if search_query else SEARCH_TERMS
+        terms_to_search = [search_query]
         for term in terms_to_search:
             try:
                 resp = await client.get(

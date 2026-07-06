@@ -13,6 +13,7 @@ and reused across all future scoring runs.
 import asyncio
 import numpy as np
 import httpx
+import hashlib
 from functools import lru_cache
 from typing import Optional
 
@@ -170,34 +171,53 @@ def cosine_similarity(vec1: list[float], vec2: list[float]) -> float:
 
 MASTER_RESUME_CACHE_KEY = "master_resume_v2"
 
-async def get_master_embedding(resume_text: str) -> list[float]:
+async def get_master_embedding(resume_text: str, user_id: str) -> list[float]:
     """
-    Return the master resume embedding.
+    Return the master resume embedding for a specific user.
     - First call: embed → store in Supabase → return
     - Subsequent calls: load from Supabase (no API call)
     """
-    cached = get_cached_embedding(MASTER_RESUME_CACHE_KEY)
+    cache_key = f"master_resume_{user_id}"
+    cached = get_cached_embedding(cache_key)
     if cached:
-        logger.info("Master resume embedding loaded from cache.")
+        logger.info(f"Master resume embedding loaded from cache for user {user_id}.")
         return cached
 
-    logger.info("Computing master resume embedding (first time)…")
+    logger.info(f"Computing master resume embedding (first time) for user {user_id}…")
     embedding = await embed_text_async(resume_text)
-    store_embedding(MASTER_RESUME_CACHE_KEY, embedding)
-    logger.info("Master resume embedding stored in cache.")
+    store_embedding(cache_key, embedding)
+    logger.info(f"Master resume embedding stored in cache for user {user_id}.")
     return embedding
 
 
-def invalidate_master_cache() -> None:
+def invalidate_master_cache(user_id: str) -> None:
     """
     Call this when the master resume JSON is updated so the
     embedding is recomputed on the next pipeline run.
     """
     from core.database_manager import get_client
+    cache_key = f"master_resume_{user_id}"
     try:
         get_client().table("embedding_cache").delete().eq(
-            "key", MASTER_RESUME_CACHE_KEY
+            "key", cache_key
         ).execute()
-        logger.info("Master resume embedding cache invalidated.")
+        logger.info(f"Master resume embedding cache invalidated for user {user_id}.")
     except Exception as e:
         logger.error(f"Failed to invalidate embedding cache: {e}")
+
+async def get_job_embedding(desc: str) -> list[float]:
+    """
+    Return the job description embedding. Uses MD5 hash for global caching
+    across all users to save API credits.
+    """
+    desc_hash = hashlib.md5(desc.encode('utf-8')).hexdigest()
+    cache_key = f"job_desc_{desc_hash}"
+    
+    cached = get_cached_embedding(cache_key)
+    if cached:
+        return cached
+        
+    embedding = await embed_text_async(desc)
+    store_embedding(cache_key, embedding)
+    return embedding
+

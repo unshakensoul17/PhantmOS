@@ -56,6 +56,29 @@ def get_profile(user_id: Optional[str] = None) -> Optional[dict]:
         elif "resume_data" not in profile or profile["resume_data"] is None:
             profile["resume_data"] = {}
             
+        # --- Lazy Monthly Credit Refill Logic ---
+        import datetime
+        current_month = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m")
+        prefs = profile.get("preferences") or {}
+        last_refill = prefs.get("last_refill_month", "")
+        
+        if last_refill != current_month:
+            # Add 30 credits, max 1000
+            new_credits = min(1000, (profile.get("credits") or 0) + 30)
+            prefs["last_refill_month"] = current_month
+            
+            # Save updates back to Supabase silently in background
+            try:
+                get_client().table("user_profiles").update({
+                    "credits": new_credits,
+                    "preferences": prefs
+                }).eq("id", profile["id"]).execute()
+            except Exception as inner_e:
+                logger.error(f"Failed to save monthly credit refill: {inner_e}")
+                
+            profile["credits"] = new_credits
+            profile["preferences"] = prefs
+            
         return profile
     except Exception as e:
         logger.error(f"Error fetching profile: {e}")

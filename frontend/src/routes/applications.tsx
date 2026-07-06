@@ -24,6 +24,7 @@ function ApplicationsPage() {
   const queryClient = useQueryClient();
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [emailDraft, setEmailDraft] = useState<string | null>(null);
+  const [targetEmail, setTargetEmail] = useState("");
 
   // Fetch all leads that have an application-related status
   const { data: leads = [], isLoading } = useQuery({
@@ -61,13 +62,45 @@ function ApplicationsPage() {
       const res = await apiFetch(`/api/applications/ghost-writer`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ company: job.company, role: job.title }),
+        body: JSON.stringify({ job_id: job.job_id, company: job.company, role: job.title }),
       });
       if (!res.ok) throw new Error("Failed to generate email");
       return res.json();
     },
     onSuccess: (data) => {
       setEmailDraft(data.email);
+      if (data.target_email) {
+        setTargetEmail(data.target_email);
+      }
+    }
+  });
+
+  const sendEmailMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedJob || !emailDraft || !targetEmail) return;
+      const res = await apiFetch(`/api/applications/send-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          job_id: selectedJob.job_id,
+          target_email: targetEmail,
+          email_text: emailDraft
+        }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.detail || "Failed to send email");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      setEmailDraft(null);
+      setSelectedJob(null);
+      setTargetEmail("");
+      alert("Email sent successfully!");
+    },
+    onError: (err: any) => {
+      alert(err.message);
     }
   });
 
@@ -126,6 +159,17 @@ function ApplicationsPage() {
                         {/* Stage Specific Actions */}
                         <div className="pt-3 border-t border-white/5 space-y-2">
                           
+                          {/* Tailored Resume Link */}
+                          {job.resume_url && (
+                            <a 
+                              href={job.resume_url}
+                              target="_blank" rel="noreferrer"
+                              className="w-full h-8 rounded-lg bg-white/5 border border-white/10 text-white text-xs font-semibold hover:bg-white/10 transition flex items-center justify-center gap-1.5"
+                            >
+                              <FileText className="w-3 h-3" /> View Tailored Resume
+                            </a>
+                          )}
+
                           {/* App Stage -> Ghost Writer */}
                           {job.status === 'Applied' && (
                             <button 
@@ -227,6 +271,17 @@ function ApplicationsPage() {
                 <div className="text-sm text-neon-cyan">{selectedJob.title}</div>
               </div>
 
+              <div className="mb-4">
+                <div className="text-xs font-mono text-muted-foreground mb-1 uppercase tracking-wider">Recruiter / Target Email</div>
+                <input 
+                  type="email"
+                  value={targetEmail}
+                  onChange={(e) => setTargetEmail(e.target.value)}
+                  placeholder="recruiter@company.com"
+                  className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-sm focus:outline-none focus:border-neon-blue/50 transition font-sans"
+                />
+              </div>
+
               <div className="relative">
                 <div className="absolute top-3 right-3 flex gap-2">
                   <button className="text-[11px] font-mono px-2 py-1 bg-white/10 hover:bg-white/20 rounded transition">Copy to Clipboard</button>
@@ -241,13 +296,18 @@ function ApplicationsPage() {
 
             <div className="p-4 border-t border-white/5 bg-white/5 flex justify-end gap-3">
               <button 
-                onClick={() => { setEmailDraft(null); setSelectedJob(null); }}
+                onClick={() => { setEmailDraft(null); setSelectedJob(null); setTargetEmail(""); }}
                 className="px-4 py-2 rounded-lg text-sm font-medium hover:bg-white/10 transition"
               >
                 Cancel
               </button>
-              <button className="px-5 py-2 rounded-lg bg-gradient-to-r from-neon-blue to-neon-purple text-white text-sm font-semibold flex items-center gap-2 hover:scale-[1.02] transition shadow-lg shadow-neon-blue/20">
-                <Send className="w-4 h-4" /> Send Email via Gmail Integration
+              <button 
+                onClick={() => sendEmailMutation.mutate()}
+                disabled={sendEmailMutation.isPending || !targetEmail}
+                className="px-5 py-2 rounded-lg bg-gradient-to-r from-neon-blue to-neon-purple text-black text-sm font-semibold flex items-center gap-2 hover:scale-[1.02] transition shadow-lg shadow-neon-blue/20 disabled:opacity-50 disabled:hover:scale-100"
+              >
+                {sendEmailMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                {sendEmailMutation.isPending ? "Sending..." : "Send Email via Gmail Integration"}
               </button>
             </div>
           </div>

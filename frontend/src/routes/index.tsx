@@ -36,8 +36,18 @@ function HeroStats() {
     stats?.hot,
     stats?.warm,
     stats?.applied,
-    stats?.interviews
   ]);
+
+  const { mutate: triggerDeploy, isPending } = useMutation({
+    mutationFn: async () => {
+      const res = await apiFetch("/api/harvest", { method: "POST" });
+      if (!res.ok) throw new Error("Failed to deploy pipeline");
+      return res.json();
+    },
+    onSuccess: () => {
+      // Could show a toast here, for now it will just finish the loading state
+    }
+  });
   return (
     <section>
       <div className="flex items-end justify-between flex-wrap gap-4 mb-6">
@@ -56,10 +66,14 @@ function HeroStats() {
             Six specialized agents operating in concert — discovering, ranking, tailoring, and applying to opportunities across 240+ sources in real time.
           </p>
         </div>
-        <button className="group relative overflow-hidden inline-flex items-center gap-2 px-5 h-11 rounded-xl bg-gradient-to-r from-neon-blue to-neon-purple font-semibold text-sm text-white glow-blue hover:scale-[1.02] transition">
-          <Zap className="w-4 h-4" />
-          Deploy Ghost Protocol
-          <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+        <button 
+          onClick={() => triggerDeploy()}
+          disabled={isPending}
+          className="group relative overflow-hidden inline-flex items-center gap-2 px-5 h-11 rounded-xl bg-gradient-to-r from-neon-blue to-neon-purple font-semibold text-sm text-white glow-blue hover:scale-[1.02] transition disabled:opacity-70 disabled:hover:scale-100"
+        >
+          {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+          {isPending ? "Deploying Agents..." : "Deploy Ghost Protocol"}
+          {!isPending && <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/25 to-transparent" />}
         </button>
       </div>
 
@@ -236,7 +250,7 @@ function JobRow({ job, index }: any) {
           href={job.source_url || job.url || "#"} 
           target="_blank" 
           rel="noreferrer"
-          className="h-9 px-4 rounded-lg bg-gradient-to-r from-neon-blue to-neon-purple text-white text-xs font-semibold inline-flex items-center gap-1.5 hover:scale-[1.03] transition glow-blue"
+          className="h-9 px-4 rounded-lg bg-gradient-to-r from-neon-blue to-neon-purple text-black text-xs font-semibold inline-flex items-center gap-1.5 hover:scale-[1.03] transition glow-blue"
         >
           Apply <ArrowUpRight className="w-3.5 h-3.5" />
         </a>
@@ -266,7 +280,7 @@ function ResumeStudio() {
         </div>
         <div className="flex items-center gap-2 text-xs">
           <Link to="/resume-studio" className="h-9 px-3 rounded-lg glass hover:bg-white/10 inline-flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" /> Edit JSON Data</Link>
-          <button className="h-9 px-3 rounded-lg bg-gradient-to-r from-neon-purple to-neon-pink text-white font-semibold inline-flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" /> Auto-Tailor</button>
+          <button className="h-9 px-3 rounded-lg bg-gradient-to-r from-neon-purple to-neon-pink text-black font-semibold inline-flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" /> Auto-Tailor</button>
         </div>
       </div>
 
@@ -405,7 +419,7 @@ function CompanyResearch() {
           <button 
             onClick={() => researchMutation.mutate(searchQuery)}
             disabled={!searchQuery || researchMutation.isPending}
-            className="h-10 px-4 rounded-xl bg-gradient-to-r from-neon-blue to-neon-purple text-white text-sm font-semibold inline-flex items-center gap-2 hover:scale-[1.02] transition disabled:opacity-50"
+            className="h-10 px-4 rounded-xl bg-gradient-to-r from-neon-blue to-neon-purple text-black text-sm font-semibold inline-flex items-center gap-2 hover:scale-[1.02] transition disabled:opacity-50"
           >
             {researchMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Radar className="w-4 h-4" />}
             Scan
@@ -572,10 +586,21 @@ function Analytics() {
     }
   });
 
-  const weeks = [42, 58, 51, 74, 68, 89, 96, 112, 108, 132, 145, 168];
-  const maxW = Math.max(...weeks);
-  
   const applied = stats?.applied || 0;
+  
+  // Distribute 'applied' count realistically across the trailing 12 weeks
+  const weeks = Array(12).fill(0);
+  if (applied > 0) {
+    let remaining = applied;
+    for (let i = 11; i >= 0 && remaining > 0; i--) {
+      // Exponential distribution favoring recent weeks
+      const chunk = Math.min(remaining, Math.ceil(applied * Math.pow(0.7, 11 - i)));
+      weeks[i] = chunk;
+      remaining -= chunk;
+    }
+  }
+  const maxW = Math.max(...weeks, 5); // Ensure maxW is at least 5 to prevent division by zero or empty graphs
+  
   const approved = stats?.approved || 0;
   // Convert approved -> interview conversion proxy since interview rate isnt strictly tracked yet
   const interviewRate = applied > 0 ? ((approved / applied) * 100).toFixed(1) : "0.0";
@@ -723,14 +748,7 @@ function Analytics() {
 
 /* ------------------------------ TELEGRAM PANEL ------------------------------ */
 
-const TG_MESSAGES = [
-  { type: "alert",   icon: Radar,      text: "3 new 90%+ matches from Nyx Robotics, Vector Systems, Halo.", time: "2m", accent: "cyan" },
-  { type: "approval", icon: FileEdit,  text: "Resume v3 ready for review — Staff ML Engineer @ Nyx.", time: "8m", accent: "purple", action: true },
-  { type: "confirm", icon: Check,      text: "Auto-applied to 4 roles. All received 200 OK.", time: "24m", accent: "green" },
-  { type: "outreach", icon: Mail,      text: "Cold email drafted for CTO @ Vector. Awaiting your send-off.", time: "1h", accent: "blue" },
-];
-
-function TelegramPanel() {
+function TelegramPanel({ messages }: { messages: any[] }) {
   return (
     <section className="glass-strong rounded-2xl p-6 relative overflow-hidden">
       <div className="absolute inset-0 grid-bg opacity-30 pointer-events-none" />
@@ -755,7 +773,7 @@ function TelegramPanel() {
                   </div>
                 </div>
                 <div className="mt-4 space-y-2">
-                  {TG_MESSAGES.slice(0, 3).map((m, i) => {
+                  {messages.slice(0, 3).map((m, i) => {
                     const c = COLOR_MAP[m.accent];
                     const Icon = m.icon;
                     return (
@@ -796,7 +814,7 @@ function TelegramPanel() {
           </p>
 
           <div className="space-y-2 max-w-lg">
-            {TG_MESSAGES.map((m, i) => {
+            {messages.map((m, i) => {
               const c = COLOR_MAP[m.accent];
               const Icon = m.icon;
               return (
@@ -825,6 +843,31 @@ function TelegramPanel() {
 /* ------------------------------ MAIN ------------------------------ */
 
 function GhostProtocolDashboard() {
+  const { data: leads } = useQuery({
+    queryKey: ["leads", "dashboard-preview"],
+    queryFn: async () => {
+      const res = await apiFetch("/api/leads?limit=15");
+      if (!res.ok) throw new Error("Failed to fetch leads");
+      return res.json();
+    },
+  });
+
+  // Map real leads to live feed
+  const liveFeed = (leads || []).slice(0, 7).map((lead: any) => {
+    let t = "Discovery", m = `Discovered role at ${lead.company}`, c = "cyan", icon = Radar;
+    if (lead.status === "Tailored") { t = "Resume"; m = `Generated resume for ${lead.company}`; c = "pink"; icon = FileEdit; }
+    else if (lead.status === "Applied") { t = "Application"; m = `Applied to ${lead.company}`; c = "green"; icon = Check; }
+    else if (lead.score >= 85) { t = "Ranking"; m = `Scored ${lead.score}% for ${lead.company}`; c = "purple"; icon = Sparkles; }
+    else if (lead.score >= 60) { t = "Ranking"; m = `Scored ${lead.score}% for ${lead.company}`; c = "blue"; icon = Zap; }
+    
+    return { type: t, text: m, time: "recent", accent: c, icon };
+  });
+
+  // Keep a fallback message so the UI doesn't look empty when no leads
+  const displayFeed = liveFeed.length > 0 ? liveFeed : [
+    { type: "alert", icon: Radar, text: "Awaiting new job matches to arrive...", time: "now", accent: "cyan" }
+  ];
+
   return (
     <Layout>
       <HeroStats />
@@ -838,35 +881,29 @@ function GhostProtocolDashboard() {
           <h2 className="text-xl font-bold mb-5">Agent Activity Stream</h2>
           <div className="relative space-y-4">
             <div className="absolute left-[15px] top-2 bottom-2 w-px bg-gradient-to-b from-neon-cyan via-neon-purple to-transparent" />
-            {[
-              { t: "Discovery", m: "Ingested 42 new roles from Wellfound", time: "just now", c: "cyan" },
-              { t: "Ranking",   m: "Scored 128 jobs · 3 above 90%", time: "1m", c: "blue" },
-              { t: "Research",  m: "Compiled dossier: Nyx Robotics", time: "2m", c: "purple" },
-              { t: "Resume",    m: "Generated v3 for Staff ML role", time: "4m", c: "pink" },
-              { t: "ATS",       m: "Optimized keyword coverage → 94%", time: "6m", c: "cyan" },
-              { t: "Application", m: "Submitted 4 applications · all ✓", time: "12m", c: "green" },
-              { t: "Discovery", m: "New Y Combinator batch indexed", time: "18m", c: "cyan" },
-            ].map((e, i) => {
-              const c = COLOR_MAP[e.c];
+            {displayFeed.length > 0 ? displayFeed.map((e: any, i: number) => {
+              const c = COLOR_MAP[e.accent as string] || COLOR_MAP.cyan;
               return (
                 <div key={i} className="relative pl-10 animate-fade-up" style={{ animationDelay: `${i * 60}ms` }}>
                   <div className={`absolute left-0 top-0.5 w-8 h-8 rounded-lg glass grid place-items-center ${c.text}`}>
-                    <Circle className="w-2 h-2 fill-current" />
+                    <e.icon className="w-3.5 h-3.5 fill-current" />
                   </div>
                   <div className="flex items-baseline justify-between gap-2">
-                    <span className={`text-[12px] font-mono ${c.text}`}>{e.t}</span>
+                    <span className={`text-[12px] font-mono ${c.text}`}>{e.type}</span>
                     <span className="text-[12px] font-mono text-muted-foreground">{e.time}</span>
                   </div>
-                  <p className="text-xs mt-0.5">{e.m}</p>
+                  <p className="text-xs mt-0.5">{e.text}</p>
                 </div>
               );
-            })}
+            }) : (
+              <div className="text-sm text-muted-foreground p-4">No recent activity.</div>
+            )}
           </div>
         </div>
       </div>
       
       <Analytics />
-      <TelegramPanel />
+      <TelegramPanel messages={displayFeed} />
 
       <footer className="pt-6 pb-8 flex items-center justify-between flex-wrap gap-3 border-t border-white/5">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">

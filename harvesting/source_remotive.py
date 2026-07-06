@@ -13,7 +13,7 @@ logger = get_logger(__name__)
 
 BASE_URL = "https://remotive.com/api/remote-jobs"
 
-from core.config import DEFAULT_SEARCH_TERMS as SEARCH_TERMS
+
 
 
 async def fetch_remotive(limit_per_term: int = 20, search_query: str = None) -> list[dict]:
@@ -23,8 +23,11 @@ async def fetch_remotive(limit_per_term: int = 20, search_query: str = None) -> 
     """
     results: list[dict] = []
 
+    if not search_query:
+        return []
+
     async with httpx.AsyncClient(timeout=20.0) as client:
-        terms_to_search = [search_query] if search_query else SEARCH_TERMS
+        terms_to_search = [search_query]
         for term in terms_to_search:
             try:
                 resp = await client.get(

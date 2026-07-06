@@ -68,7 +68,7 @@ function CompanyResearchPage() {
               <button 
                 onClick={() => researchMutation.mutate(searchQuery)}
                 disabled={!searchQuery || researchMutation.isPending}
-                className="h-11 px-5 rounded-xl bg-gradient-to-r from-neon-blue to-neon-purple text-white text-sm font-semibold inline-flex items-center gap-2 hover:scale-[1.02] transition disabled:opacity-50"
+                className="h-11 px-5 rounded-xl bg-gradient-to-r from-neon-blue to-neon-purple text-black text-sm font-semibold inline-flex items-center gap-2 hover:scale-[1.02] transition disabled:opacity-50"
               >
                 {researchMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Radar className="w-4 h-4" />}
                 Scan Target

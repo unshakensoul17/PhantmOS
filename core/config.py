@@ -77,45 +77,7 @@ BAND_THRESHOLDS = {
     # REJECT        # < 40%        → discard
 }
 
-TARGET_TITLES: list[str] = [
-    "ml engineer", "ai engineer", "data scientist",
-    "research intern", "software engineer", "nlp engineer",
-    "machine learning engineer", "deep learning engineer",
-    "computer vision engineer", "ai researcher",
-]
 
-# Dynamic default search terms for harvesting engines
-_env_target_roles = os.getenv("TARGET_ROLES", "").strip()
-if _env_target_roles:
-    DEFAULT_SEARCH_TERMS = [r.strip() for r in _env_target_roles.split(",") if r.strip()]
-else:
-    DEFAULT_SEARCH_TERMS = [
-        "machine learning",
-        "ai engineer",
-        "data scientist",
-        "nlp",
-        "python developer",
-    ]
-
-# ─────────────────────────────────────────────────────────
-#  KEYWORD PRE-FILTER (Stage 1 cheap filter — no AI needed)
-# ─────────────────────────────────────────────────────────
-REQUIRED_KEYWORDS: dict[str, list[str]] = {
-    "tech_stack": [
-        "python", "pytorch", "tensorflow", "llm", "ml",
-        "machine learning", "deep learning", "nlp", "ai",
-        "transformer", "neural", "data science",
-    ],
-    "role_type": [
-        "intern", "engineer", "researcher", "developer",
-        "scientist", "analyst",
-    ],
-}
-
-EXCLUDE_KEYWORDS: list[str] = [
-    "10+ years", "15 years", "senior director",
-    "vice president", "c-level", "chief",
-]
 
 # ─────────────────────────────────────────────────────────
 #  RETRY CONFIG

@@ -260,7 +260,7 @@ function SettingsPage() {
                       <span className="text-xl font-bold font-mono text-neon-cyan">{localSettings.scoring.telegram_threshold}%</span>
                     </div>
                     <input
-                      type="range" min="50" max="100"
+                      type="range" min="40" max="100"
                       value={localSettings.scoring.telegram_threshold}
                       onChange={(e) => updateScoring('telegram_threshold', parseInt(e.target.value))}
                       className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-neon-cyan"
@@ -454,83 +454,14 @@ function SettingsPage() {
 
                   <div className="mt-6 p-6 rounded-xl border border-white/10 bg-black/40">
                     <h4 className="text-sm font-medium text-white mb-4">Template Preview</h4>
-                    <div className="aspect-[1/1.414] w-full max-w-sm mx-auto bg-white rounded-md shadow-2xl relative overflow-hidden text-black p-4 flex flex-col gap-2">
-                      {localSettings.resume_template === 'classic' && (
-                        <>
-                          <div className="w-full text-center border-b border-black pb-2 mb-2">
-                            <div className="h-4 bg-black w-1/2 mx-auto rounded-sm mb-1"></div>
-                            <div className="h-2 bg-gray-500 w-3/4 mx-auto rounded-sm"></div>
-                          </div>
-                          <div className="h-3 bg-black w-1/4 rounded-sm mb-1"></div>
-                          <div className="h-2 bg-gray-300 w-full rounded-sm mb-0.5"></div>
-                          <div className="h-2 bg-gray-300 w-5/6 rounded-sm mb-2"></div>
-                          <div className="h-3 bg-black w-1/4 rounded-sm mb-1 mt-2"></div>
-                          <div className="flex justify-between mb-1"><div className="h-2 bg-gray-800 w-1/3 rounded-sm"></div><div className="h-2 bg-gray-500 w-1/6 rounded-sm"></div></div>
-                          <div className="h-2 bg-gray-300 w-full rounded-sm ml-2 mb-0.5"></div>
-                          <div className="h-2 bg-gray-300 w-4/5 rounded-sm ml-2 mb-2"></div>
-                        </>
-                      )}
-                      {(!localSettings.resume_template || localSettings.resume_template === 'sb2nov') && (
-                        <>
-                          <div className="w-full text-center mb-2">
-                            <div className="h-5 bg-black w-1/2 mx-auto rounded-sm mb-1"></div>
-                            <div className="h-2 bg-gray-500 w-full mx-auto rounded-sm"></div>
-                          </div>
-                          <div className="border-b-2 border-black w-full mb-2"></div>
-                          <div className="h-3 bg-black w-1/5 rounded-sm mb-1"></div>
-                          <div className="border-b border-gray-400 w-full mb-1"></div>
-                          <div className="flex justify-between mb-1"><div className="h-2.5 bg-gray-800 w-2/5 rounded-sm"></div><div className="h-2 bg-gray-500 w-1/5 rounded-sm"></div></div>
-                          <div className="flex justify-between mb-1"><div className="h-2 bg-gray-500 w-1/3 rounded-sm italic"></div></div>
-                          <div className="flex gap-2 mb-0.5"><div className="w-1 h-1 bg-black rounded-full mt-1"></div><div className="h-2 bg-gray-300 w-full rounded-sm"></div></div>
-                          <div className="flex gap-2 mb-2"><div className="w-1 h-1 bg-black rounded-full mt-1"></div><div className="h-2 bg-gray-300 w-5/6 rounded-sm"></div></div>
-                        </>
-                      )}
-                      {localSettings.resume_template === 'engineeringresumes' && (
-                        <>
-                          <div className="w-full text-center mb-1">
-                            <div className="h-4 bg-black w-1/3 mx-auto rounded-sm mb-1"></div>
-                            <div className="h-1.5 bg-gray-500 w-2/3 mx-auto rounded-sm"></div>
-                          </div>
-                          <div className="h-2.5 bg-black w-1/4 rounded-sm mb-0.5"></div>
-                          <div className="border-b border-black w-full mb-1"></div>
-                          <div className="flex justify-between mb-0.5"><div className="h-2 bg-gray-800 w-1/3 rounded-sm"></div><div className="h-1.5 bg-gray-500 w-1/6 rounded-sm"></div></div>
-                          <div className="flex gap-1 mb-0.5"><div className="w-1 h-1 bg-black mt-0.5"></div><div className="h-1.5 bg-gray-400 w-full rounded-sm"></div></div>
-                          <div className="flex gap-1 mb-0.5"><div className="w-1 h-1 bg-black mt-0.5"></div><div className="h-1.5 bg-gray-400 w-11/12 rounded-sm"></div></div>
-                          <div className="flex gap-1 mb-1"><div className="w-1 h-1 bg-black mt-0.5"></div><div className="h-1.5 bg-gray-400 w-full rounded-sm"></div></div>
-                          <div className="h-2.5 bg-black w-1/4 rounded-sm mb-0.5 mt-2"></div>
-                          <div className="border-b border-black w-full mb-1"></div>
-                        </>
-                      )}
-                      {localSettings.resume_template === 'moderncv' && (
-                        <>
-                          <div className="flex justify-between items-end mb-4">
-                            <div className="h-6 bg-black w-1/2 rounded-sm"></div>
-                            <div className="flex flex-col gap-1 items-end w-1/3">
-                              <div className="h-1.5 bg-gray-500 w-full rounded-sm"></div>
-                              <div className="h-1.5 bg-gray-500 w-5/6 rounded-sm"></div>
-                            </div>
-                          </div>
-                          <div className="flex gap-4 mb-2">
-                            <div className="w-1/4 text-right">
-                              <div className="h-2 bg-blue-500 w-full rounded-sm ml-auto"></div>
-                            </div>
-                            <div className="w-3/4">
-                              <div className="h-2 bg-gray-300 w-full rounded-sm mb-1"></div>
-                              <div className="h-2 bg-gray-300 w-4/5 rounded-sm"></div>
-                            </div>
-                          </div>
-                          <div className="flex gap-4 mb-2">
-                            <div className="w-1/4 text-right">
-                              <div className="h-2 bg-blue-500 w-3/4 rounded-sm ml-auto"></div>
-                            </div>
-                            <div className="w-3/4">
-                              <div className="h-2 bg-gray-800 w-1/2 rounded-sm mb-1"></div>
-                              <div className="h-2 bg-gray-300 w-full rounded-sm mb-0.5"></div>
-                              <div className="h-2 bg-gray-300 w-5/6 rounded-sm"></div>
-                            </div>
-                          </div>
-                        </>
-                      )}
+                    <div className="w-full max-w-md mx-auto rounded-xl shadow-[0_0_40px_rgba(0,0,0,0.5)] overflow-hidden border border-white/10 relative group">
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition duration-300 pointer-events-none" />
+                      <img 
+                        src={`/templates/${localSettings.resume_template || 'sb2nov'}.png`} 
+                        alt={`${localSettings.resume_template} preview`} 
+                        className="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-105"
+                        loading="lazy"
+                      />
                     </div>
                   </div>
                 </div>

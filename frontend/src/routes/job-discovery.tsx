@@ -114,7 +114,7 @@ function JobDiscoveryPage() {
             <button 
               onClick={() => harvestMutation.mutate(searchQuery)}
               disabled={harvestMutation.isPending}
-              className="h-11 px-6 rounded-xl bg-gradient-to-r from-neon-blue to-neon-purple text-white font-semibold inline-flex items-center gap-2 hover:scale-[1.02] transition glow-blue disabled:opacity-50 disabled:hover:scale-100 shrink-0"
+              className="h-11 px-6 rounded-xl bg-gradient-to-r from-neon-blue to-neon-purple text-black font-semibold inline-flex items-center gap-2 hover:scale-[1.02] transition glow-blue disabled:opacity-50 disabled:hover:scale-100 shrink-0"
             >
               {harvestMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Radar className="w-4 h-4" />}
               {harvestMutation.isPending ? "Harvesting..." : "Run Discovery Engine"}
@@ -246,7 +246,7 @@ function JobDiscoveryPage() {
                         href={job.url || job.job_url || "#"} 
                         target="_blank" 
                         rel="noreferrer"
-                        className="h-9 px-3 rounded-lg bg-gradient-to-r from-neon-blue to-neon-purple text-white text-xs font-semibold inline-flex items-center gap-1.5 hover:scale-[1.02] transition"
+                        className="h-9 px-3 rounded-lg bg-gradient-to-r from-neon-blue to-neon-purple text-black text-xs font-semibold inline-flex items-center gap-1.5 hover:scale-[1.02] transition"
                       >
                         Apply <ArrowUpRight className="w-3.5 h-3.5" />
                       </a>

@@ -24,6 +24,18 @@ app = FastAPI(title="Ghost Protocol v3.0 SaaS Dashboard")
 # Global ProcessPool to offload the heavy orchestrator without blocking the FastAPI event loop
 process_pool = ProcessPoolExecutor(max_workers=1)
 
+# Sync wrappers — ProcessPoolExecutor only accepts plain sync functions.
+# These bridge the gap between the async orchestrators and the executor.
+def _run_pipeline(query: str = None):
+    import asyncio
+    from main_orchestrator import process_pipeline
+    asyncio.run(process_pipeline(manual_query=query))
+
+def _run_digest():
+    import asyncio
+    from delivery.daily_digest import send_daily_digest
+    asyncio.run(send_daily_digest())
+
 
 import time
 
@@ -117,6 +129,8 @@ async def get_stats(user_id: str = Depends(get_current_user_id)):
             "sources":    stats.get("sources", {}),
             "scores":     stats.get("scores", []),
             "approved":   stats.get("approved", 0),
+            "credits":    get_profile(user_id).get("credits", 0) if get_profile(user_id) else 0,
+            "max_credits": 1000
         })
     except Exception as e:
         logger.error(f"Stats error: {e}")
@@ -177,15 +191,11 @@ async def change_lead_status(job_id: str, request: StatusUpdateRequest, user_id:
 @app.post("/api/harvest")
 async def trigger_pipeline(request: HarvestRequest, user_id: str = Depends(get_current_user_id)):
     """Trigger the full pipeline run in an isolated process pool."""
-    from main_orchestrator import process_pipeline
-    
-    # Run in the isolated CPU process to prevent Dashboard API stalling!
     asyncio.get_running_loop().run_in_executor(
-        process_pool, 
-        process_pipeline, 
+        process_pool,
+        _run_pipeline,
         request.query or None
     )
-    
     return {
         "status": "ok",
         "message": "Ghost Protocol v3.0 pipeline triggered.",
@@ -196,13 +206,7 @@ async def trigger_pipeline(request: HarvestRequest, user_id: str = Depends(get_c
 @app.post("/api/digest")
 async def trigger_digest(user_id: str = Depends(get_current_user_id)):
     """Manually trigger the daily digest."""
-    from delivery.daily_digest import send_daily_digest
-    
-    asyncio.get_running_loop().run_in_executor(
-        process_pool, 
-        send_daily_digest
-    )
-    
+    asyncio.get_running_loop().run_in_executor(process_pool, _run_digest)
     return {"status": "ok", "message": "Daily digest triggered."}
 
 
@@ -222,7 +226,7 @@ async def save_profile(request: ProfileUpdateRequest, user_id: str = Depends(get
         raise HTTPException(status_code=500, detail="Failed to update profile.")
     try:
         from intelligence.embedding_engine import invalidate_master_cache
-        invalidate_master_cache()
+        invalidate_master_cache(user_id)
     except Exception:
         pass
     return {"status": "ok", "message": "Profile saved. Embedding cache invalidated."}
@@ -474,25 +478,120 @@ async def get_interview_playbook(company: str, role: str = "Software Engineer"):
 
 
 class GhostWriterRequest(BaseModel):
+    job_id: str = ""
     company: str
     role: str
 
 @app.post("/api/applications/ghost-writer")
-async def ghost_writer_followup(request: GhostWriterRequest):
+async def ghost_writer_followup(request: GhostWriterRequest, user_id: str = Depends(get_current_user_id)):
     """Generate a highly professional follow-up email."""
+    # Fetch user preferences for BYOK
+    profile = get_profile(user_id) or {}
+    prefs = profile.get("preferences") or {}
+    
     system_prompt = """You are an elite executive career coach.
 Write a concise, professional follow-up email to a recruiter or hiring manager.
 The applicant applied 5+ days ago and hasn't heard back. 
 The tone should be polite, enthusiastic, but not desperate. 
-Output ONLY the email body (with Subject line at the top), no markdown formatting or extra text."""
-    user_prompt = f"Write a follow-up email for the {request.role} role at {request.company}."
+Draw upon the provided candidate context and job context to make the email highly personalized.
+
+CRITICAL:
+- Do NOT use ANY placeholders like [Hiring Manager's Name] or [number of days]. 
+- If you don't know the hiring manager's name, use "Dear Hiring Team" or "Dear [Company] Team" without brackets. 
+- Just say "recently" or "a few days ago" instead of a specific number of days.
+- Write the final ready-to-send text ONLY.
+
+Output ONLY valid JSON in the following format, with no markdown or extra text:
+{
+  "subject": "The email subject line here",
+  "body": "The full email body here"
+}"""
+    
+    # Extract candidate context
+    resume = profile.get("resume_data") or {}
+    cv = resume.get("cv") or {}
+    candidate_name = cv.get("name", "The Candidate")
+    experience_list = cv.get("experience", [])
+    candidate_experience = json.dumps(experience_list[:2]) if experience_list else "No experience data provided."
+    
+    # Extract job context
+    job_desc = ""
+    if request.job_id:
+        try:
+            client = get_client()
+            resp = client.table("global_jobs").select("description").eq("id", request.job_id).execute()
+            if resp.data and len(resp.data) > 0:
+                job_desc = resp.data[0].get("description", "")
+        except Exception:
+            pass
+
+    user_prompt = f"""Write a follow-up email for the {request.role} role at {request.company}.
+Candidate Name: {candidate_name}
+
+Candidate's Recent Experience:
+{candidate_experience}
+
+Job Context:
+{job_desc[:1500] if job_desc else "N/A"}
+"""
     
     try:
-        email = await call_groq(system_prompt, user_prompt)
-        return {"status": "ok", "email": email}
+        from intelligence.email_hunter import find_company_email
+        import asyncio
+        loop = asyncio.get_event_loop()
+        
+        response_json, target_email = await asyncio.gather(
+            call_groq(system_prompt, user_prompt, api_key=prefs.get("GROQ_API_KEY") or None),
+            loop.run_in_executor(None, find_company_email, request.company)
+        )
+        
+        subject = response_json.get("subject", "Following up on my application")
+        body = response_json.get("body", "Error parsing email body.")
+        email_text = f"Subject: {subject}\n\n{body}"
+        return {"status": "ok", "email": email_text, "target_email": target_email or ""}
     except Exception as e:
         logger.error(f"Ghost Writer Error: {e}")
         raise HTTPException(status_code=500, detail="Failed to generate email")
+
+
+class SendEmailRequest(BaseModel):
+    job_id: str
+    target_email: str
+    email_text: str
+
+@app.post("/api/applications/send-email")
+async def send_followup_email(request: SendEmailRequest, user_id: str = Depends(get_current_user_id)):
+    profile = get_profile(user_id) or {}
+    prefs = profile.get("preferences") or {}
+    
+    gmail_user = prefs.get("GMAIL_USER")
+    gmail_password = prefs.get("GMAIL_APP_PASSWORD")
+    
+    if not gmail_user or not gmail_password:
+        raise HTTPException(status_code=400, detail="Gmail credentials not configured in settings.")
+        
+    # Extract subject and body
+    lines = request.email_text.strip().split("\n", 1)
+    subject = lines[0].replace("Subject:", "").strip() if lines[0].startswith("Subject:") else "Job Application Follow-up"
+    body = lines[1].strip() if len(lines) > 1 else request.email_text
+    
+    # Get resume url to attach if exists
+    client = get_client()
+    resp = client.table("user_job_pipelines").select("resume_url").eq("job_id", request.job_id).execute()
+    resume_url = resp.data[0].get("resume_url") if resp.data and len(resp.data) > 0 else None
+    
+    from interface.email_dispatcher import send_cold_email
+    success = send_cold_email(
+        target_email=request.target_email,
+        subject=subject,
+        body_text=body,
+        attachment_path=resume_url,
+        gmail_user=gmail_user,
+        gmail_password=gmail_password
+    )
+    if success:
+        return {"status": "ok"}
+    raise HTTPException(status_code=500, detail="Failed to send email.")
 
 
 @app.get("/api/settings")
@@ -515,6 +614,25 @@ async def get_settings(user_id: str = Depends(get_current_user_id)):
                 
         # Inject connection status so frontend can render it
         prefs["telegram_connected"] = bool(profile.get("telegram_chat_id"))
+        
+        # Inject masked API keys if they exist in encrypted_keys
+        enc_keys = profile.get("encrypted_keys") or {}
+        if isinstance(enc_keys, str):
+            try:
+                enc_keys = json.loads(enc_keys)
+            except Exception:
+                enc_keys = {}
+                
+        if "llm" not in prefs:
+            prefs["llm"] = {}
+            
+        if enc_keys.get("GROQ_API_KEY"):
+            prefs["llm"]["groq_api_key"] = "***"
+        if enc_keys.get("GEMINI_API_KEY"):
+            prefs["llm"]["gemini_api_key"] = "***"
+        if enc_keys.get("HF_API_KEY"):
+            prefs["llm"]["hf_api_key"] = "***"
+            
         return prefs
     except Exception as e:
         logger.error(f"Error reading settings from DB: {e}")
@@ -527,9 +645,57 @@ async def update_settings(request: Request, user_id: str = Depends(get_current_u
     try:
         data = await request.json()
         
-        # We can extract sensitive keys here and put them in encrypted_keys, 
-        # but for now we'll just save to preferences as requested
-        update_resp = get_client().table("user_profiles").update({"preferences": data}).eq("id", user_id).execute()
+        has_byok_updates = False
+        updates = {}
+        profile_updates = {}
+        
+        # The frontend nests keys inside the "llm" object with lowercase names
+        llm_data = data.get("llm", {})
+        
+        # Mapping frontend keys to database keys
+        key_mapping = {
+            "gemini_api_key": "GEMINI_API_KEY",
+            "groq_api_key": "GROQ_API_KEY",
+            "hf_api_key": "HF_API_KEY"
+        }
+        
+        for frontend_k, backend_k in key_mapping.items():
+            # Check nested "llm" object
+            val = llm_data.pop(frontend_k, None)
+            
+            # Fallback: check top-level uppercase (just in case)
+            if not val:
+                val = data.pop(backend_k, None)
+                
+            if val and val != "***":
+                from core.encryption import encrypt_key
+                updates[backend_k] = encrypt_key(val)
+                has_byok_updates = True
+                if backend_k == "GEMINI_API_KEY": profile_updates["has_gemini_key"] = True
+                if backend_k == "GROQ_API_KEY": profile_updates["has_groq_key"] = True
+                if backend_k == "HF_API_KEY": profile_updates["has_hf_key"] = True
+
+        if has_byok_updates:
+            profile = get_profile(user_id)
+            if profile:
+                enc_keys = profile.get("encrypted_keys") or {}
+                if isinstance(enc_keys, str):
+                    try:
+                        enc_keys = json.loads(enc_keys)
+                    except Exception:
+                        enc_keys = {}
+                for k, v in updates.items():
+                    enc_keys[k] = v
+                profile_updates["encrypted_keys"] = enc_keys
+                
+        # Save remaining data back to preferences
+        if "llm" in data:
+            data["llm"] = llm_data
+            
+        profile_updates["preferences"] = data
+        
+        # Update user profile with all changes
+        update_resp = get_client().table("user_profiles").update(profile_updates).eq("id", user_id).execute()
         
         # Also sync to settings.json for legacy scripts until fully migrated
         try:

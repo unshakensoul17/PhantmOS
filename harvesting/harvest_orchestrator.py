@@ -13,7 +13,7 @@ from datetime import datetime
 
 from core.database_manager import upsert_job_lead, log_stage_success, log_stage_failure
 from core.logger import get_logger
-from intelligence.keyword_filter import passes_keyword_filter
+
 from intelligence.deduplicator import filter_new_jobs
 from harvesting.source_remotive import fetch_remotive
 from harvesting.source_secret import fetch_secret
@@ -59,13 +59,11 @@ async def run_harvest(include_hn: bool = False, search_query: str = None) -> lis
     # ── 2. Remove jobs with empty title or company ────────────────────────────
     raw_jobs = [j for j in raw_jobs if j.get("title") and j.get("company")]
 
-    # ── 3. Keyword pre-filter ─────────────────────────────────────────────────
-    filtered: list[dict] = [
-        j for j in raw_jobs
-        if passes_keyword_filter(j.get("title", ""), j.get("raw_description", ""), search_query)
-    ]
+    # ── 3. Relevance pre-filter (BM25) ────────────────────────────────────────
+    from intelligence.keyword_filter import filter_jobs_by_relevance
+    filtered: list[dict] = filter_jobs_by_relevance(raw_jobs, search_query)
     logger.info(
-        f"Keyword filter: {len(raw_jobs) - len(filtered)} rejected, "
+        f"BM25 pre-filter: {len(raw_jobs) - len(filtered)} rejected, "
         f"{len(filtered)} passed."
     )
 

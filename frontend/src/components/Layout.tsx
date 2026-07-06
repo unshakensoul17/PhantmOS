@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { AuthGuard } from "./AuthGuard";
 import { useAuth } from "../hooks/useAuth";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "../lib/api";
 
 function Sidebar() {
@@ -23,12 +23,15 @@ function Sidebar() {
     }
   });
 
+  // Calculate total active applications for the sidebar badge
+  const activeApps = (stats?.approved || 0) + (stats?.applied || 0) + (stats?.interviews || 0);
+
   const NAV = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/" },
     { icon: FileText, label: "Resume Studio", path: "/resume-studio" },
     { icon: Search, label: "Job Discovery", badge: stats?.discovered?.toString() || "0", path: "/job-discovery" },
     { icon: Building2, label: "Company Research", path: "/company-research" },
-    { icon: Send, label: "Applications", badge: stats?.applied?.toString() || "0", path: "/applications" },
+    { icon: Send, label: "Applications", badge: activeApps.toString(), path: "/applications" },
     { icon: Settings, label: "Settings", path: "/settings" },
   ];
   
@@ -87,17 +90,20 @@ function Sidebar() {
               <Cpu className="w-3.5 h-3.5 text-neon-green" />
               <span className="text-[12px] font-mono text-muted-foreground">Engine Usage</span>
             </div>
-            <span className="text-[10px] font-mono text-neon-cyan">42%</span>
+            <span className="text-[10px] font-mono text-neon-cyan">{Math.round(((stats?.credits ?? 0) / (stats?.max_credits ?? 1000)) * 100)}%</span>
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-[11px] font-mono text-muted-foreground">Tokens</span>
             <div className="flex items-baseline gap-1">
-              <span className="text-lg font-bold font-mono text-glow-cyan text-neon-cyan">3,360</span>
-              <span className="text-xs text-muted-foreground">/ 8,000</span>
+              <span className="text-lg font-bold font-mono text-glow-cyan text-neon-cyan">{(stats?.credits ?? 0).toLocaleString()}</span>
+              <span className="text-xs text-muted-foreground">/ {(stats?.max_credits ?? 1000).toLocaleString()}</span>
             </div>
           </div>
           <div className="mt-2 h-1 rounded-full bg-white/5 overflow-hidden">
-            <div className="h-full w-[42%] bg-gradient-to-r from-neon-blue to-neon-cyan" />
+            <div 
+              className="h-full bg-gradient-to-r from-neon-blue to-neon-cyan transition-all duration-1000" 
+              style={{ width: `${Math.round(((stats?.credits ?? 0) / (stats?.max_credits ?? 1000)) * 100)}%` }}
+            />
           </div>
         </div>
       </div>
@@ -105,22 +111,28 @@ function Sidebar() {
   );
 }
 
-function StatusPill({ icon: Icon, label, value, color }: { icon: any; label: string; value: string; color: "green" | "cyan" | "amber" }) {
-  const dot = color === "green" ? "bg-neon-green" : color === "amber" ? "bg-neon-amber" : "bg-neon-cyan";
+function StatusPill({ icon: Icon, label, value, color, onClick, loading }: { icon: any; label: string; value: string; color: "green" | "cyan" | "amber" | "red"; onClick?: () => void; loading?: boolean }) {
+  const dot = color === "green" ? "bg-neon-green" : color === "amber" ? "bg-neon-amber" : color === "red" ? "bg-red-500" : "bg-neon-cyan";
+  const Comp = onClick ? "button" : "div";
   return (
-    <div className="hidden md:flex items-center gap-2 h-11 px-3 rounded-xl glass">
-      <span className={`w-1.5 h-1.5 rounded-full ${dot} animate-pulse-glow`} />
-      <Icon className="w-3.5 h-3.5 text-muted-foreground" />
-      <div className="text-[13px] leading-none">
+    <Comp 
+      onClick={onClick}
+      disabled={loading}
+      className={`hidden md:flex items-center gap-2 h-11 px-3 rounded-xl glass ${onClick ? 'cursor-pointer hover:bg-white/10 transition-colors' : ''} ${loading ? 'opacity-70' : ''}`}
+    >
+      <span className={`w-1.5 h-1.5 rounded-full ${dot} ${!loading ? 'animate-pulse-glow' : ''}`} />
+      <Icon className={`w-3.5 h-3.5 text-muted-foreground ${loading ? 'animate-spin' : ''}`} />
+      <div className="text-[13px] leading-none text-left">
         <div className="text-muted-foreground font-mono text-[13px]">{label}</div>
         <div className="font-semibold mt-0.5">{value}</div>
       </div>
-    </div>
+    </Comp>
   );
 }
 
 function TopBar() {
   const { user, signOut } = useAuth();
+  const queryClient = useQueryClient();
   
   const { data: settings } = useQuery({
     queryKey: ["settings"],
@@ -131,12 +143,16 @@ function TopBar() {
     }
   });
 
-  const { data: health } = useQuery({
+  const { data: health, isFetching: isCheckingHealth } = useQuery({
     queryKey: ["health"],
     queryFn: async () => {
-      const res = await apiFetch("/api/health");
-      if (!res.ok) return { status: "offline" };
-      return res.json();
+      try {
+        const res = await apiFetch("/api/health");
+        if (!res.ok) return { status: "offline" };
+        return res.json();
+      } catch (e) {
+        return { status: "offline" };
+      }
     },
     refetchInterval: 30000,
   });
@@ -167,8 +183,12 @@ function TopBar() {
         <StatusPill 
           icon={Activity} 
           label="System" 
-          value={health?.status === "ok" ? "Nominal" : "Offline"} 
-          color={health?.status === "ok" ? "cyan" : "amber"} 
+          value={isCheckingHealth ? "Pinging..." : (health?.status === "ok" ? "Nominal" : "Offline")} 
+          color={health?.status === "ok" ? "cyan" : "red"} 
+          loading={isCheckingHealth}
+          onClick={() => {
+            queryClient.invalidateQueries({ queryKey: ["health"] });
+          }}
         />
 
         <div className="flex items-center gap-3 pl-4 ml-2 border-l border-white/10">

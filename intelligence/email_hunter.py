@@ -12,9 +12,12 @@ def _search_apollo(company_name: str) -> str:
     search_url = "https://api.apollo.io/api/v1/mixed_people/api_search"
     headers = {"X-Api-Key": APOLLO_API_KEY, "Content-Type": "application/json", "Cache-Control": "no-cache"}
     
+    domain = _get_domain(company_name)
+    if not domain: return None
+    
     # Step 1: Search for a person at the company
     search_payload = {
-        "q_organization_domains_list": [company_name], # Apollo can sometimes fuzzy match name or requires domain
+        "q_organization_domains": domain, 
         "person_titles": ["hr", "recruiter", "talent acquisition", "human resources"],
         "contact_email_status": ["verified"],
         "page": 1,
@@ -47,25 +50,51 @@ def _search_apollo(company_name: str) -> str:
     return None
 
 def _search_osint(company_name: str) -> str:
-    """Fallback: Scrape DuckDuckGo for public emails associated with the company"""
+    """Fallback: Scrape Google & DuckDuckGo for public emails associated with the company"""
+    import re
+    query = f'"{company_name}" "hr@" OR "careers@" OR "recruitment@" OR "jobs@"'
+    combined_text = ""
+    
+    # 1. Try Google Search (via googlesearch-python)
     try:
-        import warnings
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
+        from googlesearch import search
+        import requests
+        from bs4 import BeautifulSoup
+        
+        # We search Google, get the top 3 URLs, fetch their text
+        urls = list(search(query, num_results=3, lang="en"))
+        for url in urls:
+            try:
+                res = requests.get(url, timeout=4, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+                if res.status_code == 200:
+                    soup = BeautifulSoup(res.text, "html.parser")
+                    combined_text += " " + soup.get_text()
+            except Exception: pass
+            
+        # Also include the snippets from DuckDuckGo
+        try:
             from duckduckgo_search import DDGS
             with DDGS() as ddgs:
-                query = f'"{company_name}" AND ("hr@" OR "careers@" OR "recruitment@" OR "jobs@") email'
                 results = list(ddgs.text(query, max_results=5))
-                combined_text = " ".join([res.get('body', '') for res in results])
-                
-                # Regex to extract email addresses
-                emails = re.findall(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', combined_text)
-                
-                # Filter out dummy/example emails
-                valid_emails = [e for e in emails if not any(x in e for x in ['example.com', 'domain.com', 'yourcompany.com'])]
-                if valid_emails:
-                    return valid_emails[0]
+                combined_text += " " + " ".join([res.get('body', '') for res in results])
+        except Exception: pass
+
     except Exception: pass
+    
+    # Regex to extract email addresses
+    emails = re.findall(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', combined_text)
+    
+    # Filter out dummy/example emails and strict filter for target domains
+    valid_emails = [e.lower() for e in emails if not any(x in e.lower() for x in ['example.com', 'domain.com', 'yourcompany.com', 'sentry.io', 'w3.org'])]
+    
+    # Prioritize hr@, careers@, recruitment@ etc.
+    priority = [e for e in valid_emails if any(prefix in e for prefix in ['hr@', 'career', 'job', 'talent', 'recruit'])]
+    if priority:
+        return priority[0]
+        
+    if valid_emails:
+        return valid_emails[0]
+        
     return None
 
 def _get_domain(company_name: str) -> str:
@@ -104,7 +133,9 @@ def _search_smtp_alias(company_name: str) -> str:
         mx_record = mx_lines[0][1].strip('.')
         
         # 2. SMTP Handshake
-        server = smtplib.SMTP(timeout=5)
+        import socket
+        socket.setdefaulttimeout(2)
+        server = smtplib.SMTP(timeout=2)
         server.set_debuglevel(0)
         try:
             server.connect(mx_record)

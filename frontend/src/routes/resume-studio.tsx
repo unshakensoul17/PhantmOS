@@ -66,6 +66,23 @@ function ResumeStudioPage() {
     });
   };
 
+  const getSocial = (network: string) => {
+    const sn = profile?.cv?.social_networks?.find((s: any) => s.network?.toLowerCase() === network.toLowerCase());
+    return sn?.url || sn?.username || "";
+  };
+
+  const setSocial = (d: any, network: string, value: string) => {
+    if (!d.cv) d.cv = {};
+    if (!d.cv.social_networks) d.cv.social_networks = [];
+    const idx = d.cv.social_networks.findIndex((s: any) => s.network?.toLowerCase() === network.toLowerCase());
+    if (idx >= 0) {
+      d.cv.social_networks[idx].url = value;
+      d.cv.social_networks[idx].username = value; // Maintain both for parser compatibility
+    } else {
+      d.cv.social_networks.push({ network, url: value, username: value });
+    }
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
@@ -130,7 +147,7 @@ function ResumeStudioPage() {
             <button 
               onClick={handleSave}
               disabled={isSaving}
-              className="h-11 px-6 rounded-xl bg-gradient-to-r from-neon-blue to-neon-purple text-white font-semibold inline-flex items-center gap-2 hover:scale-[1.02] transition glow-blue disabled:opacity-50">
+              className="h-11 px-6 rounded-xl bg-gradient-to-r from-neon-blue to-neon-purple text-black font-semibold inline-flex items-center gap-2 hover:scale-[1.02] transition glow-blue disabled:opacity-50">
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Save Profile
             </button>
@@ -208,11 +225,15 @@ function ResumeStudioPage() {
                       </div>
                       <div>
                         <label className="text-xs font-mono text-muted-foreground mb-1 block">LinkedIn URL</label>
-                        <input className="w-full h-10 px-3 rounded-lg glass text-sm" value={profile.cv?.linkedin || ""} onChange={e => updateProfile(d => { if(!d.cv) d.cv={}; d.cv.linkedin = e.target.value })} placeholder="https://linkedin.com/in/..." />
+                        <input className="w-full h-10 px-3 rounded-lg glass text-sm" value={getSocial("LinkedIn")} onChange={e => updateProfile(d => setSocial(d, "LinkedIn", e.target.value))} placeholder="https://linkedin.com/in/..." />
                       </div>
                       <div>
-                        <label className="text-xs font-mono text-muted-foreground mb-1 block">GitHub / Portfolio URL</label>
-                        <input className="w-full h-10 px-3 rounded-lg glass text-sm" value={profile.cv?.portfolio || ""} onChange={e => updateProfile(d => { if(!d.cv) d.cv={}; d.cv.portfolio = e.target.value })} placeholder="https://github.com/..." />
+                        <label className="text-xs font-mono text-muted-foreground mb-1 block">GitHub URL</label>
+                        <input className="w-full h-10 px-3 rounded-lg glass text-sm" value={getSocial("GitHub")} onChange={e => updateProfile(d => setSocial(d, "GitHub", e.target.value))} placeholder="https://github.com/..." />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="text-xs font-mono text-muted-foreground mb-1 block">Portfolio URL</label>
+                        <input className="w-full h-10 px-3 rounded-lg glass text-sm" value={getSocial("Portfolio")} onChange={e => updateProfile(d => setSocial(d, "Portfolio", e.target.value))} placeholder="https://yourportfolio.com" />
                       </div>
                       <div className="col-span-2">
                         <label className="text-xs font-mono text-muted-foreground mb-1 block">Professional Summary</label>
@@ -232,7 +253,15 @@ function ResumeStudioPage() {
                       <div className="grid grid-cols-2 gap-3">
                         <input placeholder="Company" className="h-10 px-3 rounded-lg glass text-sm" value={item.company || ""} onChange={e => updateItem({...item, company: e.target.value})} />
                         <input placeholder="Position" className="h-10 px-3 rounded-lg glass text-sm" value={item.position || ""} onChange={e => updateItem({...item, position: e.target.value})} />
-                        <input placeholder="Date (e.g. 2020-01 to 2023-01)" className="h-10 px-3 rounded-lg glass text-sm" value={item.date || ""} onChange={e => updateItem({...item, date: e.target.value})} />
+                        <input placeholder="Date (e.g. 2020-01 to 2023-01)" className="h-10 px-3 rounded-lg glass text-sm" 
+                          value={item.date || (item.start_date ? `${item.start_date} to ${item.end_date || 'Present'}` : "")} 
+                          onChange={e => {
+                            const copy = {...item, date: e.target.value};
+                            delete copy.start_date;
+                            delete copy.end_date;
+                            updateItem(copy);
+                          }} 
+                        />
                         <input placeholder="Location" className="h-10 px-3 rounded-lg glass text-sm" value={item.location || ""} onChange={e => updateItem({...item, location: e.target.value})} />
                         <div className="col-span-2">
                           <label className="text-[11px] font-mono text-muted-foreground mb-1 block">Highlights (One bullet per line)</label>
@@ -252,7 +281,15 @@ function ResumeStudioPage() {
                     renderItem={(item, updateItem) => (
                       <div className="grid grid-cols-2 gap-3">
                         <input placeholder="Project Name" className="h-10 px-3 rounded-lg glass text-sm" value={item.name || ""} onChange={e => updateItem({...item, name: e.target.value})} />
-                        <input placeholder="Date" className="h-10 px-3 rounded-lg glass text-sm" value={item.date || ""} onChange={e => updateItem({...item, date: e.target.value})} />
+                        <input placeholder="Date" className="h-10 px-3 rounded-lg glass text-sm" 
+                          value={item.date || (item.start_date ? `${item.start_date} to ${item.end_date || 'Present'}` : "")} 
+                          onChange={e => {
+                            const copy = {...item, date: e.target.value};
+                            delete copy.start_date;
+                            delete copy.end_date;
+                            updateItem(copy);
+                          }} 
+                        />
                         <input placeholder="URL (Optional)" className="col-span-2 h-10 px-3 rounded-lg glass text-sm" value={item.url || ""} onChange={e => updateItem({...item, url: e.target.value})} />
                         <div className="col-span-2">
                           <label className="text-[11px] font-mono text-muted-foreground mb-1 block">Highlights (One bullet per line)</label>
@@ -274,7 +311,15 @@ function ResumeStudioPage() {
                         <input placeholder="Institution" className="h-10 px-3 rounded-lg glass text-sm" value={item.institution || ""} onChange={e => updateItem({...item, institution: e.target.value})} />
                         <input placeholder="Area / Major" className="h-10 px-3 rounded-lg glass text-sm" value={item.area || ""} onChange={e => updateItem({...item, area: e.target.value})} />
                         <input placeholder="Degree (e.g. BS)" className="h-10 px-3 rounded-lg glass text-sm" value={item.degree || ""} onChange={e => updateItem({...item, degree: e.target.value})} />
-                        <input placeholder="Date" className="h-10 px-3 rounded-lg glass text-sm" value={item.date || ""} onChange={e => updateItem({...item, date: e.target.value})} />
+                        <input placeholder="Date" className="h-10 px-3 rounded-lg glass text-sm" 
+                          value={item.date || (item.start_date ? `${item.start_date} to ${item.end_date || 'Present'}` : "")} 
+                          onChange={e => {
+                            const copy = {...item, date: e.target.value};
+                            delete copy.start_date;
+                            delete copy.end_date;
+                            updateItem(copy);
+                          }} 
+                        />
                       </div>
                     )}
                   />
