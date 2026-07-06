@@ -23,6 +23,7 @@ python-telegram-bot
 # ── Stage 1: Harvesting ───────────────────────────────────
 # (All free APIs — no SerpApi needed)
 duckduckgo-search      # context researcher + genuity checker
+beautifulsoup4         # html parsing for web scraping
 
 # ── Stage 2: Embeddings ───────────────────────────────────
 numpy

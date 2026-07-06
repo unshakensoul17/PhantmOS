@@ -10,18 +10,27 @@ import { useAuth } from "../hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "../lib/api";
 
-const NAV = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-  { icon: FileText, label: "Resume Studio", path: "/resume-studio" },
-  { icon: Search, label: "Job Discovery", badge: "128", path: "/job-discovery" },
-  { icon: Building2, label: "Company Research", path: "/company-research" },
-  { icon: Send, label: "Applications", badge: "24", path: "/applications" },
-  { icon: Settings, label: "Settings", path: "/settings" },
-];
-
 function Sidebar() {
   const location = useLocation();
   const { signOut } = useAuth();
+  
+  const { data: stats } = useQuery({
+    queryKey: ["dashboard-stats"],
+    queryFn: async () => {
+      const res = await apiFetch("/api/stats");
+      if (!res.ok) return { discovered: 0, applied: 0 };
+      return res.json();
+    }
+  });
+
+  const NAV = [
+    { icon: LayoutDashboard, label: "Dashboard", path: "/" },
+    { icon: FileText, label: "Resume Studio", path: "/resume-studio" },
+    { icon: Search, label: "Job Discovery", badge: stats?.discovered?.toString() || "0", path: "/job-discovery" },
+    { icon: Building2, label: "Company Research", path: "/company-research" },
+    { icon: Send, label: "Applications", badge: stats?.applied?.toString() || "0", path: "/applications" },
+    { icon: Settings, label: "Settings", path: "/settings" },
+  ];
   
   return (
     <aside className="hidden lg:flex fixed left-0 top-0 h-screen w-64 flex-col glass-strong border-r border-white/8 z-40">
@@ -73,13 +82,19 @@ function Sidebar() {
 
       <div className="p-3 border-t border-white/5">
         <div className="glass rounded-xl p-3">
-          <div className="flex items-center gap-2 mb-2">
-            <Cpu className="w-3.5 h-3.5 text-neon-green" />
-            <span className="text-[12px] font-mono text-muted-foreground">Engine Load</span>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Cpu className="w-3.5 h-3.5 text-neon-green" />
+              <span className="text-[12px] font-mono text-muted-foreground">Engine Usage</span>
+            </div>
+            <span className="text-[10px] font-mono text-neon-cyan">42%</span>
           </div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-bold font-mono text-glow-cyan text-neon-cyan">42</span>
-            <span className="text-xs text-muted-foreground">%</span>
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-mono text-muted-foreground">Tokens</span>
+            <div className="flex items-baseline gap-1">
+              <span className="text-lg font-bold font-mono text-glow-cyan text-neon-cyan">3,360</span>
+              <span className="text-xs text-muted-foreground">/ 8,000</span>
+            </div>
           </div>
           <div className="mt-2 h-1 rounded-full bg-white/5 overflow-hidden">
             <div className="h-full w-[42%] bg-gradient-to-r from-neon-blue to-neon-cyan" />
@@ -135,9 +150,9 @@ function TopBar() {
             placeholder="Search jobs, companies, agents…"
             className="w-full h-11 pl-10 pr-20 rounded-xl glass text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-neon-blue/50"
           />
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 px-2 py-1 rounded-md bg-white/5 border border-white/10">
-            <Command className="w-3 h-3" />
-            <span className="text-[12px] font-mono">K</span>
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 px-2 py-1 rounded-md bg-white/5 border border-white/10 text-muted-foreground">
+            <span className="text-[11px] font-bold">Ctrl</span>
+            <span className="text-[11px] font-bold">K</span>
           </div>
         </div>
       </div>
@@ -156,19 +171,21 @@ function TopBar() {
           color={health?.status === "ok" ? "cyan" : "amber"} 
         />
 
-        <div className="flex items-center gap-2 pl-2 ml-1 border-l border-white/10">
-          <div className="text-right hidden xl:block">
-            <div className="text-xs font-semibold leading-tight">{user?.email?.split('@')[0] || 'User'}</div>
-            <div className="text-[12px] font-mono text-neon-cyan">AUTHENTICATED</div>
-          </div>
-          <div className="relative">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-neon-purple via-neon-blue to-neon-cyan p-[1.5px] cursor-pointer" onClick={() => signOut()}>
-              <div className="w-full h-full rounded-[10px] bg-[#0B1020] grid place-items-center">
-                <LogOut className="w-4 h-4 text-white" />
-              </div>
+        <div className="flex items-center gap-3 pl-4 ml-2 border-l border-white/10">
+          <div className="text-right hidden sm:block">
+            <div className="text-sm font-medium leading-none text-white/90">{user?.email?.split('@')[0] || 'User'}</div>
+            <div className="flex items-center justify-end gap-1.5 mt-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse-glow" />
+              <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Online</div>
             </div>
-            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-neon-green ring-2 ring-[#0B1020]" />
           </div>
+          <button 
+            onClick={() => signOut()}
+            className="w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 hover:border-white/20 hover:text-red-400 transition-colors text-muted-foreground ml-1"
+            title="Sign Out"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </header>

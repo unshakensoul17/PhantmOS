@@ -287,9 +287,13 @@ def get_all_stats(user_id: Optional[str] = None) -> dict:
         stats_resp = client.rpc("get_dashboard_stats", {"user_id_param": user_id}).execute()
         base_stats = stats_resp.data if stats_resp.data else {
             "total": 0, "found": 0, "tailored": 0, "approved": 0,
-            "applied": 0, "dismissed": 0, "hot": 0, "warm": 0, "cold": 0
+            "applied": 0, "dismissed": 0, "hot": 0, "warm": 0, "cold": 0, "interviews": 0
         }
         
+        # Ensure interviews key exists if RPC doesn't return it yet
+        if "interviews" not in base_stats:
+            base_stats["interviews"] = 0
+            
         # Initialize additional fields
         base_stats["sources"] = {}
         base_stats["scores"] = [0] * 20
@@ -304,7 +308,9 @@ def get_all_stats(user_id: Optional[str] = None) -> dict:
             
             score = row.get("score")
             if score is not None:
-                bucket = min(19, int(score / 5))
+                # Use friend's updated score_val logic if it's 0-1
+                score_val = score * 100 if score <= 1.0 else score
+                bucket = min(19, int(score_val / 5))
                 base_stats["scores"][bucket] += 1
                 
         return base_stats
@@ -316,14 +322,25 @@ def get_all_stats(user_id: Optional[str] = None) -> dict:
 def _fallback_get_all_stats(user_id: str) -> dict:
     try:
         client = get_client()
-        q = client.table("user_job_pipelines").select("status, score_band, score, global_jobs(source)").eq("user_id", user_id)
+        q = client.table("user_job_pipelines").select("status, score_band, match_score, global_jobs(source)")
+        if user_id:
+            q = q.eq("user_id", user_id)
         resp = q.execute()
         leads = resp.data or []
 
         stats: dict[str, any] = {
-            "total": len(leads), "found": 0, "tailored": 0, "approved": 0,
-            "applied": 0, "dismissed": 0, "hot": 0, "warm": 0, "cold": 0,
-            "sources": {}, "scores": [0] * 20
+            "total": len(leads),
+            "found": 0,
+            "tailored": 0,
+            "approved": 0,
+            "applied": 0,
+            "dismissed": 0,
+            "hot": 0,
+            "warm": 0,
+            "cold": 0,
+            "interviews": 0,
+            "sources": {},
+            "scores": [0] * 20, # 20 buckets for score histogram
         }
         for lead in leads:
             s = (lead.get("status") or "").lower()
@@ -333,17 +350,21 @@ def _fallback_get_all_stats(user_id: str) -> dict:
             elif s == "approved": stats["approved"] += 1
             elif s == "applied": stats["applied"] += 1
             elif s == "dismissed": stats["dismissed"] += 1
+            elif s in ["interviewing", "offer"]: stats["interviews"] += 1
             
             if b == "hot" or b == "a": stats["hot"] += 1
             elif b == "warm" or b == "b": stats["warm"] += 1
             elif b == "cold" or b == "c": stats["cold"] += 1
             
-            src = lead.get("global_jobs", {}).get("source", "unknown")
+            # Source
+            src = lead.get("global_jobs", {}).get("source", "unknown") if lead.get("global_jobs") else "unknown"
             stats["sources"][src] = stats["sources"].get(src, 0) + 1
             
-            score = lead.get("score")
-            if score is not None:
-                bucket = min(19, int(score / 5))
+            # Score distribution
+            match_score = lead.get("match_score")
+            if match_score is not None:
+                score_val = match_score * 100 if match_score <= 1.0 else match_score
+                bucket = min(19, int(score_val / 5)) # 0-4, 5-9, ..., 95-100
                 stats["scores"][bucket] += 1
         return stats
     except Exception as e:

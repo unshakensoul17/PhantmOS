@@ -113,6 +113,7 @@ async def get_stats(user_id: str = Depends(get_current_user_id)):
             "applied":    stats.get("applied", 0),
             "dismissed":  stats.get("dismissed", 0),
             "total":      stats.get("total", 0),
+            "interviews": stats.get("interviews", 0),
             "sources":    stats.get("sources", {}),
             "scores":     stats.get("scores", []),
             "approved":   stats.get("approved", 0),
@@ -210,7 +211,7 @@ async def fetch_profile(user_id: str = Depends(get_current_user_id)):
     profile = get_profile(user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found.")
-    return profile.get("resume_data", {})
+    return profile.get("resume_data") or {}
 
 
 @app.post("/api/profile")
@@ -321,8 +322,12 @@ async def upload_master_resume(
             reader = pypdf.PdfReader(f)
             for page in reader.pages:
                 text += page.extract_text() + "\n"
+        
+        # Truncate text to avoid 413 Payload Too Large errors (Groq token limit)
+        text = text[:10000]
                 
         system_prompt = '''You are an expert resume parser. Extract the user's details from the following resume text and output ONLY a valid JSON object matching the strict RenderCV schema below. 
+If the text provided does NOT appear to be a resume or CV, output exactly: {"error": "invalid_resume"}
 Do NOT wrap the output in markdown blocks (e.g. ```json). Just output raw JSON.
 
 Schema requirements:
@@ -378,6 +383,10 @@ Schema requirements:
             if parsed_data.startswith("```json"):
                 parsed_data = parsed_data[7:-3]
             parsed_data = json.loads(parsed_data)
+            
+        if "error" in parsed_data:
+            os.remove(file_path)
+            raise HTTPException(status_code=400, detail="The uploaded PDF does not appear to be a valid resume.")
             
         json_path = os.path.join(RESUMES_DIR, f"master_{user_id}.json")
         with open(json_path, "w") as f:

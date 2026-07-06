@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Layout } from "../components/Layout";
 import { Upload, Check, Loader2, Save, Plus, Trash2, Code } from "lucide-react";
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/resume-studio")({
   component: ResumeStudioPage,
@@ -38,7 +39,7 @@ function ResumeStudioPage() {
         const res = await apiFetch("/api/profile");
         if (res.ok) {
           const data = await res.json();
-          if (Object.keys(data).length > 0) {
+          if (data && Object.keys(data).length > 0) {
             setProfile(data);
           } else {
             setProfile(DEFAULT_PROFILE);
@@ -75,10 +76,10 @@ function ResumeStudioPage() {
         body: JSON.stringify({ resume_data: payload }),
       });
       if (!res.ok) throw new Error("Failed to save");
-      alert("Profile Saved Successfully!");
+      toast.success("Profile Saved Successfully!");
       if (viewMode === "json") setProfile(payload);
     } catch (err: any) {
-      alert("Save Failed: " + err.message);
+      toast.error("Save Failed: " + err.message);
     }
     setIsSaving(false);
   };
@@ -91,16 +92,20 @@ function ResumeStudioPage() {
       formData.append("resume", e.target.files[0]);
       try {
         const res = await apiFetch("/api/profile/upload", { method: "POST", body: formData });
-        if (!res.ok) throw new Error("Failed to upload");
+        if (!res.ok) {
+            const errData = await res.json().catch(() => null);
+            throw new Error(errData?.detail || "Failed to upload");
+        }
         const data = await res.json();
         if (data.status === "success" && data.profile) {
             setProfile(data.profile);
+            toast.success("Resume uploaded successfully!");
         }
         setIsUploading(false);
-      } catch (err) {
+      } catch (err: any) {
         console.error(err);
         setIsUploading(false);
-        alert("Parsing failed.");
+        toast.error(err.message || "Parsing failed.");
       }
     }
   };
@@ -200,6 +205,14 @@ function ResumeStudioPage() {
                       <div className="col-span-2">
                         <label className="text-xs font-mono text-muted-foreground mb-1 block">Location</label>
                         <input className="w-full h-10 px-3 rounded-lg glass text-sm" value={profile.cv?.location || ""} onChange={e => updateProfile(d => d.cv.location = e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="text-xs font-mono text-muted-foreground mb-1 block">LinkedIn URL</label>
+                        <input className="w-full h-10 px-3 rounded-lg glass text-sm" value={profile.cv?.linkedin || ""} onChange={e => updateProfile(d => { if(!d.cv) d.cv={}; d.cv.linkedin = e.target.value })} placeholder="https://linkedin.com/in/..." />
+                      </div>
+                      <div>
+                        <label className="text-xs font-mono text-muted-foreground mb-1 block">GitHub / Portfolio URL</label>
+                        <input className="w-full h-10 px-3 rounded-lg glass text-sm" value={profile.cv?.portfolio || ""} onChange={e => updateProfile(d => { if(!d.cv) d.cv={}; d.cv.portfolio = e.target.value })} placeholder="https://github.com/..." />
                       </div>
                       <div className="col-span-2">
                         <label className="text-xs font-mono text-muted-foreground mb-1 block">Professional Summary</label>
