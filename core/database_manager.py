@@ -224,7 +224,7 @@ def get_existing_dedup_hashes(hashes: list[str], user_id: Optional[str] = None) 
 def get_all_stats(user_id: Optional[str] = None) -> dict:
     """Aggregate pipeline statistics for the dashboard and daily digest."""
     try:
-        q = get_client().table("user_job_pipelines").select("status, score_band, score, global_jobs(source)")
+        q = get_client().table("user_job_pipelines").select("status, score_band, match_score, global_jobs(source)")
         if user_id:
             q = q.eq("user_id", user_id)
         resp = q.execute()
@@ -240,6 +240,7 @@ def get_all_stats(user_id: Optional[str] = None) -> dict:
             "hot": 0,
             "warm": 0,
             "cold": 0,
+            "interviews": 0,
             "sources": {},
             "scores": [0] * 20, # 20 buckets for score histogram
         }
@@ -253,6 +254,7 @@ def get_all_stats(user_id: Optional[str] = None) -> dict:
             elif s == "approved": stats["approved"] += 1
             elif s == "applied": stats["applied"] += 1
             elif s == "dismissed": stats["dismissed"] += 1
+            elif s in ["interviewing", "offer"]: stats["interviews"] += 1
             
             # Band
             if b == "hot" or b == "a": stats["hot"] += 1
@@ -260,13 +262,14 @@ def get_all_stats(user_id: Optional[str] = None) -> dict:
             elif b == "cold" or b == "c": stats["cold"] += 1
             
             # Source
-            src = lead.get("global_jobs", {}).get("source", "unknown")
+            src = lead.get("global_jobs", {}).get("source", "unknown") if lead.get("global_jobs") else "unknown"
             stats["sources"][src] = stats["sources"].get(src, 0) + 1
             
             # Score distribution
-            score = lead.get("score")
-            if score is not None:
-                bucket = min(19, int(score / 5)) # 0-4, 5-9, ..., 95-100
+            match_score = lead.get("match_score")
+            if match_score is not None:
+                score_val = match_score * 100 if match_score <= 1.0 else match_score
+                bucket = min(19, int(score_val / 5)) # 0-4, 5-9, ..., 95-100
                 stats["scores"][bucket] += 1
                 
         return stats

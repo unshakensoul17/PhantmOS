@@ -32,7 +32,19 @@ function SettingsPage() {
 
   useEffect(() => {
     if (data) {
-      setLocalSettings(data);
+      const defaultSettings = {
+        llm: { groq_api_key: "", gemini_api_key: "", primary_engine: "groq|llama-3.1-8b-instant", secondary_engine: "groq|llama-3.1-8b-instant" },
+        scoring: { target_roles: [], blacklist_keywords: [], blacklist_companies: [], telegram_threshold: 80 },
+        scheduler: { frequency_hours: 4, pause_weekends: true },
+        notifications: { daily_digest: true, instant_telegram_alerts: false }
+      };
+      
+      setLocalSettings({
+        llm: { ...defaultSettings.llm, ...(data.llm || {}) },
+        scoring: { ...defaultSettings.scoring, ...(data.scoring || {}) },
+        scheduler: { ...defaultSettings.scheduler, ...(data.scheduler || {}) },
+        notifications: { ...defaultSettings.notifications, ...(data.notifications || {}) },
+      });
     }
   }, [data]);
 
@@ -145,15 +157,15 @@ function SettingsPage() {
                         onChange={(e) => updateLLM('primary_engine', e.target.value)}
                         className="w-full h-11 px-4 rounded-xl glass bg-black/40 border border-white/10 focus:outline-none focus:border-neon-purple/50 appearance-none"
                       >
-                        <optgroup label="Groq (Ultra-Fast)">
-                          <option value="groq|llama-3.1-8b-instant">Llama 3.1 8B Instant</option>
-                          <option value="groq|llama3-70b-8192">Llama 3 70B</option>
-                          <option value="groq|mixtral-8x7b-32768">Mixtral 8x7B</option>
-                          <option value="groq|gemma2-9b-it">Gemma 2 9B IT</option>
+                        <optgroup label="Groq (Ultra-Fast)" className="bg-[#0B1020] text-white font-semibold">
+                          <option value="groq|llama-3.1-8b-instant" className="bg-[#0B1020] text-white">Llama 3.1 8B Instant</option>
+                          <option value="groq|llama3-70b-8192" className="bg-[#0B1020] text-white">Llama 3 70B</option>
+                          <option value="groq|mixtral-8x7b-32768" className="bg-[#0B1020] text-white">Mixtral 8x7B</option>
+                          <option value="groq|gemma2-9b-it" className="bg-[#0B1020] text-white">Gemma 2 9B IT</option>
                         </optgroup>
-                        <optgroup label="Google Gemini">
-                          <option value="gemini|gemini-1.5-flash">Gemini 1.5 Flash</option>
-                          <option value="gemini|gemini-1.5-pro">Gemini 1.5 Pro</option>
+                        <optgroup label="Google Gemini" className="bg-[#0B1020] text-white font-semibold">
+                          <option value="gemini|gemini-1.5-flash" className="bg-[#0B1020] text-white">Gemini 1.5 Flash</option>
+                          <option value="gemini|gemini-1.5-pro" className="bg-[#0B1020] text-white">Gemini 1.5 Pro</option>
                         </optgroup>
                       </select>
                     </div>
@@ -164,15 +176,15 @@ function SettingsPage() {
                         onChange={(e) => updateLLM('secondary_engine', e.target.value)}
                         className="w-full h-11 px-4 rounded-xl glass bg-black/40 border border-white/10 focus:outline-none focus:border-neon-purple/50 appearance-none"
                       >
-                        <optgroup label="Google Gemini">
-                          <option value="gemini|gemini-1.5-flash">Gemini 1.5 Flash</option>
-                          <option value="gemini|gemini-1.5-pro">Gemini 1.5 Pro</option>
+                        <optgroup label="Google Gemini" className="bg-[#0B1020] text-white font-semibold">
+                          <option value="gemini|gemini-1.5-flash" className="bg-[#0B1020] text-white">Gemini 1.5 Flash</option>
+                          <option value="gemini|gemini-1.5-pro" className="bg-[#0B1020] text-white">Gemini 1.5 Pro</option>
                         </optgroup>
-                        <optgroup label="Groq (Ultra-Fast)">
-                          <option value="groq|llama-3.1-8b-instant">Llama 3.1 8B Instant</option>
-                          <option value="groq|llama3-70b-8192">Llama 3 70B</option>
-                          <option value="groq|mixtral-8x7b-32768">Mixtral 8x7B</option>
-                          <option value="groq|gemma2-9b-it">Gemma 2 9B IT</option>
+                        <optgroup label="Groq (Ultra-Fast)" className="bg-[#0B1020] text-white font-semibold">
+                          <option value="groq|llama-3.1-8b-instant" className="bg-[#0B1020] text-white">Llama 3.1 8B Instant</option>
+                          <option value="groq|llama3-70b-8192" className="bg-[#0B1020] text-white">Llama 3 70B</option>
+                          <option value="groq|mixtral-8x7b-32768" className="bg-[#0B1020] text-white">Mixtral 8x7B</option>
+                          <option value="groq|gemma2-9b-it" className="bg-[#0B1020] text-white">Gemma 2 9B IT</option>
                         </optgroup>
                       </select>
                     </div>
@@ -331,10 +343,10 @@ function SettingsPage() {
                       onChange={(e) => updateScheduler('frequency_hours', parseInt(e.target.value))}
                       className="w-full h-11 px-4 rounded-xl glass bg-black/40 border border-white/10 focus:outline-none focus:border-neon-blue/50 appearance-none"
                     >
-                      <option value={2}>Every 2 Hours (Aggressive)</option>
-                      <option value={4}>Every 4 Hours (Balanced)</option>
-                      <option value={12}>Twice a day (Conservative)</option>
-                      <option value={24}>Once a day</option>
+                      <option value={2} className="bg-[#0B1020] text-white">Every 2 Hours (Aggressive)</option>
+                      <option value={4} className="bg-[#0B1020] text-white">Every 4 Hours (Balanced)</option>
+                      <option value={12} className="bg-[#0B1020] text-white">Twice a day (Conservative)</option>
+                      <option value={24} className="bg-[#0B1020] text-white">Once a day</option>
                     </select>
                   </div>
 
