@@ -21,6 +21,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Font rendering
     fonts-liberation \
     fontconfig \
+    # Node.js for frontend build
+    nodejs \
+    npm \
     # General utilities
     curl \
     git \
@@ -35,6 +38,9 @@ RUN pip install --upgrade pip && pip install -r /app/requirements.txt
 
 # ── Application code ──────────────────────────────────────────────────────────
 COPY . /app
+
+# ── Build frontend ─────────────────────────────────────────────────────────────
+RUN cd /app/frontend && npm ci && npm run build
 
 RUN chmod +x /app/entrypoint.sh
 

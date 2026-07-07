@@ -739,7 +739,8 @@ async def health_check():
 
 
 # ── SPA Fallback ──────────────────────────────────────────────────────────────
-FRONTEND_DIST = os.path.join(os.getcwd(), "frontend", "dist", "client")
+# TanStack Start (Nitro) builds static assets to frontend/.output/public
+FRONTEND_DIST = os.path.join(os.getcwd(), "frontend", ".output", "public")
 
 @app.get("/{full_path:path}")
 async def serve_frontend(full_path: str):
