@@ -4,10 +4,11 @@ import sys
 from datetime import datetime
 
 from core.database_manager import get_client
-from core.logger import setup_logger
+from core.logger import get_logger
 from agents.discovery_agent import DiscoveryAgent
+import logging
 
-logger = setup_logger("GlobalHarvester", level="INFO")
+logger = get_logger("GlobalHarvester", level=logging.INFO)
 
 async def run_global_harvest():
     """

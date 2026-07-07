@@ -5,9 +5,12 @@ Uses BM25 search scoring to pre-filter harvested jobs based on relevance,
 dropping completely unrelated jobs before they hit the database.
 """
 from rank_bm25 import BM25Okapi
-from core.config import EXCLUDE_KEYWORDS, REQUIRED_KEYWORDS
 from core.logger import get_logger
 import re
+
+# Hardcoded fallback lists (formerly in config.py)
+EXCLUDE_KEYWORDS = ["clearance", "polygraph", "ts/sci", "secret clearance", "us citizen only"]
+REQUIRED_KEYWORDS = []
 
 logger = get_logger(__name__)
 

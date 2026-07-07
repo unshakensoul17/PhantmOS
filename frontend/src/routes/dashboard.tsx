@@ -22,7 +22,8 @@ function HeroStats() {
       const res = await apiFetch("/api/stats");
       if (!res.ok) return { total: 0, hot: 0, warm: 0, applied: 0 };
       return res.json();
-    }
+    },
+    refetchInterval: 15000,
   });
 
   const STATS = [
@@ -563,7 +564,8 @@ function Analytics() {
       const res = await apiFetch("/api/stats");
       if (!res.ok) return null;
       return res.json();
-    }
+    },
+    refetchInterval: 15000,
   });
 
   const weeks = stats?.weekly_applications || [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];

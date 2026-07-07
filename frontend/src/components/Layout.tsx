@@ -20,7 +20,8 @@ function Sidebar() {
       const res = await apiFetch("/api/stats");
       if (!res.ok) return { discovered: 0, applied: 0 };
       return res.json();
-    }
+    },
+    refetchInterval: 15000,
   });
 
   // Calculate total active applications for the sidebar badge
