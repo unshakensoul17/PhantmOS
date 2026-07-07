@@ -193,7 +193,14 @@ async def get_leads(
             flat["score_total"] = score_val
             flat["score"] = score_val
             leads.append(flat)
-        return leads
+            
+        # Implement LIFO for identical batches
+        from itertools import groupby
+        lifo_leads = []
+        for _, group in groupby(leads, key=lambda x: x.get("created_at")):
+            lifo_leads.extend(reversed(list(group)))
+            
+        return lifo_leads
     except Exception as e:
         logger.error(f"Leads fetch error: {e}")
         return []
