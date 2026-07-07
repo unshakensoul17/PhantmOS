@@ -11,7 +11,8 @@ from core.logger import get_logger
 
 logger = get_logger(__name__)
 
-_client: Optional[Client] = None
+import os
+_clients: dict[int, Client] = {}
 
 
 # ─────────────────────────────────────────────────────────
@@ -19,8 +20,8 @@ _client: Optional[Client] = None
 # ─────────────────────────────────────────────────────────
 
 def get_client() -> Client:
-    global _client
-    if _client is None:
+    pid = os.getpid()
+    if pid not in _clients:
         if not SUPABASE_URL or not SUPABASE_KEY:
             raise EnvironmentError(
                 "SUPABASE_URL and SUPABASE_KEY must be set in your .env file."
@@ -28,8 +29,8 @@ def get_client() -> Client:
         # Use SERVICE_ROLE_KEY if provided to bypass RLS, otherwise fallback to anon SUPABASE_KEY
         from core.config import SERVICE_ROLE_KEY
         active_key = SERVICE_ROLE_KEY if SERVICE_ROLE_KEY else SUPABASE_KEY
-        _client = create_client(SUPABASE_URL, active_key)
-    return _client
+        _clients[pid] = create_client(SUPABASE_URL, active_key)
+    return _clients[pid]
 
 
 # ─────────────────────────────────────────────────────────

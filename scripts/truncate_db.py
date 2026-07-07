@@ -32,9 +32,6 @@ TABLES = [
     "user_job_pipelines",
     # Shared job pool
     "global_jobs",
-    # Caches (safe to wipe anytime)
-    "embedding_cache",
-    "company_context",
     # User content (resume data only, not the profile itself)
     "user_resumes",
 ]
@@ -71,14 +68,12 @@ def main():
     # Per-table config: (pk_column, sentinel_value_to_exclude)
     # Supabase delete requires a filter — we use neq on the PK with an impossible value.
     TABLE_CONFIG = {
-        "stage_logs":         ("id",           "00000000-0000-0000-0000-000000000000"),
-        "user_feedback":      ("id",           "00000000-0000-0000-0000-000000000000"),
-        "delivery_queue":     ("id",           "00000000-0000-0000-0000-000000000000"),
+        "stage_logs":         ("id",           -1),
+        "user_feedback":      ("id",           -1),
+        "delivery_queue":     ("id",           -1),
         "auth_debug_logs":    ("id",           -1),           # integer PK
-        "user_job_pipelines": ("user_id",      "00000000-0000-0000-0000-000000000000"),
+        "user_job_pipelines": ("id",           "00000000-0000-0000-0000-000000000000"),
         "global_jobs":        ("job_id",       "____never____"),
-        "embedding_cache":    ("key",          "____never____"),
-        "company_context":    ("company_name", "____never____"),
         "user_resumes":       ("user_id",      "00000000-0000-0000-0000-000000000000"),
     }
 

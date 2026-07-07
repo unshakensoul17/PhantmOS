@@ -63,7 +63,7 @@ async def run_harvest(include_hn: bool = False, search_query: str = None) -> lis
     from intelligence.keyword_filter import filter_jobs_by_relevance
     filtered: list[dict] = filter_jobs_by_relevance(raw_jobs, search_query)
     logger.info(
-        f"BM25 pre-filter: {len(raw_jobs) - len(filtered)} rejected, "
+        f"Retrieval pre-filter: {len(raw_jobs) - len(filtered)} rejected, "
         f"{len(filtered)} passed."
     )
 

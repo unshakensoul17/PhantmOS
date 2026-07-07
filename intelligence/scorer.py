@@ -298,7 +298,7 @@ async def run_scoring(profile: dict, manual_query: str = None) -> dict:
         try:
             from core.database_manager import get_client
             # Perform a single bulk upsert for all scored leads!
-            get_client().table("user_job_pipelines").upsert(upsert_batch).execute()
+            get_client().table("user_job_pipelines").upsert(upsert_batch, on_conflict="user_id, job_id").execute()
         except Exception as e:
             logger.error(f"Scorer: bulk upsert failed - {e}")
 
