@@ -92,10 +92,8 @@ async def process_pipeline(manual_query: str = None, target_user_id: str = None)
             last_run = sched_prefs.get("last_run_timestamp", 0)
             now = time.time()
             
-            import datetime
-            
             pause_weekends = sched_prefs.get("pause_weekends", False)
-            if pause_weekends and datetime.datetime.now().weekday() >= 5:
+            if pause_weekends and datetime.now().weekday() >= 5:
                 continue
                 
             if now - last_run < (freq * 3600):

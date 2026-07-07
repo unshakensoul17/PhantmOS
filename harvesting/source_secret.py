@@ -22,7 +22,7 @@ URL_PATTERNS = [
     r"href=\"(https://[^\"]+apply[^\"]*)\"",
     r"href=\"(https://[^\"]+career[^\"]*)\"",
     r"href=\"(https://[^\"]+job[^\"]*)\"",
-    r"href=\"(https://(?!(?:www\." + "blog" + "ger\.com|blogspot\.com))[^\"]+)\""
+    r"href=\"(https://(?!(?:www\." + "blog" + r"ger\.com|blogspot\.com))[^\"]+)\""
 ]
 
 async def fetch_secret(limit_per_query: int = 50, search_query: str = None) -> list[dict]:
