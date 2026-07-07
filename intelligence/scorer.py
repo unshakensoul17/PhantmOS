@@ -289,7 +289,6 @@ async def run_scoring(profile: dict) -> dict:
             "status": status,
             "match_score": result.get("match_score", 0),
             "score_band": band,
-            "score_breakdown": result.get("score_breakdown"),
         }
         upsert_batch.append(pipeline_row)
         log_stage_success(job_id, "scoring")

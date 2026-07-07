@@ -52,11 +52,22 @@ def filter_jobs_by_relevance(jobs: list[dict], search_query: str = None) -> list
     # If it's exactly 0, it means NONE of the query words appeared.
     threshold = 0.0 
     
+    # Extract core domain words (ignore generic titles) to enforce strictness
+    core_tokens = {t for t in tokenized_query if t not in ('engineer', 'developer', 'manager', 'remote', 'senior', 'junior', 'specialist', 'analyst')}
+    if not core_tokens:
+        core_tokens = set(tokenized_query)
+        
     for i, job in enumerate(jobs):
         score = scores[i]
         if score > threshold:
-            if _passes_blacklist(job):
-                filtered_jobs.append(job)
+            # Additionally, enforce that at least one core domain word exists in the job
+            title = job.get("title", "")
+            desc = job.get("raw_description", "") or job.get("description", "")
+            combined_tokens = set(tokenize(f"{title} {desc}"))
+            
+            if core_tokens.intersection(combined_tokens):
+                if _passes_blacklist(job):
+                    filtered_jobs.append(job)
         else:
             pass # Silently drop, it's irrelevant
             
