@@ -25,7 +25,6 @@ python-telegram-bot
 # (All free APIs — no SerpApi needed)
 duckduckgo-search      # context researcher + genuity checker
 beautifulsoup4         # html parsing for web scraping
-rank-bm25              # BM25 keyword ranking for harvest filtering
 
 # ── Stage 2: Embeddings ───────────────────────────────────
 numpy
