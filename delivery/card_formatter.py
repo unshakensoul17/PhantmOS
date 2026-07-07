@@ -166,6 +166,9 @@ def _build_why_bullets(breakdown: dict, rationale: str) -> str:
 
 def _escape(text: str) -> str:
     """Escape Telegram MarkdownV2 special characters in user content."""
+    if text is None:
+        return ""
+    text = str(text)
     # For Markdown mode (not V2), fewer escapes needed
     special = ["_", "*", "[", "]", "(", ")", "~", "`", ">", "#",
                "+", "-", "=", "|", "{", "}", ".", "!"]
