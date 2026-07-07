@@ -119,7 +119,7 @@ function ApplicationsPage() {
             </div>
             <div className="w-px h-10 bg-white/10" />
             <div className="text-right">
-              <div className="text-2xl font-bold font-mono text-neon-green">{apps.filter(a => a.status === 'Offer').length}</div>
+              <div className="text-2xl font-bold font-mono text-neon-green">{apps.filter((a: any) => a.status === 'Offer').length}</div>
               <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Offers</div>
             </div>
           </div>
