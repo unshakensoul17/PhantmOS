@@ -1,5 +1,5 @@
 """
-synthesis/llm_groq.py — Ghost Protocol v2.0
+synthesis/llm_groq.py — PhantmOS v2.0
 
 Groq API adapter (Try 1 in the LLM waterfall).
 Model: llama-3.1-8b-instant — fastest free option.

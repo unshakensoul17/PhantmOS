@@ -1,5 +1,5 @@
 """
-agents/ats_agent.py — Ghost Protocol Multi-Agent Architecture
+agents/ats_agent.py — PhantmOS Multi-Agent Architecture
 
 Purpose:
     Evaluates tailored resumes against job descriptions to produce ATS

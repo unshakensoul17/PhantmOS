@@ -1,5 +1,5 @@
 """
-synthesis/company_research.py — Ghost Protocol v3.0
+synthesis/company_research.py — PhantmOS v3.0
 
 Module for generating AI-driven company intelligence including:
 1. Autonomous Tech-Stack Extraction

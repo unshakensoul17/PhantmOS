@@ -1,5 +1,5 @@
 """
-harvesting/source_himalayas.py — Ghost Protocol v3.0
+harvesting/source_himalayas.py — PhantmOS v3.0
 Himalayas.app Remote Jobs API adapter.
 """
 import httpx

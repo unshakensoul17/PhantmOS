@@ -1,5 +1,5 @@
 """
-core/config.py — Ghost Protocol v2.0
+core/config.py — PhantmOS v2.0
 Centralised environment variables, constants, and tuning parameters.
 All modules import from here — never from os.getenv directly.
 """

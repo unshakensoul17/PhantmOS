@@ -1,5 +1,5 @@
 """
-synthesis/llm_waterfall.py — Ghost Protocol v2.0
+synthesis/llm_waterfall.py — PhantmOS v2.0
 
 LLM fallback chain: Groq → Gemini → HuggingFace → original resume.
 

@@ -1,5 +1,5 @@
 """
-delivery/card_formatter.py — Ghost Protocol v2.0
+delivery/card_formatter.py — PhantmOS v2.0
 
 Builds rich Telegram markdown job cards.
 Format matches the v2 spec exactly:

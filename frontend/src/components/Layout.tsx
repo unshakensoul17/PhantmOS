@@ -45,7 +45,7 @@ function Sidebar() {
           <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-neon-green ring-2 ring-[#0B1020] animate-pulse-glow" />
         </div>
         <div className="min-w-0">
-          <div className="font-bold tracking-tight text-[15px] leading-tight">Ghost Protocol</div>
+          <div className="font-bold tracking-tight text-[15px] leading-tight">PhantmOS</div>
           <div className="text-[12px] font-medium text-muted-foreground">Engine v3.2</div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 """
-delivery/queue_manager.py — Ghost Protocol v2.0
+delivery/queue_manager.py — PhantmOS v2.0
 
 Supabase-backed delivery queue with retry logic.
 Processes pending deliveries and retries failures.

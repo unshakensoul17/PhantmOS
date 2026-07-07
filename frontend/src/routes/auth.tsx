@@ -119,7 +119,7 @@ function AuthComponent() {
       <div className="w-full max-w-md space-y-8 rounded-xl border bg-card p-8 shadow-sm">
         <div className="text-center">
           <h2 className="text-3xl font-bold tracking-tight text-foreground">
-            Ghost Protocol
+            PhantmOS
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">
             {uiConfig[mode].title}
@@ -177,7 +177,7 @@ function AuthComponent() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                  placeholder="agent@ghostprotocol.com"
+                  placeholder="agent@phantmos.ai"
                 />
               </div>
             )}

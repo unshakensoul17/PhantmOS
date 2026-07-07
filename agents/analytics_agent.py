@@ -1,5 +1,5 @@
 """
-agents/analytics_agent.py — Ghost Protocol Multi-Agent Architecture
+agents/analytics_agent.py — PhantmOS Multi-Agent Architecture
 
 Purpose:
     Aggregates pipeline statistics, sends daily digest reports, and

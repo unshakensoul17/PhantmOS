@@ -19,7 +19,7 @@ from synthesis.company_research import generate_company_intelligence, generate_i
 load_dotenv(override=True)
 logger = get_logger(__name__)
 
-app = FastAPI(title="Ghost Protocol v3.0 SaaS Dashboard")
+app = FastAPI(title="PhantmOS v3.0 SaaS Dashboard")
 
 # Global ProcessPool to offload the heavy orchestrator without blocking the FastAPI event loop
 process_pool = ProcessPoolExecutor(max_workers=1)
@@ -198,7 +198,7 @@ async def trigger_pipeline(request: HarvestRequest, user_id: str = Depends(get_c
     )
     return {
         "status": "ok",
-        "message": "Ghost Protocol v3.0 pipeline triggered.",
+        "message": "PhantmOS v3.0 pipeline triggered.",
         "stages": ["harvest", "scoring", "tailoring", "pdf", "delivery"],
     }
 
@@ -477,13 +477,13 @@ async def get_interview_playbook(company: str, role: str = "Software Engineer"):
     return data
 
 
-class GhostWriterRequest(BaseModel):
+class PhantmWriterRequest(BaseModel):
     job_id: str = ""
     company: str
     role: str
 
-@app.post("/api/applications/ghost-writer")
-async def ghost_writer_followup(request: GhostWriterRequest, user_id: str = Depends(get_current_user_id)):
+@app.post("/api/applications/phantm-writer")
+async def phantm_writer_followup(request: PhantmWriterRequest, user_id: str = Depends(get_current_user_id)):
     """Generate a highly professional follow-up email."""
     # Fetch user preferences for BYOK
     profile = get_profile(user_id) or {}
@@ -550,7 +550,7 @@ Job Context:
         email_text = f"Subject: {subject}\n\n{body}"
         return {"status": "ok", "email": email_text, "target_email": target_email or ""}
     except Exception as e:
-        logger.error(f"Ghost Writer Error: {e}")
+        logger.error(f"Phantm Writer Error: {e}")
         raise HTTPException(status_code=500, detail="Failed to generate email")
 
 
@@ -713,7 +713,7 @@ async def update_settings(request: Request, user_id: str = Depends(get_current_u
 @app.get("/api/health")
 async def health_check():
     """Basic liveness probe for Hugging Face Spaces."""
-    return {"status": "ok", "version": "3.0", "service": "Ghost Protocol"}
+    return {"status": "ok", "version": "3.0", "service": "PhantmOS"}
 
 
 # ── SPA Fallback ──────────────────────────────────────────────────────────────
@@ -734,5 +734,5 @@ async def serve_frontend(full_path: str):
     raise HTTPException(status_code=404, detail="Frontend build not found.")
 
 if __name__ == "__main__":
-    logger.info("🚀 Ghost Protocol v3.0 SaaS Dashboard → http://localhost:8080")
+    logger.info("🚀 PhantmOS v3.0 SaaS Dashboard → http://localhost:8080")
     uvicorn.run(app, host="0.0.0.0", port=8080)

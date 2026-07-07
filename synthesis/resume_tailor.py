@@ -1,5 +1,5 @@
 """
-synthesis/resume_tailor.py — Ghost Protocol v2.0  (Tailor Orchestrator)
+synthesis/resume_tailor.py — PhantmOS v2.0  (Tailor Orchestrator)
 
 Tiered tailoring strategy based on score band:
   HOT  (85%+) → Full tailoring: company research + LLM waterfall + cold email

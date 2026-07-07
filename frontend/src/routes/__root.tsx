@@ -79,10 +79,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Ghost Protocol Engine — Autonomous AI Job Search Command Center" },
+      { title: "PhantmOS Engine — Autonomous AI Job Search Command Center" },
       { name: "description", content: "Enterprise-grade autonomous AI job search ecosystem. Multi-agent discovery, ranking, resume tailoring, and application automation." },
-      { name: "author", content: "Ghost Protocol" },
-      { property: "og:title", content: "Ghost Protocol Engine" },
+      { name: "author", content: "PhantmOS" },
+      { property: "og:title", content: "PhantmOS Engine" },
       { property: "og:description", content: "Autonomous AI Job Search Command Center — multi-agent recruitment automation." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

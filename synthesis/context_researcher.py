@@ -1,5 +1,5 @@
 """
-synthesis/context_researcher.py — Ghost Protocol v2.0
+synthesis/context_researcher.py — PhantmOS v2.0
 
 Cached DuckDuckGo company research.
 - Checks Supabase company_context table first (cache TTL: 7 days)

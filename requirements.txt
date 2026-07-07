@@ -1,9 +1,10 @@
-# Ghost Protocol v2.0 — Python Dependencies
+# PhantmOS v3.0 — Python Dependencies
 # ─────────────────────────────────────────────────────────
 
 # Core framework
 fastapi
 uvicorn[standard]
+python-multipart
 python-dotenv
 pydantic
 cryptography
@@ -37,15 +38,7 @@ sentence-transformers  # local fallback model (paraphrase-MiniLM-L3-v2, ~50MB)
 # Gemini: called via httpx REST API — no SDK needed
 # HuggingFace: called via httpx — no package needed
 
-# ── Stage 4: PDF generation ───────────────────────────────
-
-# ── Legacy / utility ──────────────────────────────────────
-# google-search-results  ← REMOVED (replaced by free APIs)
-# rendercv[full]         ← REMOVED (replaced by WeasyPrint)
-# fastembed              ← REMOVED (replaced by Jina AI + sentence-transformers)
-pypdf
-python-multipart
-requests 
-fastapi
-rendercv>=0.3.0
-typst
+# ── Stage 4: PDF generation & parsing ──────────────────────
+rendercv>=0.3.0        # core PDF generation engine
+typst                  # pdf compiler required by rendercv
+pypdf                  # text extraction from uploaded master resumes

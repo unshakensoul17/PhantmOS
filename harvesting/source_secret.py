@@ -1,5 +1,5 @@
 """
-harvesting/source_secret.py — Ghost Protocol v3.0
+harvesting/source_secret.py — PhantmOS v3.0
 
 Adapter for the private/secret Job Feed Database.
 """
@@ -91,7 +91,7 @@ def _extract_apply_link(html_content: str) -> str:
     return ""
 
 def _normalise(entry: dict) -> dict:
-    """Map entry fields → Ghost Protocol standard schema."""
+    """Map entry fields → PhantmOS standard schema."""
     title = entry.get("title", {}).get("$t", "")
     author = entry.get("author", [{}])[0].get("name", {}).get("$t", "Unknown")
     
@@ -105,9 +105,22 @@ def _normalise(entry: dict) -> dict:
     soup = BeautifulSoup(html_content, 'html.parser')
     raw_desc = soup.get_text(separator=" ", strip=True)
     
+    # BUG-18 fix: Extract company from title if possible (e.g. "Software Engineer at Google")
+    company = author
+    if " at " in title:
+        parts = title.split(" at ")
+        if len(parts) >= 2:
+            company = parts[-1].strip()
+    elif apply_link:
+        # Fallback to domain name if title extraction fails
+        from urllib.parse import urlparse
+        domain = urlparse(apply_link).netloc
+        if domain:
+            company = domain.replace("www.", "").split(".")[0].title()
+
     return {
         "title":           title,
-        "company":         author,
+        "company":         company,
         "job_url":         apply_link,
         "raw_description": raw_desc,
         "source":          "secret",

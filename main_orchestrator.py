@@ -1,5 +1,5 @@
 """
-main_orchestrator.py — Ghost Protocol v3.0 (Multi-Agent Architecture)
+main_orchestrator.py — PhantmOS v3.0 (Multi-Agent Architecture)
 
 Master pipeline coordinator — delegates ALL business logic to agents.
 
@@ -33,6 +33,7 @@ from agents import (
     ApplicationAgent,
     AnalyticsAgent,
 )
+from global_harvester import run_global_harvest
 
 load_dotenv()
 logger = get_logger(__name__)
@@ -51,11 +52,11 @@ analytics_agent   = AnalyticsAgent()
 
 async def process_pipeline(manual_query: str = None, target_user_id: str = None) -> dict:
     """
-    Full end-to-end Ghost Protocol pipeline.
+    Full end-to-end PhantmOS pipeline.
     Coordinates agents in sequence — contains no business logic itself.
     """
     logger.info("\n========================================")
-    logger.info("  GHOST PROTOCOL v3.0 — Pipeline Start")
+    logger.info("  PHANTMOS v3.0 — Pipeline Start")
     logger.info(f"  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     logger.info("========================================\n")
 
@@ -149,6 +150,17 @@ async def process_pipeline(manual_query: str = None, target_user_id: str = None)
 
         if credits <= 0 and not has_byok:
             logger.warning(f"User {user_id} has no credits and no BYOK — skipping LLM pipeline.")
+            
+            # BUG-13 fix: Alert the user via Telegram that they are out of credits
+            try:
+                from interface.telegram_delivery import bot
+                chat_id = profile.get("telegram_chat_id")
+                if bot and chat_id:
+                    msg = "⚠️ *Pipeline Paused: Out of Credits*\n\nYou have 0 credits remaining and no personal API keys configured. Please upgrade your plan or add your API keys in the dashboard to resume job discovery."
+                    await bot.send_message(chat_id=chat_id, text=msg, parse_mode="Markdown")
+            except Exception as e:
+                logger.error(f"Failed to send credit alert to {user_id}: {e}")
+
             user_summary["status"] = "skipped_insufficient_balance"
             summary["details"][user_id] = user_summary
             continue
@@ -198,7 +210,7 @@ async def process_pipeline(manual_query: str = None, target_user_id: str = None)
 
     # ── Record pipeline run ───────────────────────────────────────────────────
     logger.info("\n========================================")
-    logger.info("  GHOST PROTOCOL v3.0 — Pipeline Done")
+    logger.info("  PHANTMOS v3.0 — Pipeline Done")
     logger.info("========================================\n")
     analytics_agent.record(summary)
     return summary
@@ -243,6 +255,11 @@ async def _scheduled_digest():
     await analytics_agent.send_digest()
 
 
+async def _scheduled_global_harvest():
+    """Wrapper to run the background global job harvester."""
+    await run_global_harvest()
+
+
 async def main():
     """Initialise and start APScheduler in a pure asyncio loop."""
     scheduler = AsyncIOScheduler(timezone=DEFAULT_TIMEZONE)
@@ -263,14 +280,22 @@ async def main():
     )
     logger.info(f"Scheduled daily digest at {DIGEST_HOUR:02d}:{DIGEST_MINUTE:02d} {DEFAULT_TIMEZONE}")
 
+    # BUG-12 fix: schedule global harvester
+    scheduler.add_job(
+        _scheduled_global_harvest, "interval",
+        hours=4,
+        id="global_harvest",
+    )
+    logger.info("Scheduled global harvester to run every 4 hours.")
+
     scheduler.start()
-    logger.info("Ghost Protocol v3.0 Scheduler active. Waiting…")
+    logger.info("PhantmOS v3.0 Scheduler active. Waiting…")
 
     try:
         while True:
             await asyncio.sleep(3600)
     except (KeyboardInterrupt, SystemExit):
-        logger.info("Ghost Protocol shutting down.")
+        logger.info("PhantmOS shutting down.")
 
 
 if __name__ == "__main__":

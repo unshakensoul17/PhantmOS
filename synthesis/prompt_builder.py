@@ -1,5 +1,5 @@
 """
-synthesis/prompt_builder.py — Ghost Protocol v2.0
+synthesis/prompt_builder.py — PhantmOS v2.0
 
 Strict prompt templates for HOT (full tailor) and WARM (light tailor).
 The LLM is given no wiggle room — output schema is enforced.

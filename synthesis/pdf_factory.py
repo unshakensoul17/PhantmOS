@@ -1,5 +1,5 @@
 """
-synthesis/pdf_factory.py — Ghost Protocol v2.0 (RenderCV/Typst Backend)
+synthesis/pdf_factory.py — PhantmOS v2.0 (RenderCV/Typst Backend)
 
 Async PDF generation pipeline:
   1. Adapt AI JSON to strict RenderCV schema.

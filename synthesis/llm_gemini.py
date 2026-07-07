@@ -1,5 +1,5 @@
 """
-synthesis/llm_gemini.py — Ghost Protocol v2.0
+synthesis/llm_gemini.py — PhantmOS v2.0
 
 Google Gemini Flash adapter (Try 2 in the LLM waterfall).
 Model: gemini-1.5-flash — generous free tier (1,500 req/day).

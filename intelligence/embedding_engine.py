@@ -1,5 +1,5 @@
 """
-intelligence/embedding_engine.py — Ghost Protocol v2.0
+intelligence/embedding_engine.py — PhantmOS v2.0
 
 Embedding layer with primary Jina AI API + local fallback.
 

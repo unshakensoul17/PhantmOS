@@ -1,5 +1,5 @@
 """
-interface/telegram_delivery.py — Ghost Protocol v2.0
+interface/telegram_delivery.py — PhantmOS v2.0
 
 Rich job card delivery with HOT/WARM bands.
 3-button inline keyboard: ✅ Auto-Apply | 👀 Review | ❌ Skip
@@ -36,7 +36,7 @@ load_dotenv()
 logger = get_logger(__name__)
 
 # FastAPI app (webhook endpoint)
-app = FastAPI(title="Ghost Protocol Webhook")
+app = FastAPI(title="PhantmOS Webhook")
 
 # Telegram bot + application
 bot         = Bot(token=TELEGRAM_BOT_TOKEN) if TELEGRAM_BOT_TOKEN else None
@@ -128,12 +128,12 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         from core.database_manager import update_profile
         try:
             update_profile({"telegram_chat_id": str(chat_id)}, user_id=user_id)
-            await update.message.reply_text("✅ Ghost Protocol connected successfully to your account!")
+            await update.message.reply_text("✅ PhantmOS connected successfully to your account!")
         except Exception as e:
             logger.error(f"Error mapping telegram chat_id: {e}")
             await update.message.reply_text("❌ Failed to connect Telegram to your account.")
     else:
-        await update.message.reply_text("Welcome to Ghost Protocol Bot! Please connect via the Dashboard.")
+        await update.message.reply_text("Welcome to PhantmOS Bot! Please connect via the Dashboard.")
 
 
 if application:
@@ -196,8 +196,8 @@ async def send_job_card(lead: dict) -> bool:
         )
 
 
-        # Mark as Approved (delivered to user)
-        update_job_lead(job_id, {"status": "Approved"})
+        # Mark as Approved (delivered to user) — user_id required for RLS
+        update_job_lead(job_id, {"status": "Approved"}, user_id=user_id)
         logger.info(f"Telegram: sent job card for {job_id} [{band}] to chat {chat_id}.")
         return True
 
@@ -261,10 +261,16 @@ async def _on_create_resume(context, chat_id: int, job_id: str, query):
                 update_job_lead(job_id, {"resume_url": url}, user_id=user_id)
                 lead["resume_url"] = url
                 lead["status"] = "Tailored"
-                
+                # BUG-03 fix: only purge queue entry after PDF is confirmed uploaded
+                get_client().table("delivery_queue").delete().eq("job_id", job_id).execute()
+            else:
+                logger.error(f"Telegram: PDF generation failed for {job_id} — delivery queue entry preserved for retry.")
+                await context.bot.send_message(chat_id=chat_id, text="⚠️ PDF generation failed. Please try again.")
+                return
+
             new_text = format_job_card(lead)
             new_kb = _build_main_keyboard(job_id, "Tailored")
-            
+
             await context.bot.send_message(
                 chat_id=chat_id,
                 text=new_text + "\n\n✅ *Resume successfully generated!*",
@@ -272,8 +278,6 @@ async def _on_create_resume(context, chat_id: int, job_id: str, query):
                 reply_markup=new_kb,
                 disable_web_page_preview=True
             )
-            # Prevent duplicate delivery loop from database_manager queue_delivery
-            get_client().table("delivery_queue").delete().eq("job_id", job_id).execute()
         else:
             await context.bot.send_message(chat_id=chat_id, text="❌ Failed to tailor resume.")
     except Exception as e:
@@ -307,9 +311,15 @@ async def _on_send_cold_email(context, chat_id: int, job_id: str):
 
     user_id = lead.get("user_id")
     profile = get_profile(user_id)
+    # BUG-02/BUG-10 fix: guard against None profile; read from prefs["llm"] where Settings page saves them
+    if not profile:
+        logger.error(f"Telegram: could not load profile for user {user_id} — aborting cold email.")
+        await context.bot.send_message(chat_id=chat_id, text="❌ Could not load your profile. Please try again.")
+        return
     prefs = profile.get("preferences") or {}
-    gmail_user = prefs.get("llm", {}).get("gmail_user", "")
-    gmail_pass = prefs.get("llm", {}).get("gmail_app_password", "")
+    llm_prefs = prefs.get("llm") or {}
+    gmail_user = llm_prefs.get("gmail_user", "")
+    gmail_pass = llm_prefs.get("gmail_app_password", "")
 
     target_email = find_company_email(company)
     
@@ -327,10 +337,10 @@ async def _on_send_cold_email(context, chat_id: int, job_id: str):
     )
     body    = "\n".join(lines[1:]).strip() if lines[0].startswith("Subject:") else cold_email
 
-    success = send_cold_email(
-        target_email=target_email, 
-        subject=subject, 
-        body_text=body, 
+    success = await send_cold_email(
+        target_email=target_email,
+        subject=subject,
+        body_text=body,
         attachment_path=resume_url,
         gmail_user=gmail_user,
         gmail_password=gmail_pass

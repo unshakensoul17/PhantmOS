@@ -1,5 +1,5 @@
 """
-harvesting/source_remotive.py — Ghost Protocol v2.0
+harvesting/source_remotive.py — PhantmOS v2.0
 
 Remotive.com public API adapter.
 Endpoint: https://remotive.com/api/remote-jobs
@@ -47,7 +47,7 @@ async def fetch_remotive(limit_per_term: int = 20, search_query: str = None) -> 
 
 
 def _normalise(job: dict) -> dict:
-    """Map Remotive fields → Ghost Protocol standard schema."""
+    """Map Remotive fields → PhantmOS standard schema."""
     return {
         "title":           job.get("title", ""),
         "company":         job.get("company_name", ""),

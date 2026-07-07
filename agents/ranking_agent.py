@@ -1,5 +1,5 @@
 """
-agents/ranking_agent.py — Ghost Protocol Multi-Agent Architecture
+agents/ranking_agent.py — PhantmOS Multi-Agent Architecture
 
 Purpose:
     Scores discovered jobs against the user's resume using a multi-signal

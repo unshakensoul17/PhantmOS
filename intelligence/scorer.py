@@ -1,5 +1,5 @@
 """
-intelligence/scorer.py — Ghost Protocol v2.0
+intelligence/scorer.py — PhantmOS v2.0
 
 Multi-signal job scoring engine:
   Signal 1 — Semantic similarity  (50%) via embedding cosine distance

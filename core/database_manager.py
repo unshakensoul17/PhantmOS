@@ -1,5 +1,5 @@
 """
-core/database_manager.py — Ghost Protocol v2.0
+core/database_manager.py — PhantmOS v2.0
 Single Supabase client + all DB operations used across the pipeline.
 """
 import json

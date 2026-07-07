@@ -1,5 +1,5 @@
 """
-agents/resume_agent.py — Ghost Protocol Multi-Agent Architecture
+agents/resume_agent.py — PhantmOS Multi-Agent Architecture
 
 Purpose:
     Encapsulates all LLM interactions: prompt construction, resume tailoring

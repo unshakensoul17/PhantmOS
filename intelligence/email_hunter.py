@@ -140,7 +140,7 @@ def _search_smtp_alias(company_name: str) -> str:
         try:
             server.connect(mx_record)
             server.helo(socket.getfqdn())
-            server.mail('admin@ghostprotocol.ai') # Fake sender
+            server.mail('admin@phantmos.ai') # Fake sender
             
             # Catch-All Verification Step
             catch_code, _ = server.rcpt(f"catchall_test_1234567890@{domain}")

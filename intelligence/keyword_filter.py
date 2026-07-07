@@ -1,5 +1,5 @@
 """
-intelligence/keyword_filter.py — Ghost Protocol v2.0 (BM25 Edition)
+intelligence/keyword_filter.py — PhantmOS v2.0 (BM25 Edition)
 
 Uses BM25 search scoring to pre-filter harvested jobs based on relevance,
 dropping completely unrelated jobs before they hit the database.

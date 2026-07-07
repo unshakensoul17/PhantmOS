@@ -56,10 +56,10 @@ function ApplicationsPage() {
     },
   });
 
-  const ghostWriterMutation = useMutation({
+  const phantmWriterMutation = useMutation({
     mutationFn: async (job: any) => {
       setSelectedJob(job);
-      const res = await apiFetch(`/api/applications/ghost-writer`, {
+      const res = await apiFetch(`/api/applications/phantm-writer`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ job_id: job.job_id, company: job.company, role: job.title }),
@@ -170,19 +170,19 @@ function ApplicationsPage() {
                             </a>
                           )}
 
-                          {/* App Stage -> Ghost Writer */}
+                          {/* App Stage -> Phantm Writer */}
                           {job.status === 'Applied' && (
                             <button 
-                              onClick={() => ghostWriterMutation.mutate(job)}
-                              disabled={ghostWriterMutation.isPending}
+                              onClick={() => phantmWriterMutation.mutate(job)}
+                              disabled={phantmWriterMutation.isPending}
                               className="w-full h-8 rounded-lg bg-gradient-to-r from-neon-blue/20 to-neon-purple/20 border border-neon-blue/30 text-neon-blue text-xs font-semibold hover:bg-neon-blue/30 transition flex items-center justify-center gap-1.5 disabled:opacity-50"
                             >
-                              {ghostWriterMutation.isPending && selectedJob?.job_id === job.job_id ? (
+                              {phantmWriterMutation.isPending && selectedJob?.job_id === job.job_id ? (
                                 <Loader2 className="w-3 h-3 animate-spin" />
                               ) : (
                                 <Sparkles className="w-3 h-3" />
                               )}
-                              Draft Follow-up (Ghost Writer)
+                              Draft Follow-up (Phantm Writer)
                             </button>
                           )}
 
@@ -247,14 +247,14 @@ function ApplicationsPage() {
         )}
       </div>
 
-      {/* Ghost Writer Modal */}
+      {/* Phantm Writer Modal */}
       {emailDraft && selectedJob && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-[#0B1020] border border-white/10 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl glass-strong">
             <div className="flex items-center justify-between p-4 border-b border-white/5">
               <h3 className="font-bold flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-neon-blue" />
-                AI Ghost Writer
+                AI Phantm Writer
               </h3>
               <button 
                 onClick={() => { setEmailDraft(null); setSelectedJob(null); }}

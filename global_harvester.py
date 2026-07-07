@@ -17,7 +17,7 @@ async def run_global_harvest():
     - Saves all results to the global_jobs table.
     """
     logger.info("=========================================")
-    logger.info("🌐 GHOST PROTOCOL — Global Harvester Start")
+    logger.info("🌐 PHANTMOS — Global Harvester Start")
     logger.info(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     logger.info("=========================================")
     

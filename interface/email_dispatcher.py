@@ -1,17 +1,26 @@
 import os
+import asyncio
 import smtplib
 from email.message import EmailMessage
-import mimetypes
 from dotenv import load_dotenv
+import httpx
 
 load_dotenv()
 
 GMAIL_USER = os.getenv("GMAIL_USER")
 GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
 
-def send_cold_email(target_email: str, subject: str, body_text: str, attachment_path: str = None, gmail_user: str = None, gmail_password: str = None) -> bool:
+async def send_cold_email(
+    target_email: str,
+    subject: str,
+    body_text: str,
+    attachment_path: str = None,
+    gmail_user: str = None,
+    gmail_password: str = None,
+) -> bool:
     """
     Sends an email using the provided Gmail account via SMTP.
+    Async-safe: PDF downloads use httpx, SMTP is run in a thread pool.
     Returns True if successful, False otherwise.
     """
     user = gmail_user or GMAIL_USER
@@ -20,7 +29,7 @@ def send_cold_email(target_email: str, subject: str, body_text: str, attachment_
     if not user or not password:
         print("[Email Dispatcher] GMAIL_USER or GMAIL_APP_PASSWORD not provided")
         return False
-        
+
     try:
         msg = EmailMessage()
         msg['Subject'] = subject
@@ -30,16 +39,17 @@ def send_cold_email(target_email: str, subject: str, body_text: str, attachment_
 
         # Attach PDF if provided
         if attachment_path:
-            import requests
             attachment_data = None
             filename = ""
-            
+
             if attachment_path.startswith("http"):
+                # BUG-11 fix: use httpx instead of blocking requests.get
                 try:
-                    res = requests.get(attachment_path, timeout=10)
-                    if res.status_code == 200:
-                        attachment_data = res.content
-                        filename = attachment_path.split("/")[-1].split("?")[0]
+                    async with httpx.AsyncClient(timeout=15.0) as client:
+                        res = await client.get(attachment_path)
+                        if res.status_code == 200:
+                            attachment_data = res.content
+                            filename = attachment_path.split("/")[-1].split("?")[0]
                 except Exception as e:
                     print(f"[Email Dispatcher] Failed to download PDF from URL: {e}")
             elif os.path.exists(attachment_path):
@@ -49,17 +59,19 @@ def send_cold_email(target_email: str, subject: str, body_text: str, attachment_
 
             if attachment_data:
                 msg.add_attachment(
-                    attachment_data, 
-                    maintype='application', 
-                    subtype='pdf', 
+                    attachment_data,
+                    maintype='application',
+                    subtype='pdf',
                     filename=filename or "Resume.pdf"
                 )
 
-        # Send via Gmail SMTP server
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
-            server.login(user, password)
-            server.send_message(msg)
-            
+        # BUG-11 fix: run blocking SMTP in a thread so the event loop is not blocked
+        def _smtp_send():
+            with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+                server.login(user, password)
+                server.send_message(msg)
+
+        await asyncio.to_thread(_smtp_send)
         print(f"[Email Dispatcher] Successfully sent email to {target_email}")
         return True
     except Exception as e:

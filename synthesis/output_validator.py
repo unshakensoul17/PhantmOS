@@ -1,5 +1,5 @@
 """
-synthesis/output_validator.py — Ghost Protocol v2.0
+synthesis/output_validator.py — PhantmOS v2.0
 
 Validates LLM output before it enters the PDF pipeline.
 Catches hallucinations, malformed JSON, and constraint violations.

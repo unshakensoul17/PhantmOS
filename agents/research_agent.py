@@ -1,5 +1,5 @@
 """
-agents/research_agent.py — Ghost Protocol Multi-Agent Architecture
+agents/research_agent.py — PhantmOS Multi-Agent Architecture
 
 Purpose:
     Gathers company context — recent news, tech stack, hiring info — via
@@ -50,9 +50,10 @@ class ResearchAgent:
                 return cached.get("context", "")
         return ""
 
-    def refresh_context(self, company_name: str) -> str:
+    async def refresh_context(self, company_name: str) -> str:
         """Force a fresh scrape and update the cache."""
-        context = _scrape_ddg(company_name)
+        import asyncio
+        context = await asyncio.to_thread(_scrape_ddg, company_name)
         store_company_context(company_name, context)
         logger.info(f"ResearchAgent: refreshed context for '{company_name}'")
         return context

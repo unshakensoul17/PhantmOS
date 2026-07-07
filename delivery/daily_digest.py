@@ -1,5 +1,5 @@
 """
-delivery/daily_digest.py — Ghost Protocol v2.0
+delivery/daily_digest.py — PhantmOS v2.0
 
 Formats and sends the 9AM daily summary message to Telegram.
 Includes yesterday's pipeline stats, top leads, and system health indicators.
@@ -87,7 +87,7 @@ def _format_digest(stats: dict, top_leads: list[dict], health: dict) -> str:
 
     # ── Full message ──────────────────────────────────────────────────────────
     msg = (
-        f"🌅 *Ghost Protocol — Daily Report*\n"
+        f"🌅 *PhantmOS — Daily Report*\n"
         f"📅 {date_str}\n"
         f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
         f"\n"
@@ -110,7 +110,7 @@ def _format_digest(stats: dict, top_leads: list[dict], health: dict) -> str:
         f"   Telegram   : {status(health.get('telegram', True))}\n"
         f"\n"
         f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"_Ghost Protocol v2.0 — Running autonomously_"
+        f"_PhantmOS v2.0 — Running autonomously_"
     )
     return msg
 

@@ -1,5 +1,5 @@
 """
-agents/application_agent.py — Ghost Protocol Multi-Agent Architecture
+agents/application_agent.py — PhantmOS Multi-Agent Architecture
 
 Purpose:
     Handles all outbound communication: PDF generation, Telegram delivery,
@@ -52,8 +52,7 @@ class ApplicationAgent:
         )
         generated = failed = 0
 
-        async def _gen(lead: dict):
-            nonlocal generated, failed
+        async def _gen(lead: dict) -> bool:
             job_id = lead.get("job_id", "")
             company = lead.get("company", "")
 
@@ -71,11 +70,20 @@ class ApplicationAgent:
             )
             if url:
                 update_job_lead(job_id, {"resume_url": url}, user_id=user_id)
+                return True
+            return False
+
+        # BUG-08 fix: inspect every result — exceptions are returned as values,
+        # not raised, so we must check isinstance to count them as failures.
+        results = await asyncio.gather(*[_gen(l) for l in needs_pdf], return_exceptions=True)
+        for r in results:
+            if isinstance(r, BaseException):
+                logger.error(f"ApplicationAgent: PDF task raised exception: {r}")
+                failed += 1
+            elif r:
                 generated += 1
             else:
                 failed += 1
-
-        await asyncio.gather(*[_gen(l) for l in needs_pdf], return_exceptions=True)
         return {
             "generated": generated,
             "failed": failed,

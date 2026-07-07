@@ -1,5 +1,5 @@
 """
-synthesis/evaluator.py — Ghost Protocol v3.0
+synthesis/evaluator.py — PhantmOS v3.0
 ATS Score & Interview Prep Card Generator (Phase 4).
 Runs a single compact LLM call to score the resume and generate 3 prep questions.
 """

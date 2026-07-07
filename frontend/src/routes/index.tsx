@@ -211,7 +211,7 @@ function Nav() {
             style={{ animation: "glow-pulse 2.4s ease-in-out infinite" }} />
         </div>
         <span className="text-white text-sm font-extrabold tracking-[0.22em] uppercase"
-          style={{ fontFamily: "Unbounded, sans-serif" }}>Ghost Protocol</span>
+          style={{ fontFamily: "Unbounded, sans-serif" }}>PhantmOS</span>
       </div>
 
       {/* Links */}
@@ -238,12 +238,12 @@ function Nav() {
 
       {/* Actions */}
       <div className="flex items-center gap-3">
-        <Link to="/auth" className="text-white/50 text-sm hover:text-white transition-colors duration-300 px-4 py-2">
+        <a href="/auth" className="text-white/50 text-sm hover:text-white transition-colors duration-300 px-4 py-2">
           Sign In
-        </Link>
-        <Link to="/dashboard" className="glass glow-btn-glass flex items-center justify-center px-5 py-2.5 rounded-full text-white text-sm font-medium tracking-wide">
-          Launch Protocol
-        </Link>
+        </a>
+        <a href="/auth" className="glass glow-btn-glass flex items-center justify-center px-5 py-2.5 rounded-full text-white text-sm font-medium tracking-wide">
+          Launch PhantmOS
+        </a>
       </div>
     </motion.nav>
   );
@@ -431,36 +431,38 @@ function GlobeSVG() {
 
 /* ─── Data ────────────────────────────────────────────────────────────────── */
 const AGENTS = [
-  { icon: "S", name: "Scout",   role: "Opportunity Discovery",  desc: "Scans 200+ job boards, LinkedIn, and company career pages in real-time, surfacing positions before they saturate." },
-  { icon: "A", name: "Analyst", role: "Profile Intelligence",   desc: "Performs deep semantic analysis of your experience, skills, and trajectory to build your precise AI profile." },
-  { icon: "T", name: "Tailor",  role: "Resume Optimization",    desc: "Dynamically rewrites your resume for each role using ATS algorithms and proven hiring-manager psychology." },
-  { icon: "W", name: "Writer",  role: "Cover Letter Engine",    desc: "Crafts personalized cover letters that speak directly to each company's culture and stated job requirements." },
-  { icon: "P", name: "Pilot",   role: "Auto Application",       desc: "Executes applications autonomously — completing forms, uploading documents, following up at optimal windows." },
-  { icon: "O", name: "Oracle",  role: "Decision Intelligence",  desc: "Evaluates fit scores, salary benchmarks, and culture signals to prioritize your highest-potential opportunities." },
+  { icon: "D", name: "Discovery",  role: "Stage 1 — Harvesting",       desc: "Concurrently scrapes Remotive, Himalayas, Arbeitnow, and HN Who's Hiring. Queries the global job pool first — external APIs only fire when fewer than 5 local matches exist." },
+  { icon: "R", name: "Ranking",    role: "Stage 2 — Scoring",          desc: "Scores every lead with a three-signal formula: 50% semantic similarity via Jina AI embeddings, 30% keyword overlap against your résumé skills, 20% title match. Assigns HOT / WARM / COLD / REJECT bands." },
+  { icon: "Re", name: "Research",  role: "OSINT Intelligence",          desc: "Fetches real-time DuckDuckGo headlines to overcome the LLM's knowledge cutoff, then calls Groq to produce a company stability score (0–100), tech stack, and funding timeline." },
+  { icon: "T", name: "Tailor",     role: "Stage 3 — LLM Synthesis",    desc: "Runs a Groq → Gemini → HuggingFace waterfall with 3 retries per provider. HOT leads get a full résumé rewrite; WARM leads get a targeted skills highlight. All outputs are JSON-validated before saving." },
+  { icon: "A", name: "ATS",        role: "Quality Evaluation",         desc: "Scores your tailored résumé against the job description (0–100 ATS compatibility), detects keyword gaps, and generates a role-specific interview prep cheat sheet with historical questions by stage." },
+  { icon: "Ap", name: "Apply",     role: "Stage 4+5 — Delivery",       desc: "Generates a pixel-perfect PDF via RenderCV (Typst backend) and uploads it to Supabase Storage. Sends interactive job cards to Telegram and fires cold emails via Gmail SMTP with the PDF attached." },
+  { icon: "F", name: "Feedback",   role: "Learning Loop",              desc: "Records every dismissal signal (too junior, wrong stack, bad company) and adjusts scoring weights per user — so the pipeline gets sharper with every interaction." },
+  { icon: "An", name: "Analytics", role: "Pipeline Metrics",           desc: "Aggregates HOT/WARM/COLD counts, status distributions, and score histograms via a high-performance Supabase RPC. Fires a daily digest to Telegram every morning at 09:00 IST." },
 ];
 
 const STEPS = [
-  { n: "01", title: "Profile Upload",       desc: "Upload your resume and connect LinkedIn. AI extracts your complete professional DNA in seconds." },
-  { n: "02", title: "Job Discovery",        desc: "Scout Agent actively hunts across 200+ sources, 24/7, matching against your exact profile." },
-  { n: "03", title: "Semantic Matching",    desc: "Deep NLP analysis of job descriptions vs your experience — far beyond keyword matching." },
-  { n: "04", title: "Resume Optimization",  desc: "Dynamic tailoring for each role, beating ATS filters and impressing human reviewers." },
-  { n: "05", title: "Cover Letters",        desc: "Personalized, compelling letters that read like you spent hours crafting each one." },
-  { n: "06", title: "Decision Engine",      desc: "Scores each role by fit, salary, growth potential, and your stated career goals." },
-  { n: "07", title: "Auto Applications",    desc: "Pilot Agent submits to approved roles at optimal times using your saved preferences." },
-  { n: "08", title: "Interview Tracking",   desc: "Full pipeline visibility: responses, interviews, offers — one command center." },
+  { n: "01", title: "Upload Résumé",        desc: "Upload a PDF or paste your résumé JSON. Groq (Llama-3.1) parses it instantly into a structured profile. Your master embedding is computed once and cached in Supabase." },
+  { n: "02", title: "Global Harvest",       desc: "The global harvester runs across Remotive, Himalayas, Arbeitnow, and HN Who's Hiring in parallel. BM25 pre-filter drops irrelevant results before they ever touch the DB." },
+  { n: "03", title: "Semantic Scoring",     desc: "Jina AI embeddings compute cosine similarity between your résumé and every job description. Weighted 50% semantic + 30% keyword + 20% title match → final 0–100 score." },
+  { n: "04", title: "LLM Tailoring",        desc: "HOT leads (≥ your threshold + halfway to 100) get a full résumé rewrite. WARM leads get targeted highlights. All outputs pass a JSON structure validator before being saved." },
+  { n: "05", title: "PDF Generation",       desc: "RenderCV compiles your tailored résumé JSON into a Typst-rendered PDF. Uploaded to Supabase Storage with a permanent public URL. Theme is per-user configurable." },
+  { n: "06", title: "ATS Evaluation",       desc: "An ATS agent scores your tailored résumé (0–100), surfaces keyword gaps, and generates an interview prep playbook — cultural values, historical technical questions, recent launches." },
+  { n: "07", title: "Telegram Delivery",    desc: "Interactive job cards land in your Telegram DMs. Each card shows the score band, company, role, and a direct apply link. Notifications fire only above your custom threshold." },
+  { n: "08", title: "Cold Email Dispatch",  desc: "The pipeline hunts for a company email via OSINT, drafts a personalized follow-up via Groq, and dispatches via Gmail SMTP — PDF résumé attached." },
 ];
 
 const TESTIMONIALS = [
-  { quote: "Ghost Protocol found and applied to 340 positions in my first month. I received 47 responses and landed 3 offers. I spent zero hours on applications.", name: "Marcus Chen",  role: "Senior ML Engineer", company: "Hired at Stripe",  stat: "340 applied" },
-  { quote: "I was skeptical. Then I watched it rewrite my resume 60 different ways overnight, each tailored perfectly. I had a call from Google the next morning.", name: "Priya Sharma", role: "Product Designer",   company: "Hired at Google",  stat: "60 versions" },
-  { quote: "This is what AI was supposed to do. Not chat — act. Ghost Protocol turned my 6-month job search into a 3-week process.",                               name: "James Okafor", role: "Financial Analyst",  company: "Hired at Citadel", stat: "3 weeks" },
+  { quote: "I uploaded my PDF on Sunday. By Monday morning my Telegram had 12 job cards — each with a tailored résumé already generated. HOT leads had personalized cover emails queued. I hadn't touched a keyboard.", name: "Pipeline Overview",  role: "End-to-End Automation",  company: "Discovery → Delivery",    stat: "0 manual steps" },
+  { quote: "The scoring model is brutally honest. BM25 pre-filters noise before it reaches the DB, then Jina embeddings rank what's left by true semantic fit — not keyword stuffing. REJECTs never waste your time.", name: "Ranking Engine",    role: "3-Signal Composite Score", company: "Semantic + Keyword + Title", stat: "50 / 30 / 20%" },
+  { quote: "Groq fails? Gemini picks it up. Gemini rate-limits? HuggingFace steps in. Every output is JSON-validated before saving. One bad API call has never once stopped a pipeline run.",                           name: "LLM Waterfall",    role: "Fault-Tolerant Synthesis", company: "Groq → Gemini → HF",       stat: "3-provider chain" },
 ];
 
 const FEATURES = [
-  { title: "Zero-Touch Applications",  desc: "From discovery to submission — fully automated. You approve, Ghost Protocol executes with surgical precision." },
-  { title: "ATS Invisibility",          desc: "Every resume is engineered to pass applicant tracking systems with precision keyword architecture." },
-  { title: "24/7 Active Scanning",      desc: "Your AI workforce never sleeps. Jobs are discovered and analyzed around the clock across every time zone." },
-  { title: "Semantic Intelligence",     desc: "Not keyword matching — deep semantic understanding of your skills vs job requirements creates genuinely relevant applications." },
+  { title: "Global Job Pool",           desc: "A shared global_jobs table is populated once across all users. The per-user pipeline queries it locally first — external API calls only fire when fewer than 5 fresh matches exist. Zero redundant scraping." },
+  { title: "Encrypted BYOK Keys",       desc: "Bring your own Groq, Gemini, or HuggingFace API keys. They are encrypted with Fernet (AES-128) before storage — a SHA-256 digest of your Supabase key is the symmetric seed. Only \"***\" is ever sent to your browser." },
+  { title: "RenderCV PDF Engine",       desc: "Tailored résumé JSON is compiled into a polished PDF via RenderCV's Typst backend. Theme is per-user configurable (sb2nov, classic, engineeringresumes). PDFs land in Supabase Storage with permanent public URLs." },
+  { title: "Telegram + Gmail Delivery", desc: "HOT/WARM leads trigger Telegram job cards above your custom score threshold. The Phantm Writer endpoint drafts a personalized follow-up email, hunts the recruiter's address via OSINT, and dispatches via Gmail SMTP with the PDF attached." },
 ];
 
 /* ─── App ─────────────────────────────────────────────────────────────────── */
@@ -514,15 +516,15 @@ function App() {
               transition={{ delay: 0.2, duration: 0.7 }} className="mb-7">
               <span className="glass inline-block text-white/40 text-[10px] tracking-[0.32em] uppercase px-4 py-1.5 rounded-full"
                 style={{ fontFamily: "JetBrains Mono, monospace" }}>
-                Autonomous AI OS — v2.0
+                Autonomous AI OS — v3.0
               </span>
             </motion.div>
 
             <motion.h1 initial={{ opacity: 0, y: 36 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.32, duration: 1, ease: [0.16, 1, 0.3, 1] }}
-              className="heading-gradient text-[clamp(4rem,10vw,8.5rem)] font-black leading-[1.05] tracking-tight mb-8"
+              className="heading-gradient text-[clamp(2.5rem,4.5vw,5.5rem)] font-black leading-[1.05] tracking-tight mb-8 whitespace-nowrap"
               style={{ fontFamily: "Unbounded, sans-serif" }}>
-              GHOST<br />PROTOCOL
+              PHANTMOS
             </motion.h1>
 
             <motion.p initial={{ opacity: 0, y: 22 }} animate={{ opacity: 1, y: 0 }}
@@ -533,22 +535,22 @@ function App() {
 
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.7, duration: 0.8 }} className="flex flex-wrap gap-4 mb-14">
-              <Link to="/dashboard" className="glow-btn-white relative inline-flex items-center justify-center px-8 py-4 bg-white text-black font-semibold text-sm tracking-wide rounded-full transition-all duration-300">
-                Launch Protocol
-              </Link>
-              <Link to="/dashboard" className="glow-btn-glass glass flex items-center gap-2 px-8 py-4 text-white font-medium text-sm tracking-wide rounded-full group transition-all duration-300">
-                View Demo
+              <a href="/auth" className="glow-btn-white relative inline-flex items-center justify-center px-8 py-4 bg-white text-black font-semibold text-sm tracking-wide rounded-full transition-all duration-300">
+                Launch PhantmOS
+              </a>
+              <a href="/dashboard" className="glow-btn-glass glass flex items-center gap-2 px-8 py-4 text-white font-medium text-sm tracking-wide rounded-full group transition-all duration-300">
+                View Dashboard
                 <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform duration-300" />
-              </Link>
+              </a>
             </motion.div>
 
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
               transition={{ delay: 1.05, duration: 0.8 }}
               className="flex gap-9 pt-8" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
               {[
-                { v: "2.4M+", l: "Jobs Analyzed" },
-                { v: "94%",   l: "Response Rate" },
-                { v: "12K+",  l: "Offers Landed" },
+                { v: "4",     l: "Live Job Sources" },
+                { v: "3-tier", l: "LLM Waterfall" },
+                { v: "HOT→PDF", l: "Fully Automated" },
               ].map(({ v, l }) => (
                 <div key={l}>
                   <div className="heading-gradient text-2xl font-black" style={{ fontFamily: "Unbounded, sans-serif" }}>{v}</div>
@@ -582,10 +584,10 @@ function App() {
               style={{ fontFamily: "JetBrains Mono, monospace" }}>01 — AI Workforce</div>
             <h2 className="heading-gradient text-[clamp(2.8rem,6vw,5.5rem)] font-black tracking-tight mb-5"
               style={{ fontFamily: "Unbounded, sans-serif" }}>
-              Six Agents.<br />One Mission.
+              Eight Agents.<br />One Pipeline.
             </h2>
             <p className="text-white/38 text-base leading-relaxed max-w-lg mb-16">
-              Each agent is a specialized AI, trained for a single purpose. Together they form an unstoppable, autonomous job search system.
+              Each agent owns a single stage and exposes a clean interface. The orchestrator coordinates them — it contains zero business logic itself.
             </p>
           </RevealBlock>
 
@@ -619,7 +621,7 @@ function App() {
         <div className="max-w-7xl mx-auto">
           <RevealBlock>
             <div className="text-white/30 text-[10px] tracking-[0.32em] uppercase mb-5"
-              style={{ fontFamily: "JetBrains Mono, monospace" }}>02 — Protocol Sequence</div>
+              style={{ fontFamily: "JetBrains Mono, monospace" }}>02 — PhantmOS Sequence</div>
             <h2 className="heading-gradient text-[clamp(2.8rem,6vw,5.5rem)] font-black tracking-tight mb-16"
               style={{ fontFamily: "Unbounded, sans-serif" }}>
               How It<br />Executes.
@@ -656,14 +658,14 @@ function App() {
               Watching<br />Every Market.
             </h2>
             <p className="text-white/38 text-base leading-relaxed mb-10 max-w-md">
-              Ghost Protocol monitors job markets across every major city and remote-first company, ensuring zero opportunity goes undetected.
+              PhantmOS monitors job markets across every major city and remote-first company, ensuring zero opportunity goes undetected.
             </p>
             <div className="grid grid-cols-2 gap-3">
               {[
-                { v: "200+",  l: "Job Boards" },
-                { v: "50M+",  l: "Positions Tracked" },
-                { v: "190",   l: "Countries" },
-                { v: "< 30s", l: "Discovery Speed" },
+                { v: "4",      l: "Live Sources" },
+                { v: "BM25",   l: "Pre-Filter Engine" },
+                { v: "MD5",    l: "Dedup Strategy" },
+                { v: "Global", l: "Shared Job Pool" },
               ].map(({ v, l }) => (
                 <div key={l} className="glass rounded-xl p-4">
                   <div className="text-white text-2xl font-black mb-1" style={{ fontFamily: "Unbounded, sans-serif" }}>{v}</div>
@@ -708,7 +710,7 @@ function App() {
                   <div className="flex gap-1.5">{[0,1,2].map(j => <div key={j} className="w-2.5 h-2.5 rounded-full" style={{ background: "rgba(255,255,255,0.09)" }} />)}</div>
                   <div className="flex-1 flex justify-center">
                     <div className="glass px-4 py-1 rounded text-white/28 text-[10px]" style={{ fontFamily: "JetBrains Mono, monospace" }}>
-                      ghost-protocol.ai/dashboard
+                      phantmos.ai/dashboard
                     </div>
                   </div>
                 </div>
@@ -729,9 +731,9 @@ function App() {
                   <div className="col-span-10 grid grid-cols-3 gap-3">
                     {/* KPI cards */}
                     {[
-                      { l: "Applications Sent", v: "847", s: "+34 today" },
-                      { l: "Responses",          v: "127", s: "15% rate" },
-                      { l: "Interviews",         v: "23",  s: "+5 this week" },
+                      { l: "HOT Leads",   v: "HOT",  s: "≥ threshold + 50% gap" },
+                      { l: "WARM Leads",  v: "WARM", s: "≥ user threshold (60)" },
+                      { l: "Credits Left", v: "870", s: "30 refilled / month" },
                     ].map(({ l, v, s }) => (
                       <div key={l} className="glass rounded-xl p-4">
                         <div className="text-white/28 text-[9px] tracking-widest mb-2" style={{ fontFamily: "JetBrains Mono, monospace" }}>{l}</div>
@@ -763,9 +765,9 @@ function App() {
                       <div className="text-white/28 text-[9px] tracking-widest mb-3" style={{ fontFamily: "JetBrains Mono, monospace" }}>RECENT APPLICATIONS</div>
                       <div className="space-y-2">
                         {[
-                          { co: "Anthropic", role: "Senior ML Engineer",  st: "Interview",  ago: "2h" },
-                          { co: "OpenAI",    role: "Product Manager",      st: "Applied",    ago: "4h" },
-                          { co: "Vercel",    role: "Frontend Engineer",    st: "Reviewing",  ago: "6h" },
+                          { co: "Remotive",  role: "ML Engineer · Score 91",    st: "HOT",       ago: "2h" },
+                          { co: "Himalayas", role: "AI Engineer · Score 74",     st: "WARM",      ago: "4h" },
+                          { co: "Arbeitnow", role: "Data Scientist · Score 38",  st: "REJECTED",  ago: "6h" },
                         ].map(({ co, role, st, ago }) => (
                           <div key={co} className="flex items-center justify-between py-1.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                             <div className="flex items-center gap-2.5">
@@ -777,8 +779,8 @@ function App() {
                               </div>
                             </div>
                             <div className="flex items-center gap-3">
-                              <span className={`text-[9px] px-2 py-0.5 rounded-full ${st === "Interview" ? "text-white/80" : "text-white/35"}`}
-                                style={{ background: st === "Interview" ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                              <span className={`text-[9px] px-2 py-0.5 rounded-full ${st === "HOT" ? "text-white/90" : st === "WARM" ? "text-white/65" : "text-white/25"}`}
+                                style={{ background: st === "HOT" ? "rgba(255,255,255,0.16)" : st === "WARM" ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
                                 {st}
                               </span>
                               <span className="text-white/22 text-[9px]">{ago} ago</span>
@@ -871,22 +873,22 @@ function App() {
         <div className="relative z-10 max-w-4xl mx-auto text-center">
           <RevealBlock>
             <div className="text-white/30 text-[10px] tracking-[0.32em] uppercase mb-7"
-              style={{ fontFamily: "JetBrains Mono, monospace" }}>Initialize Protocol</div>
+              style={{ fontFamily: "JetBrains Mono, monospace" }}>Initialize PhantmOS</div>
             <h2 className="heading-gradient text-[clamp(3rem,8vw,7rem)] font-black tracking-tight leading-[0.9] mb-8"
               style={{ fontFamily: "Unbounded, sans-serif" }}>
               Let AI Handle<br />Your Job Search.
             </h2>
             <p className="text-white/40 text-lg mb-12 max-w-lg mx-auto leading-relaxed">
-              Join 12,000+ professionals who let Ghost Protocol run their job search while they build their future.
+              Upload your résumé. Set your target roles. PhantmOS runs the rest — discovery, scoring, tailoring, PDFs, and delivery — fully on autopilot.
             </p>
             <div className="flex flex-wrap gap-4 justify-center">
-              <Link to="/auth" className="glow-btn-white inline-flex items-center justify-center px-11 py-5 bg-white text-black font-semibold text-sm tracking-wide rounded-full transition-all duration-300">
+              <a href="/auth" className="glow-btn-white inline-flex items-center justify-center px-11 py-5 bg-white text-black font-semibold text-sm tracking-wide rounded-full transition-all duration-300">
                 Start Free
-              </Link>
-              <Link to="/dashboard" className="glow-btn-glass glass flex items-center justify-center gap-2 px-11 py-5 text-white font-medium text-sm tracking-wide rounded-full group transition-all duration-300">
+              </a>
+              <a href="/dashboard" className="glow-btn-glass glass flex items-center justify-center gap-2 px-11 py-5 text-white font-medium text-sm tracking-wide rounded-full group transition-all duration-300">
                 Launch Dashboard
                 <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform duration-300" />
-              </Link>
+              </a>
             </div>
           </RevealBlock>
         </div>
@@ -901,17 +903,26 @@ function App() {
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-white/55" />
             </div>
             <span className="text-white/50 font-extrabold tracking-[0.22em] text-[11px] uppercase"
-              style={{ fontFamily: "Unbounded, sans-serif" }}>Ghost Protocol</span>
+              style={{ fontFamily: "Unbounded, sans-serif" }}>PhantmOS</span>
           </div>
 
           <div className="flex flex-wrap gap-6 text-white/28 text-xs">
-            {["Privacy", "Terms", "Security", "API", "Documentation", "Status"].map(item => (
-              <a key={item} href="#" className="hover:text-white/55 transition-colors duration-300">{item}</a>
+            {([
+              { label: "Security",      href: "#capabilities" },
+              { label: "API",           href: "/dashboard" },
+              { label: "Documentation", href: "https://github.com" },
+              { label: "Settings",      href: "/settings" },
+              { label: "Applications",  href: "/applications" },
+              { label: "Pipeline",      href: "/job-discovery" },
+            ] as { label: string; href: string }[]).map(item => (
+              item.href.startsWith("/") && !item.href.startsWith("//")
+                ? <Link key={item.label} to={item.href as any} className="hover:text-white/55 transition-colors duration-300">{item.label}</Link>
+                : <a key={item.label} href={item.href} className="hover:text-white/55 transition-colors duration-300">{item.label}</a>
             ))}
           </div>
 
           <div className="text-white/18 text-[10px]" style={{ fontFamily: "JetBrains Mono, monospace" }}>
-            © 2025 Ghost Protocol. All rights reserved.
+            © 2026 PhantmOS. All rights reserved.
           </div>
         </div>
       </footer>

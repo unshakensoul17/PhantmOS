@@ -10,7 +10,7 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/dashboard")({
-  component: GhostProtocolDashboard,
+  component: PhantmOSDashboard,
 });
 
 /* ------------------------------ HERO STATS ------------------------------ */
@@ -52,7 +52,7 @@ function HeroStats() {
         </div>
         <button className="group relative overflow-hidden inline-flex items-center gap-2 px-5 h-11 rounded-xl bg-gradient-to-r from-neon-blue to-neon-purple font-semibold text-sm text-white glow-blue hover:scale-[1.02] transition">
           <Zap className="w-4 h-4" />
-          Deploy Ghost Protocol
+          Deploy PhantmOS
           <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/25 to-transparent" />
         </button>
       </div>
@@ -742,7 +742,7 @@ function TelegramPanel() {
                     <Ghost className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <div className="text-xs font-semibold">Ghost Protocol Bot</div>
+                    <div className="text-xs font-semibold">PhantmOS Bot</div>
                     <div className="text-[13px] font-mono text-neon-green flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-neon-green" /> online
                     </div>
@@ -818,7 +818,7 @@ function TelegramPanel() {
 
 /* ------------------------------ MAIN ------------------------------ */
 
-function GhostProtocolDashboard() {
+function PhantmOSDashboard() {
   return (
     <Layout>
       <HeroStats />
@@ -865,7 +865,7 @@ function GhostProtocolDashboard() {
       <footer className="pt-6 pb-8 flex items-center justify-between flex-wrap gap-3 border-t border-white/5">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Ghost className="w-4 h-4 text-neon-cyan" />
-          <span className="font-mono">Ghost Protocol Engine · v3.2.1 · Autonomous Runtime</span>
+          <span className="font-mono">PhantmOS Engine · v3.2.1 · Autonomous Runtime</span>
         </div>
         <div className="flex items-center gap-4 text-[12px] font-mono text-muted-foreground">
           <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-neon-green animate-pulse-glow" /> All systems nominal</span>
