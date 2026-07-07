@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
 import {
   LayoutDashboard, Search, FileText, Building2, Send,
@@ -9,7 +9,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "../lib/api";
 
-function Sidebar() {
+function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen?: boolean; setMobileOpen?: (v: boolean) => void }) {
   const location = useLocation();
   const { signOut } = useAuth();
   
@@ -59,7 +59,14 @@ function Sidebar() {
   ];
 
   return (
-    <aside className="hidden lg:flex fixed left-0 top-0 h-screen w-64 flex-col glass-strong border-r border-white/8 z-40">
+    <>
+      {mobileOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-black/80 lg:hidden" 
+          onClick={() => setMobileOpen?.(false)}
+        />
+      )}
+      <aside className={`fixed left-0 top-0 h-screen w-64 flex-col glass-strong border-r border-white/8 z-50 transition-transform duration-300 ${mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} flex`}>
       <Link to="/" className="flex items-center gap-3 px-6 h-20 border-b border-white/5 hover:bg-white/[0.02] transition-colors cursor-pointer">
         <div className="relative">
           <div className="w-12 h-12 rounded-xl overflow-hidden bg-black grid place-items-center border border-white/10 glow-blue p-1">
@@ -148,6 +155,7 @@ function Sidebar() {
         </div>
       </div>
     </aside>
+    </>
   );
 }
 
@@ -170,7 +178,7 @@ function StatusPill({ icon: Icon, label, value, color, onClick, loading }: { ico
   );
 }
 
-function TopBar() {
+function TopBar({ setMobileOpen }: { setMobileOpen?: (v: boolean) => void }) {
   const { user, signOut } = useAuth();
   const queryClient = useQueryClient();
   
@@ -199,19 +207,13 @@ function TopBar() {
 
   return (
     <header className="sticky top-0 z-30 h-20 glass-strong border-b border-white/5 flex items-center gap-4 px-6">
-      <div className="flex-1 max-w-xl">
-        <div className="relative">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <input
-            placeholder="Search jobs, companies, agents…"
-            className="w-full h-11 pl-10 pr-20 rounded-xl glass text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-white/20 transition-all duration-200"
-          />
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 px-2 py-1 rounded-md bg-white/5 border border-white/10 text-muted-foreground">
-            <span className="text-[11px] font-bold">Ctrl</span>
-            <span className="text-[11px] font-bold">K</span>
-          </div>
-        </div>
-      </div>
+      <button 
+        className="lg:hidden text-white/70 p-2 -ml-2" 
+        onClick={() => setMobileOpen?.(true)}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" x2="21" y1="6" y2="6"/><line x1="3" x2="21" y1="12" y2="12"/><line x1="3" x2="21" y1="18" y2="18"/></svg>
+      </button>
+      <div className="flex-1"></div>
 
       <div className="flex items-center gap-2">
         <StatusPill 
@@ -253,13 +255,14 @@ function TopBar() {
 }
 
 export function Layout({ children }: { children: ReactNode }) {
+  const [mobileOpen, setMobileOpen] = useState(false);
   return (
     <AuthGuard>
       <div className="min-h-screen text-foreground">
-        <Sidebar />
-        <div className="lg:pl-64">
-          <TopBar />
-          <main className="p-4 md:p-6 xl:p-8 space-y-6 max-w-[1800px] mx-auto">
+        <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
+        <div className="lg:pl-64 flex flex-col min-h-screen">
+          <TopBar setMobileOpen={setMobileOpen} />
+          <main className="flex-1 p-4 md:p-6 xl:p-8 space-y-6 max-w-[1800px] w-full mx-auto relative z-10">
             {children}
           </main>
         </div>

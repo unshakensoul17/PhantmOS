@@ -632,12 +632,12 @@ function Analytics() {
               <line key={i} x1="0" x2="600" y1={i * 55 + 5} y2={i * 55 + 5} className="stroke-white/5" strokeDasharray="4 6" />
             ))}
             {(() => {
-              const pts = weeks.map((v, i) => `${(i / (weeks.length - 1)) * 600},${200 - (v / maxW) * 180}`).join(" ");
+              const pts = weeks.map((v: any, i: number) => `${(i / (weeks.length - 1)) * 600},${200 - (v / maxW) * 180}`).join(" ");
               return (
                 <>
                   <polygon points={`0,220 ${pts} 600,220`} fill="url(#areaFill)" />
                   <polyline points={pts} fill="none" stroke="url(#lineStroke)" strokeWidth="2.5" strokeLinecap="round" style={{ filter: "drop-shadow(0 0 6px oklch(0.85 0.16 200 / 0.6))" }} />
-                  {weeks.map((v, i) => (
+                  {weeks.map((v: any, i: number) => (
                     <circle key={i} cx={(i / (weeks.length - 1)) * 600} cy={200 - (v / maxW) * 180} r="3" className="fill-neon-cyan" style={{ filter: "drop-shadow(0 0 4px currentColor)" }} />
                   ))}
                 </>

@@ -190,60 +190,97 @@ function Cursor() {
 /* ─── Navbar ──────────────────────────────────────────────────────────────── */
 function Nav() {
   const [scrolled, setScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   useEffect(() => {
     const h = () => setScrolled(window.scrollY > 60);
     window.addEventListener("scroll", h);
     return () => window.removeEventListener("scroll", h);
   }, []);
   return (
-    <motion.nav
-      className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-8 py-5 transition-all duration-500"
-      style={scrolled ? { background: "rgba(0,0,0,0.85)", backdropFilter: "blur(24px)", borderBottom: "1px solid rgba(255,255,255,0.06)" } : {}}
-      initial={{ y: -24, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-    >
-      {/* Logo */}
-      <div className="flex items-center gap-2.5">
-        <img src="/logo.png" alt="PhantmOS Logo" className="w-10 h-10 object-contain" />
-        <span className="text-white text-sm font-extrabold tracking-[0.22em] uppercase"
-          style={{ fontFamily: "Unbounded, sans-serif" }}>PhantmOS</span>
-      </div>
+    <>
+      <motion.nav
+        className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-6 md:px-8 py-5 transition-all duration-500"
+        style={scrolled ? { background: "rgba(0,0,0,0.85)", backdropFilter: "blur(24px)", borderBottom: "1px solid rgba(255,255,255,0.06)" } : {}}
+        initial={{ y: -24, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+      >
+        <div className="flex items-center gap-2.5">
+          <img src="/logo.png" alt="PhantmOS Logo" className="w-10 h-10 object-contain" />
+          <span className="text-white text-sm font-extrabold tracking-[0.22em] uppercase"
+            style={{ fontFamily: "Unbounded, sans-serif" }}>PhantmOS</span>
+        </div>
 
-      {/* Links */}
-      <div className="hidden md:flex gap-8 text-white/45 text-sm tracking-wide">
-        {[
-          { label: "Capabilities", href: "#capabilities" },
-          { label: "Workflow", href: "#workflow" },
-          { label: "Intelligence", href: "#intelligence" },
-          { label: "Outcomes", href: "#outcomes" },
-        ].map(l => (
-          <a 
-            key={l.label} 
-            href={l.href} 
-            onClick={(e) => {
-              e.preventDefault();
-              document.querySelector(l.href)?.scrollIntoView({ behavior: 'smooth' });
-            }}
-            className="hover:text-white transition-colors duration-300"
-          >
-            {l.label}
+        <div className="hidden md:flex gap-8 text-white/45 text-sm tracking-wide">
+          {[
+            { label: "Capabilities", href: "#capabilities" },
+            { label: "Workflow", href: "#workflow" },
+            { label: "Intelligence", href: "#intelligence" },
+            { label: "Outcomes", href: "#outcomes" },
+          ].map(l => (
+            <a 
+              key={l.label} 
+              href={l.href} 
+              onClick={(e) => {
+                e.preventDefault();
+                document.querySelector(l.href)?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="hover:text-white transition-colors duration-300"
+            >
+              {l.label}
+            </a>
+          ))}
+        </div>
+
+        <div className="hidden md:flex items-center gap-3">
+          <a href="/auth" className="text-white/50 text-sm hover:text-white transition-colors duration-300 px-4 py-2">
+            Sign In
           </a>
-        ))}
-      </div>
+          <a href="/auth" className="glass glow-btn-glass flex items-center justify-center px-5 py-2.5 rounded-full text-white text-sm font-medium tracking-wide">
+            Launch PhantmOS
+          </a>
+        </div>
+        
+        {/* Mobile toggle */}
+        <button className="md:hidden text-white/70" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+        </button>
+      </motion.nav>
 
-      {/* Actions */}
-      <div className="flex items-center gap-3">
-        <a href="/auth" className="text-white/50 text-sm hover:text-white transition-colors duration-300 px-4 py-2">
-          Sign In
-        </a>
-        <a href="/auth" className="glass glow-btn-glass flex items-center justify-center px-5 py-2.5 rounded-full text-white text-sm font-medium tracking-wide">
-          Launch PhantmOS
-        </a>
-      </div>
-    </motion.nav>
+      {/* Mobile Menu */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-40 bg-black/95 flex flex-col items-center justify-center gap-8 md:hidden">
+          {[
+            { label: "Capabilities", href: "#capabilities" },
+            { label: "Workflow", href: "#workflow" },
+            { label: "Intelligence", href: "#intelligence" },
+            { label: "Outcomes", href: "#outcomes" },
+          ].map(l => (
+            <a 
+              key={l.label} 
+              href={l.href} 
+              onClick={(e) => {
+                e.preventDefault();
+                setMobileMenuOpen(false);
+                document.querySelector(l.href)?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="text-white text-xl tracking-wide"
+            >
+              {l.label}
+            </a>
+          ))}
+          <a href="/auth" className="text-white/50 text-xl mt-4">Sign In</a>
+          <a href="/auth" className="mt-2 glass glow-btn-glass px-8 py-3 rounded-full text-white text-lg font-medium">Launch PhantmOS</a>
+          
+          <button className="absolute top-6 right-6 text-white/50" onClick={() => setMobileMenuOpen(false)}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
+          </button>
+        </div>
+      )}
+    </>
   );
 }
+
 
 /* ─── AI Video Canvas (Full Screen) ─────────────────────────────────────── */
 function HeroVideoCanvas({ scrollProgress }: { scrollProgress: any }) {
@@ -277,7 +314,7 @@ function HeroVideoCanvas({ scrollProgress }: { scrollProgress: any }) {
 
     const render = () => {
       // Get the absolute latest smoothed scroll progress directly
-      const latest = smoothProgress.get();
+      const latest = smoothProgress.get() as any as number;
       const frameIndex = Math.min(frameCount - 1, Math.max(0, Math.floor(latest * frameCount)));
       const img = imagesRef.current[frameIndex];
       
