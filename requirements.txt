@@ -14,6 +14,7 @@ supabase
 
 # HTTP client (used by all API adapters)
 httpx
+requests
 
 # Scheduling
 apscheduler
