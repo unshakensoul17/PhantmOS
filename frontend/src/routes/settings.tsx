@@ -175,6 +175,7 @@ function SettingsPage() {
                           <option value="groq|gemma2-9b-it" className="bg-[#0B1020] text-white">Gemma 2 9B IT</option>
                         </optgroup>
                         <optgroup label="Google Gemini" className="bg-[#0B1020] text-white font-semibold">
+                          <option value="gemini|gemini-3.1-flash-lite" className="bg-[#0B1020] text-white">Gemini 3.1 Flash Lite</option>
                           <option value="gemini|gemini-1.5-flash" className="bg-[#0B1020] text-white">Gemini 1.5 Flash</option>
                           <option value="gemini|gemini-1.5-pro" className="bg-[#0B1020] text-white">Gemini 1.5 Pro</option>
                         </optgroup>
@@ -188,6 +189,7 @@ function SettingsPage() {
                         className="w-full h-11 px-4 rounded-xl glass bg-black/40 border border-white/10 focus:outline-none focus:border-neon-purple/50 appearance-none"
                       >
                         <optgroup label="Google Gemini" className="bg-[#0B1020] text-white font-semibold">
+                          <option value="gemini|gemini-3.1-flash-lite" className="bg-[#0B1020] text-white">Gemini 3.1 Flash Lite</option>
                           <option value="gemini|gemini-1.5-flash" className="bg-[#0B1020] text-white">Gemini 1.5 Flash</option>
                           <option value="gemini|gemini-1.5-pro" className="bg-[#0B1020] text-white">Gemini 1.5 Pro</option>
                         </optgroup>
