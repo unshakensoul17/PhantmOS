@@ -33,6 +33,67 @@ _RENDERCV_SEM = asyncio.Semaphore(1)
 
 # ── RenderCV PDF generation (synchronous — must run in executor) ────────────
 
+import re as _re
+
+# RenderCV only accepts: YYYY, YYYY-MM, YYYY-MM-DD, or "present"
+_YEAR_RE   = _re.compile(r"\b((19|20)\d{2})\b")  # captures the full 4-digit year
+_MONTH_RE  = _re.compile(r"\b(19|20\d{2})-(0[1-9]|1[0-2])\b")  # valid YYYY-MM
+
+def _normalize_date(raw) -> str | None:
+    """
+    Coerce any date-like string to a RenderCV-valid value.
+    Returns None if the value should be deleted (no year found).
+
+    Handles:
+      "2021 - 22"   → "2021"        (range — take the start year)
+      "2023-24"     → "2023"        (short range — take the start year)
+      "Expected 2027" → "2027"      (prefix text — extract the year)
+      "present" / "current" → "present"
+      "2024-06"     → "2024-06"     (already valid YYYY-MM)
+      "2024"        → "2024"        (already valid YYYY)
+      ""  / None    → None          (delete the field)
+    """
+    if raw is None:
+        return None
+    val = str(raw).strip()
+    if not val:
+        return None
+
+    lower = val.lower()
+    if lower in ("present", "current", "now", "ongoing"):
+        return "present"
+
+    # Already a valid YYYY-MM-DD
+    if _re.match(r"^(19|20)\d{2}-(0[1-9]|1[0-2])-\d{2}$", val):
+        return val
+
+    # Already a valid YYYY-MM (month ≤ 12)
+    if _re.match(r"^(19|20)\d{2}-(0[1-9]|1[0-2])$", val):
+        return val
+
+    # Range with dash like "2021-22", "2023-24" — take just the start year
+    m = _re.match(r"^((19|20)\d{2})\s*[-–]\s*\d{2}$", val)
+    if m:
+        return m.group(1)
+
+    # Long range "2021-2022" or "2021 - 2022" — take the start year
+    m = _re.match(r"^((19|20)\d{2})\s*[-–]\s*(19|20)\d{2}$", val)
+    if m:
+        return m.group(1)
+
+    # Already a plain 4-digit year
+    if _re.match(r"^(19|20)\d{2}$", val):
+        return val
+
+    # Extract ANY 4-digit year from free-text like "Expected 2027", "Since 2020", "Batch 2025-26"
+    matches = _YEAR_RE.findall(val)
+    if matches:
+        return matches[0][0]  # findall returns tuples due to capturing group; [0] = first match, [0] = full year
+
+    # No year found at all — drop the field
+    return None
+
+
 def _sanitize_cv_data(cv: dict) -> dict:
     # 0. Migrate legacy/flat schema (e.g., from old LLM outputs or DB records) to strict RenderCV sections schema
     if "sections" not in cv:
@@ -79,63 +140,54 @@ def _sanitize_cv_data(cv: dict) -> dict:
                     break
         cv["social_networks"] = valid_socials
         
-    # 2. Strip out empty date fields and clean up rogue newlines in short strings
+    # 2. Normalize ALL date fields and clean short string fields
     import re
     if "sections" in cv:
         for sec_name, entries in cv["sections"].items():
             if isinstance(entries, list):
                 for entry in entries:
-                    if isinstance(entry, dict):
-                        # Clean dates (remove if empty, or invalid like "Not specified")
-                        for date_field in ["start_date", "end_date", "date"]:
-                            if date_field in entry:
-                                val = str(entry[date_field]).strip().lower()
-                                # If it's empty, or has no digits and isn't "present", it's invalid for RenderCV
-                                if not val or (not any(c.isdigit() for c in val) and val != "present"):
-                                    del entry[date_field]
-                                elif re.match(r"^\d{4}-\d{2}$", val):
-                                    # If it looks like YYYY-MM but MM is > 12 (e.g. 2024-27), RenderCV fails.
-                                    # We replace "-" with " - " to force it to be treated as a string range.
-                                    parts = val.split("-")
-                                    if len(parts) == 2 and int(parts[1]) > 12:
-                                        entry[date_field] = f"{parts[0]} - {parts[1]}"
-                        # Clean short string fields to prevent Typst overlap
-                        for short_field in ["institution", "area", "degree", "company", "position", "location", "name"]:
-                            if short_field in entry and isinstance(entry[short_field], str):
-                                entry[short_field] = " ".join(entry[short_field].split())
-                                
-                        # Fix long degrees overlapping in classic theme
-                        if "degree" in entry and isinstance(entry["degree"], str) and len(entry["degree"]) > 8:
-                            degree_val = entry["degree"]
-                            area_val = entry.get("area", "")
-                            # Merge long degree into area (e.g. "Expected 2027" -> "Expected 2027, BCA")
-                            if area_val:
-                                entry["area"] = f"{degree_val}, {area_val}"
-                            else:
-                                entry["area"] = degree_val
-                            del entry["degree"]
-                            
-                        # Merge "technologies" into "highlights"
-                        if "technologies" in entry and isinstance(entry["technologies"], list):
-                            if "highlights" not in entry or not isinstance(entry["highlights"], list):
-                                entry["highlights"] = []
-                            techs = ", ".join(str(t) for t in entry["technologies"])
-                            entry["highlights"].append(f"Technologies: {techs}")
-                            
-                        # Delete any custom fields that are lists/dicts to prevent RenderCV TypeError during string substitution
-                        allowed_complex_fields = {"highlights"}
-                        keys_to_delete = []
-                        for k, v in entry.items():
-                            if k not in allowed_complex_fields and (isinstance(v, list) or isinstance(v, dict)):
-                                keys_to_delete.append(k)
-                        for k in keys_to_delete:
-                            del entry[k]
+                    if not isinstance(entry, dict):
+                        continue
 
-        # 3. Strip out entirely empty sections (like Experience: [])
-        empty_sections = [sec for sec, entries in cv["sections"].items() if isinstance(entries, list) and not entries]
-        for sec in empty_sections:
+                    # ── Strict date normalization ──────────────────────────
+                    for date_field in ["start_date", "end_date", "date"]:
+                        if date_field in entry:
+                            normalized = _normalize_date(entry[date_field])
+                            if normalized is None:
+                                del entry[date_field]
+                            else:
+                                entry[date_field] = normalized
+
+                    # ── Strip empty url (RenderCV crashes on empty string) ─
+                    if "url" in entry and not str(entry.get("url", "")).strip():
+                        del entry["url"]
+
+                    # ── Clean short string fields ──────────────────────────
+                    for short_field in ["institution", "area", "degree", "company", "position", "location", "name"]:
+                        if short_field in entry and isinstance(entry[short_field], str):
+                            entry[short_field] = " ".join(entry[short_field].split())
+
+                    # ── Merge long degree string into area ─────────────────
+                    if "degree" in entry and isinstance(entry["degree"], str) and len(entry["degree"]) > 8:
+                        area_val = entry.get("area", "")
+                        entry["area"] = f"{entry['degree']}, {area_val}" if area_val else entry["degree"]
+                        del entry["degree"]
+
+                    # ── Merge "technologies" list into highlights ──────────
+                    if "technologies" in entry and isinstance(entry["technologies"], list):
+                        if "highlights" not in entry or not isinstance(entry["highlights"], list):
+                            entry["highlights"] = []
+                        techs = ", ".join(str(t) for t in entry["technologies"])
+                        entry["highlights"].append(f"Technologies: {techs}")
+
+                    # ── Drop unknown complex fields (lists/dicts) ──────────
+                    for k in [k for k, v in list(entry.items()) if k != "highlights" and isinstance(v, (list, dict))]:
+                        del entry[k]
+
+        # 3. Strip entirely empty sections
+        for sec in [s for s, e in list(cv["sections"].items()) if isinstance(e, list) and not e]:
             del cv["sections"][sec]
-            
+
     # 4. Fix phone number validation (RenderCV requires +countrycode)
     if "phone" in cv:
         phone_str = str(cv["phone"]).strip()
