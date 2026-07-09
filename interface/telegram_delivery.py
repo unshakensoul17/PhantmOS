@@ -13,8 +13,8 @@ PDF is delivered as a link (Supabase URL) — no local file dependency.
 """
 import os
 import json
-import asyncio   # ← FIX 1: explicit top-level import — was missing in deployed build
-import requests  # ← moved to top-level so it's always available
+import asyncio
+import requests
 from fastapi import FastAPI, Request
 from telegram import Bot, Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CallbackQueryHandler, ContextTypes
@@ -36,6 +36,17 @@ from delivery.feedback_processor import (
 
 load_dotenv()
 logger = get_logger(__name__)
+
+# ── Rate limiter ───────────────────────────────────────────────────────────────
+# The queue manager fires ALL pending jobs as near-concurrent coroutines.
+# Without this lock, 30+ simultaneous SSL connections hit the Cloudflare Worker
+# proxy and it kills them mid-handshake → SSLEOFError.
+# This lock serialises all outbound Telegram sends and enforces a minimum
+# 1.5-second gap (Telegram also rate-limits bots to 1 msg/s per chat).
+_SEND_LOCK: asyncio.Lock = asyncio.Lock()
+_LAST_SEND_TIME: float = 0.0
+_MIN_SEND_INTERVAL: float = 1.5   # seconds between messages to the same chat
+
 
 # FastAPI app (webhook endpoint)
 app = FastAPI(title="PhantmOS Webhook")
@@ -62,8 +73,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if "_" not in data:
         return
 
-    parts  = data.split("_", 1)
-    action = parts[0]
+    parts   = data.split("_", 1)
+    action  = parts[0]
     payload = parts[1] if len(parts) > 1 else ""
 
     if action == "review":
@@ -78,17 +89,14 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_reply_markup(reply_markup=None)
 
     elif action == "skipask":
-        # Show skip reason keyboard
         await _show_skip_reasons(context, chat_id, payload)
 
     elif action == "skip":
-        # payload = "{job_id}|{reason}"
         job_id, _, reason = payload.partition("|")
         await _on_skip(context, chat_id, job_id, reason)
         await query.edit_message_reply_markup(reply_markup=None)
 
     elif action == "resume":
-        # Legacy PDF button — send resume URL or upload local file
         lead = get_lead_by_id(payload)
         if lead:
             resume_url = lead.get("resume_url")
@@ -105,12 +113,12 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             await context.bot.send_document(
                                 chat_id=chat_id,
                                 document=f,
-                                filename=os.path.basename(resume_url)
+                                filename=os.path.basename(resume_url),
                             )
                     else:
                         await context.bot.send_message(
                             chat_id=chat_id,
-                            text=f"Resume file path not found: {resume_url}"
+                            text=f"Resume file path not found: {resume_url}",
                         )
             else:
                 await context.bot.send_message(
@@ -119,6 +127,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 from telegram.ext import CommandHandler
+
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle the /start deep link to map telegram chat_id to user_id."""
@@ -159,6 +168,8 @@ async def telegram_webhook(request: Request):
 async def send_job_card(lead: dict) -> bool:
     """
     Send a rich job card to Telegram.
+    Serialised by _SEND_LOCK to avoid hammering the Cloudflare proxy with
+    concurrent SSL connections (which causes SSLEOFError on the free tier).
     Returns True on success, False on failure.
     """
     if not TELEGRAM_BOT_TOKEN:
@@ -173,7 +184,6 @@ async def send_job_card(lead: dict) -> bool:
         if profile:
             chat_id = profile.get("telegram_chat_id")
 
-    # Fallback to default from env if profile/chat_id not found
     chat_id = chat_id or TELEGRAM_CHAT_ID
     if not chat_id:
         logger.warning("Telegram: chat_id missing.")
@@ -184,50 +194,59 @@ async def send_job_card(lead: dict) -> bool:
 
     logger.info(f"Telegram: attempting delivery job={job_id} band={band} chat={chat_id} token_ok={bool(TELEGRAM_BOT_TOKEN)}")
 
-    try:
-        # ── Send the main job card ────────────────────────────────────────────
-        card_text = format_job_card(lead)
-        status = lead.get("status", "")
-        main_keyboard = _build_main_keyboard(job_id, status)
+    # ── Acquire the global send lock ───────────────────────────────────────────
+    # Only one coroutine may send at a time; all others wait their turn.
+    async with _SEND_LOCK:
+        global _LAST_SEND_TIME
 
-        payload = {
-            "chat_id": chat_id,
-            "text": card_text,
-            "parse_mode": "Markdown",
-            "reply_markup": main_keyboard.to_dict(),
-            "disable_web_page_preview": True,
-        }
+        # Enforce minimum gap between sends (Telegram: 1 msg/s per chat)
+        loop      = asyncio.get_event_loop()
+        elapsed   = loop.time() - _LAST_SEND_TIME
+        wait_secs = _MIN_SEND_INTERVAL - elapsed
+        if wait_secs > 0:
+            await asyncio.sleep(wait_secs)
 
-        # FIX 2: removed stray `import httpx` (was here but httpx was never used;
-        # caused ImportError if httpx not installed). requests is now imported at top.
-        def _send():
-            return requests.post(
-                f"{TELEGRAM_API_BASE_URL}/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
-                json=payload,
-                timeout=30.0,
-            )
+        try:
+            card_text   = format_job_card(lead)
+            status      = lead.get("status", "")
+            main_keyboard = _build_main_keyboard(job_id, status)
 
-        # Run the sync requests call in a thread so the async event loop isn't blocked
-        resp = await asyncio.to_thread(_send)
+            payload = {
+                "chat_id":                chat_id,
+                "text":                   card_text,
+                "parse_mode":             "Markdown",
+                "reply_markup":           main_keyboard.to_dict(),
+                "disable_web_page_preview": True,
+            }
 
-        if resp.status_code == 200:
-            # Mark as Approved (delivered to user) — user_id required for RLS
-            update_job_lead(job_id, {"status": "Approved"}, user_id=user_id)
-            logger.info(f"Telegram: sent job card for {job_id} [{band}] to chat {chat_id}.")
-            return True
-        else:
+            def _send() -> requests.Response:
+                return requests.post(
+                    f"{TELEGRAM_API_BASE_URL}/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+                    json=payload,
+                    timeout=30.0,
+                )
+
+            resp = await asyncio.to_thread(_send)
+            _LAST_SEND_TIME = asyncio.get_event_loop().time()
+
+            if resp.status_code == 200:
+                update_job_lead(job_id, {"status": "Approved"}, user_id=user_id)
+                logger.info(f"Telegram: sent job card for {job_id} [{band}] to chat {chat_id}.")
+                return True
+            else:
+                logger.error(
+                    f"Telegram API error for job {job_id}: "
+                    f"HTTP {resp.status_code} | {resp.text}"
+                )
+                return False
+
+        except Exception as e:
+            _LAST_SEND_TIME = asyncio.get_event_loop().time()  # still advance timer on error
             logger.error(
-                f"Telegram API error for job {job_id}: "
-                f"HTTP {resp.status_code} | {resp.text}"
+                f"Telegram: error sending card for {job_id} to chat {chat_id}: "
+                f"[{type(e).__name__}] {repr(e)}"
             )
             return False
-
-    except Exception as e:
-        logger.error(
-            f"Telegram: error sending card for {job_id} to chat {chat_id}: "
-            f"[{type(e).__name__}] {repr(e)}"
-        )
-        return False
 
 
 # ── Action handlers ────────────────────────────────────────────────────────────
@@ -240,7 +259,7 @@ async def _on_create_resume(context, chat_id: int, job_id: str, query):
 
     await query.edit_message_text(
         text=query.message.text + "\n\n⏳ *Generating highly-tailored resume... Please wait ~15s.*",
-        parse_mode="Markdown"
+        parse_mode="Markdown",
     )
 
     lead = get_lead_by_id(job_id)
@@ -252,14 +271,14 @@ async def _on_create_resume(context, chat_id: int, job_id: str, query):
     if not profile:
         return
 
-    band = lead.get("score_band", "WARM")
+    band          = lead.get("score_band", "WARM")
     master_resume = profile.get("resume_data") or {}
-    preferences = profile.get("preferences") or {}
+    preferences   = profile.get("preferences") or {}
 
     if not master_resume:
         await context.bot.send_message(
             chat_id=chat_id,
-            text="❌ You haven't uploaded a master resume yet! Please go to your Dashboard to upload one before tailoring."
+            text="❌ You haven't uploaded a master resume yet! Please go to your Dashboard to upload one before tailoring.",
         )
         return
 
@@ -270,7 +289,7 @@ async def _on_create_resume(context, chat_id: int, job_id: str, query):
             success = await _tailor_warm(lead, master_resume, user_id=user_id, preferences=preferences)
 
         if success:
-            lead = get_lead_by_id(job_id)
+            lead      = get_lead_by_id(job_id)
             notes_raw = lead.get("notes") or "{}"
             try:
                 notes = json.loads(notes_raw)
@@ -278,14 +297,12 @@ async def _on_create_resume(context, chat_id: int, job_id: str, query):
                 notes = {}
 
             resume_data = notes.get("updated_resume_json") or master_resume
-            company = lead.get("company", "")
 
             url = await generate_and_upload_pdf(job_id=job_id, resume_data=resume_data, user_id=user_id)
             if url:
                 update_job_lead(job_id, {"resume_url": url}, user_id=user_id)
                 lead["resume_url"] = url
-                lead["status"] = "Tailored"
-                # BUG-03 fix: only purge queue entry after PDF is confirmed uploaded
+                lead["status"]     = "Tailored"
                 get_client().table("delivery_queue").delete().eq("job_id", job_id).execute()
             else:
                 logger.error(f"Telegram: PDF generation failed for {job_id} — delivery queue entry preserved for retry.")
@@ -293,7 +310,7 @@ async def _on_create_resume(context, chat_id: int, job_id: str, query):
                 return
 
             new_text = format_job_card(lead)
-            new_kb = _build_main_keyboard(job_id, "Tailored")
+            new_kb   = _build_main_keyboard(job_id, "Tailored")
 
             await context.bot.send_message(
                 chat_id=chat_id,
@@ -325,10 +342,10 @@ async def _on_send_cold_email(context, chat_id: int, job_id: str):
     except Exception:
         notes = {}
 
-    cold_email  = notes.get("cold_email", "")
-    resume_url  = lead.get("resume_url") or notes.get("resume_path", "")
-    company     = lead.get("company", "")
-    title       = lead.get("title", "")
+    cold_email = notes.get("cold_email", "")
+    resume_url = lead.get("resume_url") or notes.get("resume_path", "")
+    company    = lead.get("company", "")
+    title      = lead.get("title", "")
 
     if not cold_email:
         await context.bot.send_message(chat_id=chat_id, text="⚠️ No cold email generated for this lead.")
@@ -336,13 +353,13 @@ async def _on_send_cold_email(context, chat_id: int, job_id: str):
 
     user_id = lead.get("user_id")
     profile = get_profile(user_id)
-    # BUG-02/BUG-10 fix: guard against None profile
     if not profile:
         logger.error(f"Telegram: could not load profile for user {user_id} — aborting cold email.")
         await context.bot.send_message(chat_id=chat_id, text="❌ Could not load your profile. Please try again.")
         return
-    prefs = profile.get("preferences") or {}
-    llm_prefs = prefs.get("llm") or {}
+
+    prefs      = profile.get("preferences") or {}
+    llm_prefs  = prefs.get("llm") or {}
     gmail_user = llm_prefs.get("gmail_user", "")
     gmail_pass = llm_prefs.get("gmail_app_password", "")
 
@@ -350,7 +367,10 @@ async def _on_send_cold_email(context, chat_id: int, job_id: str):
 
     if not target_email:
         target_email = os.getenv("GMAIL_USER", gmail_user)
-        await context.bot.send_message(chat_id=chat_id, text=f"⚠️ Could not find recruiter email. Sending to default ({target_email}) for manual forwarding.")
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"⚠️ Could not find recruiter email. Sending to default ({target_email}) for manual forwarding.",
+        )
     else:
         await context.bot.send_message(chat_id=chat_id, text=f"🎯 Recruiter found: {target_email}. Dispatching…")
 
@@ -360,7 +380,7 @@ async def _on_send_cold_email(context, chat_id: int, job_id: str):
         if lines[0].startswith("Subject:")
         else f"Application: {title} at {company}"
     )
-    body    = "\n".join(lines[1:]).strip() if lines[0].startswith("Subject:") else cold_email
+    body = "\n".join(lines[1:]).strip() if lines[0].startswith("Subject:") else cold_email
 
     success = await send_cold_email(
         target_email=target_email,
@@ -374,7 +394,11 @@ async def _on_send_cold_email(context, chat_id: int, job_id: str):
     if success:
         await handle_apply(job_id)
         update_job_lead(job_id, {"status": "Applied"}, user_id=user_id)
-        await context.bot.send_message(chat_id=chat_id, text=f"✅ Successfully applied to *{company}*! Cold email sent to {target_email}.", parse_mode="Markdown")
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"✅ Successfully applied to *{company}*! Cold email sent to {target_email}.",
+            parse_mode="Markdown",
+        )
     else:
         await context.bot.send_message(chat_id=chat_id, text="❌ Failed to send email. Check SMTP credentials.")
 
@@ -397,7 +421,7 @@ async def _on_review(context, chat_id: int, job_id: str):
 
 async def _show_skip_reasons(context, chat_id: int, job_id: str):
     """Show an inline keyboard of skip reasons."""
-    reasons = get_skip_reasons()
+    reasons  = get_skip_reasons()
     keyboard = [
         [InlineKeyboardButton(r["label"], callback_data=f"skip_{job_id}|{r['value']}")]
         for r in reasons
@@ -414,7 +438,7 @@ async def _on_skip(context, chat_id: int, job_id: str, reason: str):
     await handle_skip(job_id, reason)
     await context.bot.send_message(
         chat_id=chat_id,
-        text=f"❌ Lead dismissed (reason: {reason.replace('_', ' ')}). Preferences updated."
+        text=f"❌ Lead dismissed (reason: {reason.replace('_', ' ')}). Preferences updated.",
     )
 
 
@@ -426,14 +450,13 @@ def _build_main_keyboard(job_id: str, status: str) -> InlineKeyboardMarkup:
 
     if status == "Tailored":
         buttons.append(InlineKeyboardButton("⚡ 1-Click Apply", callback_data=f"sendemail_{job_id}"))
-        buttons.append(InlineKeyboardButton("📄 View PDF", callback_data=f"resume_{job_id}"))
+        buttons.append(InlineKeyboardButton("📄 View PDF",      callback_data=f"resume_{job_id}"))
     else:
         buttons.append(InlineKeyboardButton("📄 Create Resume", callback_data=f"createresume_{job_id}"))
 
     buttons.append(InlineKeyboardButton("🔍 Inspect & Edit", callback_data=f"review_{job_id}"))
-    buttons.append(InlineKeyboardButton("🗑️ Pass", callback_data=f"skipask_{job_id}"))
+    buttons.append(InlineKeyboardButton("🗑️ Pass",           callback_data=f"skipask_{job_id}"))
 
-    # Split into rows of 2 for better UI
     rows = [buttons[i:i+2] for i in range(0, len(buttons), 2)]
     return InlineKeyboardMarkup(rows)
 
