@@ -9,7 +9,7 @@ import json
 import asyncio
 import httpx
 from fastapi import FastAPI, Request
-from telegram import Bot, Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Bot, Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import Application, CallbackQueryHandler, ContextTypes
 from dotenv import load_dotenv
 
@@ -258,6 +258,34 @@ async def send_job_card(lead: dict) -> bool:
                 f"[{type(e).__name__}] {repr(e)}"
             )
             return False
+
+
+async def send_webapp_digest(chat_id: int, count: int) -> bool:
+    """Send a single WebApp digest message summarizing the batch."""
+    if not TELEGRAM_BOT_TOKEN: return False
+    
+    text = f"🎯 *PhantmOS Pipeline Complete*\n\nWe found *{count} new high-match jobs* for you today. Open your Job Radar to review, skip, and generate tailored resumes instantly."
+    
+    # URL pointing to the HF space dashboard
+    space_host = os.getenv("SPACE_HOST", "unshakensou17-phantmos.hf.space")
+    url = f"https://{space_host}"
+    
+    btn = InlineKeyboardButton("🚀 Open Job Radar", web_app=WebAppInfo(url=url))
+    keyboard = InlineKeyboardMarkup([[btn]])
+    
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "Markdown",
+        "reply_markup": keyboard.to_dict()
+    }
+    
+    try:
+        resp = await _post_to_telegram("sendMessage", payload)
+        return resp is not None and resp.status_code == 200
+    except Exception as e:
+        logger.error(f"Failed to send webapp digest: {e}")
+        return False
 
 
 # ── Action handlers ────────────────────────────────────────────────────────────

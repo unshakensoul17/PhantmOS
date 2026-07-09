@@ -75,41 +75,30 @@ async def process_delivery_queue(profile: dict, send_fn) -> dict:
         except Exception as e:
             logger.error(f"Delivery: batch skip update failed: {e}")
 
-    # ── Run active deliveries concurrently ────────────────────────────────────
+    # ── Run active deliveries (Web App Digest) ────────────────────────────────
     sent = failed = 0
     if to_deliver:
-        results = await asyncio.gather(
-            *[_attempt_delivery(
-                delivery_id=i["id"],
-                job_id=i.get("job_id", "unknown"),
-                lead=i.get("job_leads") or {},
-                attempts=i.get("attempts", 0),
-                send_fn=send_fn,
-            ) for i in to_deliver],
-            return_exceptions=True,
-        )
-        sent   = sum(1 for r in results if r is True)
-        failed = sum(1 for r in results if r is False or isinstance(r, BaseException))
+        chat_id = profile.get("telegram_chat_id")
+        if chat_id:
+            from interface.telegram_delivery import send_webapp_digest
+            success = await send_webapp_digest(chat_id, len(to_deliver))
+            if success:
+                delivery_ids = [i["id"] for i in to_deliver]
+                get_client().table("delivery_queue").update({"status": "sent"}).in_("id", delivery_ids).execute()
+                for i in to_deliver:
+                    job_id = i.get("job_id")
+                    if job_id: log_stage_success(job_id, "delivery")
+                sent = len(to_deliver)
+            else:
+                for i in to_deliver:
+                    update_delivery_status(i["id"], "pending", increment_attempts=True)
+                failed = len(to_deliver)
+                logger.warning("Delivery: Failed to send WebApp digest message.")
+        else:
+            logger.warning("Delivery: Cannot send digest. No telegram_chat_id in profile.")
+            failed = len(to_deliver)
+            for i in to_deliver:
+                update_delivery_status(i["id"], "failed")
 
     logger.info(f"=== Delivery complete: sent={sent} failed={failed} skipped={len(to_skip)} ===")
     return {"sent": sent, "failed": failed, "skipped": len(to_skip), "total": len(pending)}
-
-
-async def _attempt_delivery(delivery_id: str, job_id: str, lead: dict, attempts: int, send_fn) -> bool:
-    """Try primary sender; update queue status based on result."""
-    try:
-        success = await send_fn(lead)
-        if success:
-            update_delivery_status(delivery_id, "sent")
-            log_stage_success(job_id, "delivery")
-            logger.info(f"Delivery: sent job {job_id} via Telegram.")
-            return True
-        raise RuntimeError("send_fn returned False")
-    except Exception as e:
-        new_attempts = attempts + 1
-        logger.warning(f"Delivery: Telegram failed for {job_id} (attempt {new_attempts}/{DELIVERY_MAX_ATTEMPTS}): {e}")
-        update_delivery_status(delivery_id, "pending", increment_attempts=True)
-        if new_attempts >= DELIVERY_MAX_ATTEMPTS:
-            update_delivery_status(delivery_id, "failed")
-            log_stage_failure(job_id, "delivery", str(e))
-        return False
