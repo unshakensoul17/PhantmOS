@@ -134,12 +134,16 @@ def _sanitize_cv_data(cv: dict) -> dict:
     # 4. Fix phone number validation (RenderCV requires +countrycode)
     if "phone" in cv:
         phone_str = str(cv["phone"]).strip()
-        if not phone_str.startswith("+"):
-            digits = "".join(filter(str.isdigit, phone_str))
-            if len(digits) == 10:
-                cv["phone"] = f"+91{digits}"
-            else:
-                del cv["phone"]
+        digits = "".join(filter(str.isdigit, phone_str))
+        # RenderCV will crash if the phone number has placeholder characters or is too short
+        if "X" in phone_str.upper() or "x" in phone_str.lower() or len(digits) < 10:
+            del cv["phone"]
+        elif not phone_str.startswith("+"):
+            cv["phone"] = f"+91{digits}"
+        else:
+            # It starts with + and has enough digits, but we strip out weird chars just in case
+            safe_phone = "".join(c for c in phone_str if c.isdigit() or c in "+ -()")
+            cv["phone"] = safe_phone
                 
     return cv
 
