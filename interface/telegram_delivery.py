@@ -161,7 +161,7 @@ async def _post_to_telegram(path: str, payload: dict):
         url = f"{base}/bot{TELEGRAM_BOT_TOKEN}/{path}"
         try:
             def _send():
-                return requests.post(url, json=payload, timeout=30.0)
+                return requests.post(url, json=payload, timeout=30.0, proxies={"http": None, "https": None})
             resp = await asyncio.to_thread(_send)
             logger.debug(f"Telegram [{base}] → HTTP {resp.status_code}")
             return resp                           # success or Telegram-level error

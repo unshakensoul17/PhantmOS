@@ -32,7 +32,8 @@ async def lifespan(app: FastAPI):
             resp = requests.post(
                 f"{TELEGRAM_API_BASE_URL}/bot{TELEGRAM_BOT_TOKEN}/setWebhook",
                 json={"url": webhook_url},
-                timeout=30
+                timeout=30,
+                proxies={"http": None, "https": None}
             )
             logger.info(f"Webhook registration response: {resp.text}")
         except Exception as e:
@@ -355,7 +356,7 @@ async def get_telegram_link(user_id: str = Depends(get_current_user_id)):
         import requests
         from core.config import TELEGRAM_API_BASE_URL
         # HF Spaces frequently time out on outbound requests to api.telegram.org
-        resp = requests.get(f"{TELEGRAM_API_BASE_URL}/bot{TELEGRAM_BOT_TOKEN}/getMe", timeout=2).json()
+        resp = requests.get(f"{TELEGRAM_API_BASE_URL}/bot{TELEGRAM_BOT_TOKEN}/getMe", timeout=2, proxies={"http": None, "https": None}).json()
         if resp.get("ok"):
             _BOT_USERNAME_CACHE = resp["result"]["username"]
             return {"link": f"https://t.me/{_BOT_USERNAME_CACHE}?start={user_id}"}

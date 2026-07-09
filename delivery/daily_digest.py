@@ -175,7 +175,7 @@ async def _send_telegram(message: str, chat_id: str) -> bool:
         import requests
         import asyncio
         def _send():
-            return requests.post(url, json=payload, timeout=20.0)
+            return requests.post(url, json=payload, timeout=20.0, proxies={"http": None, "https": None})
 
         resp = await asyncio.to_thread(_send)
         resp.raise_for_status()
