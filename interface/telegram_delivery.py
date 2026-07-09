@@ -79,11 +79,14 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _on_send_cold_email(context, chat_id, payload)
         await query.edit_message_reply_markup(reply_markup=None)
     elif action == "skipask":
-        await _show_skip_reasons(context, chat_id, payload)
+        await _show_skip_reasons(context, chat_id, payload, query)
     elif action == "skip":
         job_id, _, reason = payload.partition("|")
         await _on_skip(context, chat_id, job_id, reason)
-        await query.edit_message_reply_markup(reply_markup=None)
+        try:
+            await query.message.delete()
+        except Exception:
+            await query.edit_message_reply_markup(reply_markup=None)
     elif action == "resume":
         lead = get_lead_by_id(payload)
         if lead:
@@ -395,11 +398,10 @@ async def _on_review(context, chat_id: int, job_id: str):
     await context.bot.send_message(chat_id=chat_id, text=format_review_card(lead), parse_mode="Markdown")
 
 
-async def _show_skip_reasons(context, chat_id: int, job_id: str):
+async def _show_skip_reasons(context, chat_id: int, job_id: str, query):
     reasons  = get_skip_reasons()
     keyboard = [[InlineKeyboardButton(r["label"], callback_data=f"skip_{job_id}|{r['value']}")] for r in reasons]
-    await context.bot.send_message(
-        chat_id=chat_id,
+    await query.edit_message_text(
         text="❌ Why are you skipping this lead?",
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
