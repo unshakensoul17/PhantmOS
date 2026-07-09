@@ -264,13 +264,19 @@ async def _on_create_resume(context, chat_id: int, job_id: str, query):
     from synthesis.resume_tailor_impl import _tailor_hot, _tailor_warm
     from synthesis.pdf_factory import generate_and_upload_pdf
 
-    await query.edit_message_text(
-        text=query.message.text + "\n\n⏳ *Generating highly-tailored resume... Please wait ~15s.*",
-        parse_mode="Markdown",
-    )
     lead = get_lead_by_id(job_id)
     if not lead:
         return
+        
+    btn_loading = InlineKeyboardButton("⏳ Generating...", callback_data="ignore")
+    btn_skip    = InlineKeyboardButton("🗑️ Skip", callback_data=f"skipask_{job_id}")
+    await query.edit_message_text(
+        text=format_job_card(lead),
+        parse_mode="Markdown",
+        disable_web_page_preview=True,
+        reply_markup=InlineKeyboardMarkup([[btn_loading, btn_skip]]),
+    )
+
     user_id       = lead.get("user_id")
     profile       = get_profile(user_id)
     if not profile:
