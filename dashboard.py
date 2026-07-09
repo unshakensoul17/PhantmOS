@@ -23,14 +23,14 @@ logger = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup logic
-    from core.config import TELEGRAM_BOT_TOKEN
+    from core.config import TELEGRAM_BOT_TOKEN, TELEGRAM_API_BASE_URL
     space_host = os.getenv("SPACE_HOST")
     if space_host and TELEGRAM_BOT_TOKEN:
         webhook_url = f"https://{space_host}/telegram/webhook"
         logger.info(f"Auto-registering Telegram Webhook: {webhook_url}")
         try:
             resp = requests.post(
-                f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/setWebhook",
+                f"{TELEGRAM_API_BASE_URL}/bot{TELEGRAM_BOT_TOKEN}/setWebhook",
                 json={"url": webhook_url},
                 timeout=30
             )
@@ -353,8 +353,9 @@ async def get_telegram_link(user_id: str = Depends(get_current_user_id)):
         
     try:
         import requests
+        from core.config import TELEGRAM_API_BASE_URL
         # HF Spaces frequently time out on outbound requests to api.telegram.org
-        resp = requests.get(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getMe", timeout=2).json()
+        resp = requests.get(f"{TELEGRAM_API_BASE_URL}/bot{TELEGRAM_BOT_TOKEN}/getMe", timeout=2).json()
         if resp.get("ok"):
             _BOT_USERNAME_CACHE = resp["result"]["username"]
             return {"link": f"https://t.me/{_BOT_USERNAME_CACHE}?start={user_id}"}

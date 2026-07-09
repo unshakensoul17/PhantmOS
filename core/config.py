@@ -42,6 +42,7 @@ LOCAL_EMBED_MODEL: str = "paraphrase-MiniLM-L3-v2"
 # ─────────────────────────────────────────────────────────
 TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
 TELEGRAM_CHAT_ID: str = os.getenv("TELEGRAM_ALLOWED_CHAT_ID", "").strip()
+TELEGRAM_API_BASE_URL: str = os.getenv("TELEGRAM_API_BASE_URL", "https://api.telegram.org").strip()
 
 
 # ─────────────────────────────────────────────────────────

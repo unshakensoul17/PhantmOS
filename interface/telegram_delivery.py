@@ -18,7 +18,7 @@ from telegram import Bot, Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CallbackQueryHandler, ContextTypes
 from dotenv import load_dotenv
 
-from core.config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+from core.config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_API_BASE_URL
 from core.database_manager import update_job_lead, get_lead_by_id
 from core.logger import get_logger
 from delivery.card_formatter import (
@@ -39,11 +39,13 @@ logger = get_logger(__name__)
 app = FastAPI(title="PhantmOS Webhook")
 
 # Telegram bot + application
-bot         = Bot(token=TELEGRAM_BOT_TOKEN) if TELEGRAM_BOT_TOKEN else None
-application = (
-    Application.builder().token(TELEGRAM_BOT_TOKEN).build()
-    if TELEGRAM_BOT_TOKEN else None
-)
+if TELEGRAM_BOT_TOKEN:
+    base_url = f"{TELEGRAM_API_BASE_URL}/bot"
+    bot = Bot(token=TELEGRAM_BOT_TOKEN, base_url=base_url)
+    application = Application.builder().bot(bot).build()
+else:
+    bot = None
+    application = None
 
 
 # ── Button callback handler ────────────────────────────────────────────────────
@@ -200,7 +202,7 @@ async def send_job_card(lead: dict) -> bool:
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
-                f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+                f"{TELEGRAM_API_BASE_URL}/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
                 json=payload,
             )
 
@@ -231,7 +233,7 @@ async def send_job_card(lead: dict) -> bool:
 async def _on_create_resume(context, chat_id: int, job_id: str, query):
     """Handle Create Resume button — trigger synthesis pipeline."""
     from core.database_manager import get_profile, get_lead_by_id, update_job_lead, get_client
-    from synthesis.resume_tailor import _tailor_hot, _tailor_warm
+    from synthesis.resume_tailor_impl import _tailor_hot, _tailor_warm
     from synthesis.pdf_factory import generate_and_upload_pdf
     
     await query.edit_message_text(
