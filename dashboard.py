@@ -330,16 +330,18 @@ async def get_telegram_link(user_id: str = Depends(get_current_user_id)):
         
     try:
         import requests
-        resp = requests.get(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getMe", timeout=5).json()
+        # HF Spaces frequently time out on outbound requests to api.telegram.org
+        resp = requests.get(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getMe", timeout=2).json()
         if resp.get("ok"):
             _BOT_USERNAME_CACHE = resp["result"]["username"]
             return {"link": f"https://t.me/{_BOT_USERNAME_CACHE}?start={user_id}"}
         else:
             logger.error(f"Telegram API error: {resp}")
-            return {"link": ""}
+            return {"link": f"https://t.me/phantmos_bot?start={user_id}"}
     except Exception as e:
         logger.error(f"Error fetching Telegram bot details: {e}")
-        return {"link": ""}
+        # Fallback to the known bot if the network drops the connection
+        return {"link": f"https://t.me/phantmos_bot?start={user_id}"}
 
 
 @app.get("/api/env")
