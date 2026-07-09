@@ -38,10 +38,16 @@ async def lifespan(app: FastAPI):
             logger.info(f"Webhook registration response: {resp.text}")
         except Exception as e:
             logger.error(f"Failed to register webhook: {e}")
+    from interface.telegram_delivery import application
+    if application:
+        await application.initialize()
+        await application.start()
             
     yield
     # Shutdown logic
-    pass
+    if application:
+        await application.stop()
+        await application.shutdown()
 
 app = FastAPI(title="PhantmOS v3.0 SaaS Dashboard", lifespan=lifespan)
 
