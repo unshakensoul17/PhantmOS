@@ -314,16 +314,24 @@ async def save_byok(request: BYOKUpdateRequest, user_id: str = Depends(get_curre
     return {"status": "ok", "message": "Custom credentials saved successfully."}
 
 
+_BOT_USERNAME_CACHE = None
+
 @app.get("/api/telegram/link")
 async def get_telegram_link(user_id: str = Depends(get_current_user_id)):
     """Generate the dynamic Telegram Bot deep link for the user."""
     from interface.telegram_delivery import bot
     if not bot:
         return {"link": ""}
+        
+    global _BOT_USERNAME_CACHE
+    if _BOT_USERNAME_CACHE:
+        return {"link": f"https://t.me/{_BOT_USERNAME_CACHE}?start={user_id}"}
+        
     try:
-        me = await bot.get_me()
-        bot_username = me.username
-        return {"link": f"https://t.me/{bot_username}?start={user_id}"}
+        import asyncio
+        me = await asyncio.wait_for(bot.get_me(read_timeout=5, connect_timeout=5), timeout=5.0)
+        _BOT_USERNAME_CACHE = me.username
+        return {"link": f"https://t.me/{_BOT_USERNAME_CACHE}?start={user_id}"}
     except Exception as e:
         logger.error(f"Error fetching Telegram bot details: {e}")
         return {"link": ""}

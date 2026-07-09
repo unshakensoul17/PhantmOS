@@ -24,7 +24,7 @@ python-telegram-bot
 
 # ── Stage 1: Harvesting ───────────────────────────────────
 # (All free APIs — no SerpApi needed)
-duckduckgo-search      # context researcher + genuity checker
+ddgs                   # context researcher + genuity checker
 beautifulsoup4         # html parsing for web scraping
 
 # ── Stage 2: Embeddings ───────────────────────────────────
@@ -40,6 +40,6 @@ sentence-transformers  # local fallback model (paraphrase-MiniLM-L3-v2, ~50MB)
 # HuggingFace: called via httpx — no package needed
 
 # ── Stage 4: PDF generation & parsing ──────────────────────
-rendercv>=0.3.0        # core PDF generation engine
+rendercv[full]>=0.3.0  # core PDF generation engine
 typst                  # pdf compiler required by rendercv
 pypdf                  # text extraction from uploaded master resumes
