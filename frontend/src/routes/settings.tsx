@@ -461,14 +461,14 @@ function SettingsPage() {
                   <div>
                     <label className="block text-sm font-medium mb-2">Select Template</label>
                       <select 
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-neon-cyan/50 transition-all font-mono"
+                      className="w-full h-11 px-4 rounded-xl glass bg-black/40 border border-white/10 focus:outline-none focus:border-neon-cyan/50 appearance-none"
                       value={localSettings.resume_template || 'sb2nov'}
                       onChange={(e) => setLocalSettings({ ...localSettings, resume_template: e.target.value })}
                     >
-                      <option value="sb2nov">SB2Nov (Default Tech)</option>
-                      <option value="classic">Classic (RenderCV Standard)</option>
-                      <option value="engineeringresumes">Engineering Resumes (Dense)</option>
-                      <option value="moderncv">ModernCV (Two-column layout)</option>
+                      <option value="sb2nov" className="bg-[#0B1020] text-white">SB2Nov (Default Tech)</option>
+                      <option value="classic" className="bg-[#0B1020] text-white">Classic (RenderCV Standard)</option>
+                      <option value="engineeringresumes" className="bg-[#0B1020] text-white">Engineering Resumes (Dense)</option>
+                      <option value="moderncv" className="bg-[#0B1020] text-white">ModernCV (Two-column layout)</option>
                     </select>
                     <p className="text-xs text-muted-foreground mt-2">This template will be applied to all newly tailored resumes.</p>
                   </div>
