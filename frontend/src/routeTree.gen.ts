@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ResumeStudioRouteImport } from './routes/resume-studio'
+import { Route as RadarRouteImport } from './routes/radar'
 import { Route as JobDiscoveryRouteImport } from './routes/job-discovery'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ContactRouteImport } from './routes/contact'
@@ -27,6 +28,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const ResumeStudioRoute = ResumeStudioRouteImport.update({
   id: '/resume-studio',
   path: '/resume-studio',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RadarRoute = RadarRouteImport.update({
+  id: '/radar',
+  path: '/radar',
   getParentRoute: () => rootRouteImport,
 } as any)
 const JobDiscoveryRoute = JobDiscoveryRouteImport.update({
@@ -73,6 +79,7 @@ export interface FileRoutesByFullPath {
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/job-discovery': typeof JobDiscoveryRoute
+  '/radar': typeof RadarRoute
   '/resume-studio': typeof ResumeStudioRoute
   '/settings': typeof SettingsRoute
 }
@@ -84,6 +91,7 @@ export interface FileRoutesByTo {
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/job-discovery': typeof JobDiscoveryRoute
+  '/radar': typeof RadarRoute
   '/resume-studio': typeof ResumeStudioRoute
   '/settings': typeof SettingsRoute
 }
@@ -96,6 +104,7 @@ export interface FileRoutesById {
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/job-discovery': typeof JobDiscoveryRoute
+  '/radar': typeof RadarRoute
   '/resume-studio': typeof ResumeStudioRoute
   '/settings': typeof SettingsRoute
 }
@@ -109,6 +118,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/dashboard'
     | '/job-discovery'
+    | '/radar'
     | '/resume-studio'
     | '/settings'
   fileRoutesByTo: FileRoutesByTo
@@ -120,6 +130,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/dashboard'
     | '/job-discovery'
+    | '/radar'
     | '/resume-studio'
     | '/settings'
   id:
@@ -131,6 +142,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/dashboard'
     | '/job-discovery'
+    | '/radar'
     | '/resume-studio'
     | '/settings'
   fileRoutesById: FileRoutesById
@@ -143,6 +155,7 @@ export interface RootRouteChildren {
   ContactRoute: typeof ContactRoute
   DashboardRoute: typeof DashboardRoute
   JobDiscoveryRoute: typeof JobDiscoveryRoute
+  RadarRoute: typeof RadarRoute
   ResumeStudioRoute: typeof ResumeStudioRoute
   SettingsRoute: typeof SettingsRoute
 }
@@ -161,6 +174,13 @@ declare module '@tanstack/react-router' {
       path: '/resume-studio'
       fullPath: '/resume-studio'
       preLoaderRoute: typeof ResumeStudioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/radar': {
+      id: '/radar'
+      path: '/radar'
+      fullPath: '/radar'
+      preLoaderRoute: typeof RadarRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/job-discovery': {
@@ -223,6 +243,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContactRoute: ContactRoute,
   DashboardRoute: DashboardRoute,
   JobDiscoveryRoute: JobDiscoveryRoute,
+  RadarRoute: RadarRoute,
   ResumeStudioRoute: ResumeStudioRoute,
   SettingsRoute: SettingsRoute,
 }
