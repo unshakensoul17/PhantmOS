@@ -89,7 +89,7 @@ def format_job_card(lead: dict) -> str:
         f"✏️ *Tailoring Applied:*\n"
         f"{tailored_lines}\n"
         f"\n"
-        f"📄 {resume_link}   |   🔗 {jd_link}"
+        f"🔗 {jd_link}"
     )
 
     return card.strip()

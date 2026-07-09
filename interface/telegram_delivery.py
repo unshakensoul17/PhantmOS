@@ -302,13 +302,18 @@ async def _on_create_resume(context, chat_id: int, job_id: str, query):
                 logger.error(f"PDF generation failed for {job_id}.")
                 await context.bot.send_message(chat_id=chat_id, text="⚠️ PDF generation failed. Please try again.")
                 return
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text=format_job_card(lead) + "\n\n✅ *Resume successfully generated!*",
+            await query.edit_message_text(
+                text=format_job_card(lead),
                 parse_mode="Markdown",
                 reply_markup=_build_main_keyboard(job_id, "Tailored"),
                 disable_web_page_preview=True,
             )
+            if url.startswith(("http://", "https://")):
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=f"📎 [Download Your Tailored Resume]({url})",
+                    parse_mode="Markdown",
+                )
         else:
             await context.bot.send_message(chat_id=chat_id, text="❌ Failed to tailor resume.")
     except Exception as e:
@@ -400,15 +405,12 @@ async def _on_skip(context, chat_id: int, job_id: str, reason: str):
 # ── Keyboard builders ──────────────────────────────────────────────────────────
 
 def _build_main_keyboard(job_id: str, status: str) -> InlineKeyboardMarkup:
-    buttons = []
     if status == "Tailored":
-        buttons.append(InlineKeyboardButton("⚡ 1-Click Apply", callback_data=f"sendemail_{job_id}"))
-        buttons.append(InlineKeyboardButton("📄 View PDF",      callback_data=f"resume_{job_id}"))
+        btn1 = InlineKeyboardButton("📄 Download Resume", callback_data=f"resume_{job_id}")
     else:
-        buttons.append(InlineKeyboardButton("📄 Create Resume", callback_data=f"createresume_{job_id}"))
-    buttons.append(InlineKeyboardButton("🔍 Inspect & Edit", callback_data=f"review_{job_id}"))
-    buttons.append(InlineKeyboardButton("🗑️ Pass",           callback_data=f"skipask_{job_id}"))
-    return InlineKeyboardMarkup([buttons[i:i+2] for i in range(0, len(buttons), 2)])
+        btn1 = InlineKeyboardButton("📄 Download Resume", callback_data=f"createresume_{job_id}")
+    btn2 = InlineKeyboardButton("🗑️ Skip", callback_data=f"skipask_{job_id}")
+    return InlineKeyboardMarkup([[btn1, btn2]])
 
 
 if __name__ == "__main__":
