@@ -172,10 +172,14 @@ async def _send_telegram(message: str, chat_id: str) -> bool:
             "text":       message,
             "parse_mode": "Markdown",
         }
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            resp = await client.post(url, json=payload)
-            resp.raise_for_status()
-            return True
+        import requests
+        import asyncio
+        def _send():
+            return requests.post(url, json=payload, timeout=20.0)
+
+        resp = await asyncio.to_thread(_send)
+        resp.raise_for_status()
+        return True
     except Exception as e:
         logger.error(f"Daily Digest: Telegram send failed to {chat_id} — {e}")
         return False

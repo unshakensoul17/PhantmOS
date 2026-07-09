@@ -200,13 +200,17 @@ async def send_job_card(lead: dict) -> bool:
             "disable_web_page_preview": True
         }
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(
+        import requests
+        def _send():
+            return requests.post(
                 f"{TELEGRAM_API_BASE_URL}/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
                 json=payload,
+                timeout=30.0
             )
 
-        if resp.is_success:
+        resp = await asyncio.to_thread(_send)
+
+        if resp.status_code == 200:
             # Mark as Approved (delivered to user) — user_id required for RLS
             update_job_lead(job_id, {"status": "Approved"}, user_id=user_id)
             logger.info(f"Telegram: sent job card for {job_id} [{band}] to chat {chat_id}.")
