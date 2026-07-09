@@ -30,7 +30,7 @@ logger = get_logger(__name__)
 # ── Rate limiter ───────────────────────────────────────────────────────────────
 # Serialises all outbound sends. Prevents hammering the proxy AND respects
 # Telegram's 1 msg/s per-chat rate limit.
-_SEND_LOCK: asyncio.Lock = asyncio.Lock()
+_SEND_LOCK = None
 _LAST_SEND_TIME: float = 0.0
 _MIN_SEND_INTERVAL: float = 1.5   # seconds
 
@@ -207,8 +207,11 @@ async def send_job_card(lead: dict) -> bool:
         f"chat={chat_id} token_ok={bool(TELEGRAM_BOT_TOKEN)}"
     )
 
+    global _SEND_LOCK, _LAST_SEND_TIME
+    if _SEND_LOCK is None:
+        _SEND_LOCK = asyncio.Lock()
+
     async with _SEND_LOCK:
-        global _LAST_SEND_TIME
         elapsed   = asyncio.get_event_loop().time() - _LAST_SEND_TIME
         wait_secs = _MIN_SEND_INTERVAL - elapsed
         if wait_secs > 0:
