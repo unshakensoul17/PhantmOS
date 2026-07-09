@@ -25,6 +25,11 @@ from synthesis.pdf_validator import validate_pdf
 logger = get_logger(__name__)
 STORAGE_BUCKET = "resumes"
 
+# Semaphore to prevent concurrent Typst package download race condition.
+# (TypstError: failed to move downloaded package directory: File exists (os error 17))
+# Typst tries to download its package on first run and can't handle concurrent moves.
+_RENDERCV_SEM = asyncio.Semaphore(1)
+
 
 # ── RenderCV PDF generation (synchronous — must run in executor) ────────────
 
@@ -279,7 +284,11 @@ async def generate_and_upload_pdf(
 
     loop = asyncio.get_event_loop()
     try:
-        pdf_bytes = await loop.run_in_executor(None, _adapt_and_render_sync, resume_data, theme)
+        # Serialize RenderCV calls to prevent Typst package race condition.
+        # Typst downloads its package on first run and fails if multiple
+        # processes try to move the same directory simultaneously.
+        async with _RENDERCV_SEM:
+            pdf_bytes = await loop.run_in_executor(None, _adapt_and_render_sync, resume_data, theme)
     except Exception as e:
         logger.error(f"PDF Factory: RenderCV failed for {job_id}: {e}")
         return None
