@@ -13,6 +13,7 @@ PDF is delivered as a link (Supabase URL) — no local file dependency.
 """
 import os
 import json
+import asyncio
 from fastapi import FastAPI, Request
 from telegram import Bot, Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CallbackQueryHandler, ContextTypes
