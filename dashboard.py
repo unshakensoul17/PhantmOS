@@ -319,8 +319,9 @@ _BOT_USERNAME_CACHE = None
 @app.get("/api/telegram/link")
 async def get_telegram_link(user_id: str = Depends(get_current_user_id)):
     """Generate the dynamic Telegram Bot deep link for the user."""
-    from interface.telegram_delivery import bot
-    if not bot:
+    from core.config import TELEGRAM_BOT_TOKEN
+    
+    if not TELEGRAM_BOT_TOKEN:
         return {"link": ""}
         
     global _BOT_USERNAME_CACHE
@@ -328,10 +329,14 @@ async def get_telegram_link(user_id: str = Depends(get_current_user_id)):
         return {"link": f"https://t.me/{_BOT_USERNAME_CACHE}?start={user_id}"}
         
     try:
-        import asyncio
-        me = await asyncio.wait_for(bot.get_me(read_timeout=5, connect_timeout=5), timeout=5.0)
-        _BOT_USERNAME_CACHE = me.username
-        return {"link": f"https://t.me/{_BOT_USERNAME_CACHE}?start={user_id}"}
+        import requests
+        resp = requests.get(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getMe", timeout=5).json()
+        if resp.get("ok"):
+            _BOT_USERNAME_CACHE = resp["result"]["username"]
+            return {"link": f"https://t.me/{_BOT_USERNAME_CACHE}?start={user_id}"}
+        else:
+            logger.error(f"Telegram API error: {resp}")
+            return {"link": ""}
     except Exception as e:
         logger.error(f"Error fetching Telegram bot details: {e}")
         return {"link": ""}
