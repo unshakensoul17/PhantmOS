@@ -32,7 +32,7 @@ async def call_groq(system_prompt: str, user_prompt: str, api_key: str = None, m
         ],
         "temperature": 0.4,
         "response_format": {"type": "json_object"},
-        "max_tokens": 4096,
+        "max_tokens": 2000,
     }
 
     async with httpx.AsyncClient(timeout=45.0) as client:

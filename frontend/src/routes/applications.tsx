@@ -190,6 +190,7 @@ function ApplicationsPage() {
                           {job.status === 'Interviewing' && (
                             <Link 
                               to="/company-research" 
+                              search={{ company: job.company }}
                               className="w-full h-8 rounded-lg bg-neon-cyan/20 border border-neon-cyan/30 text-neon-cyan text-xs font-semibold hover:bg-neon-cyan/30 transition flex items-center justify-center gap-1.5"
                             >
                               <FileText className="w-3 h-3" /> Open Playbook

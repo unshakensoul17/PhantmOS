@@ -117,6 +117,37 @@ async def process_pipeline(manual_query: str = None, target_user_id: str = None)
 
         user_summary = {}
 
+        # ── Check Credits & BYOK keys ─────────────────────────────────────────
+        api_keys = _resolve_api_keys(profile)
+        credits = profile.get("credits", 0) or 0
+        has_byok = bool(api_keys)
+
+        if credits <= 0 and not has_byok:
+            logger.warning(f"User {user_id} has no credits and no BYOK — skipping LLM pipeline.")
+            
+            # BUG-13 fix: Alert the user via Telegram that they are out of credits
+            try:
+                from interface.telegram_delivery import bot
+                chat_id = profile.get("telegram_chat_id")
+                if bot and chat_id:
+                    msg = "⚠️ *Pipeline Paused: Out of Credits*\n\nYou have 0 credits remaining and no personal API keys configured. Please upgrade your plan or add your API keys in the dashboard to resume job discovery."
+                    await bot.send_message(chat_id=chat_id, text=msg, parse_mode="Markdown")
+            except Exception as e:
+                logger.error(f"Failed to send credit alert to {user_id}: {e}")
+
+            user_summary["status"] = "skipped_insufficient_balance"
+            summary["details"][user_id] = user_summary
+            continue
+
+        if not has_byok:
+            from core.database_manager import deduct_credit
+            if not deduct_credit(user_id):
+                logger.warning(f"User {user_id} credit deduction failed — skipping.")
+                user_summary["status"] = "skipped_credit_deduction_failed"
+                summary["details"][user_id] = user_summary
+                continue
+            logger.info(f"User {user_id}: deducted 1 credit. Remaining: {credits - 1}")
+
         # ── STAGE 1: Local Discovery Agent ──────────────────────────────────────────
         try:
             logger.info(f"User {user_id}: >>> STAGE 1: Local Discovery Agent")
@@ -148,37 +179,6 @@ async def process_pipeline(manual_query: str = None, target_user_id: str = None)
             user_summary["harvest"] = {"error": str(e)}
             summary["details"][user_id] = user_summary
             continue
-
-        # ── Check Credits & BYOK keys ─────────────────────────────────────────
-        api_keys = _resolve_api_keys(profile)
-        credits = profile.get("credits", 0) or 0
-        has_byok = bool(api_keys)
-
-        if credits <= 0 and not has_byok:
-            logger.warning(f"User {user_id} has no credits and no BYOK — skipping LLM pipeline.")
-            
-            # BUG-13 fix: Alert the user via Telegram that they are out of credits
-            try:
-                from interface.telegram_delivery import bot
-                chat_id = profile.get("telegram_chat_id")
-                if bot and chat_id:
-                    msg = "⚠️ *Pipeline Paused: Out of Credits*\n\nYou have 0 credits remaining and no personal API keys configured. Please upgrade your plan or add your API keys in the dashboard to resume job discovery."
-                    await bot.send_message(chat_id=chat_id, text=msg, parse_mode="Markdown")
-            except Exception as e:
-                logger.error(f"Failed to send credit alert to {user_id}: {e}")
-
-            user_summary["status"] = "skipped_insufficient_balance"
-            summary["details"][user_id] = user_summary
-            continue
-
-        if not has_byok:
-            from core.database_manager import deduct_credit
-            if not deduct_credit(user_id):
-                logger.warning(f"User {user_id} credit deduction failed — skipping.")
-                user_summary["status"] = "skipped_credit_deduction_failed"
-                summary["details"][user_id] = user_summary
-                continue
-            logger.info(f"User {user_id}: deducted 1 credit. Remaining: {credits - 1}")
 
         # ── STAGE 2: Ranking Agent ────────────────────────────────────────────
         try:

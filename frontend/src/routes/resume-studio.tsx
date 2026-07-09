@@ -231,7 +231,7 @@ function ResumeStudioPage() {
           <div className="lg:col-span-1 space-y-4">
             <div className="glass-strong rounded-2xl p-4">
               <label className="relative flex flex-col items-center justify-center h-32 border border-dashed border-white/20 rounded-xl hover:bg-white/5 transition cursor-pointer group overflow-hidden bg-black/20">
-                <input type="file" className="hidden" accept=".pdf,.docx" onChange={handleUpload} />
+                <input type="file" className="hidden" accept=".pdf" onChange={handleUpload} />
                 {isUploading ? (
                   <Loader2 className="w-6 h-6 animate-spin text-neon-cyan mb-2" />
                 ) : file ? (
