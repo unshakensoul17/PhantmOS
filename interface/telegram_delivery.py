@@ -147,26 +147,26 @@ async def telegram_webhook(request: Request):
 
 # ── Core HTTP helper ───────────────────────────────────────────────────────────
 
-async def _post_to_telegram(path: str, payload: dict) -> httpx.Response | None:
+async def _post_to_telegram(path: str, payload: dict):
     """
     POST to Telegram API, trying endpoints in order:
       1. https://api.telegram.org  (direct — fastest, no proxy hop)
       2. TELEGRAM_API_BASE_URL     (Cloudflare Worker fallback)
 
     Returns the first successful Response, or None if all endpoints fail.
-    Uses httpx.AsyncClient — true async HTTP, no thread pool needed.
+    Uses requests wrapped in asyncio.to_thread.
     """
+    import requests
     for base in _TELEGRAM_ENDPOINTS:
         url = f"{base}/bot{TELEGRAM_BOT_TOKEN}/{path}"
         try:
-            async with httpx.AsyncClient(timeout=30.0, verify=True, trust_env=False) as client:
-                resp = await client.post(url, json=payload)
+            def _send():
+                return requests.post(url, json=payload, timeout=30.0)
+            resp = await asyncio.to_thread(_send)
             logger.debug(f"Telegram [{base}] → HTTP {resp.status_code}")
             return resp                           # success or Telegram-level error
-        except (httpx.ConnectError, httpx.ConnectTimeout):
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
             logger.warning(f"Telegram: {base} unreachable — trying next endpoint.")
-        except httpx.SSLError as e:
-            logger.warning(f"Telegram: SSL error on {base}: {e!r} — trying next endpoint.")
         except Exception as e:
             logger.warning(f"Telegram: unexpected error on {base}: {e!r} — trying next endpoint.")
 
