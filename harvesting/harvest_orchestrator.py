@@ -98,16 +98,20 @@ def build_lead(job: dict) -> dict:
     """Construct the full DB-ready lead dict from a normalised job dict."""
     # BUG-06 fix: use .get() with a recompute fallback so this never KeyErrors
     # if a job somehow reaches build_lead without passing through filter_new_jobs.
-    from intelligence.deduplicator import make_dedup_hash
-    dedup_hash = job.get("dedup_hash") or make_dedup_hash(
-        job.get("company", ""), job.get("title", "")
-    )
-    try:
-        job_uuid = str(uuid.UUID(dedup_hash))
-    except ValueError:
-        # MD5 hex is always 32 chars and valid hex, but guard anyway
-        import hashlib
-        job_uuid = str(uuid.UUID(hashlib.md5(dedup_hash.encode()).hexdigest()))
+    if job.get("job_id"):
+        job_uuid = str(job["job_id"])
+        dedup_hash = job.get("dedup_hash") or job_uuid
+    else:
+        from intelligence.deduplicator import make_dedup_hash
+        dedup_hash = job.get("dedup_hash") or make_dedup_hash(
+            job.get("company", ""), job.get("title", "")
+        )
+        try:
+            job_uuid = str(uuid.UUID(dedup_hash))
+        except ValueError:
+            # MD5 hex is always 32 chars and valid hex, but guard anyway
+            import hashlib
+            job_uuid = str(uuid.UUID(hashlib.md5(dedup_hash.encode()).hexdigest()))
 
     return {
         "job_id":          job_uuid,

@@ -88,8 +88,16 @@ async def process_pipeline(manual_query: str = None, target_user_id: str = None)
             import time
             prefs = profile.get("preferences") or {}
             sched_prefs = prefs.get("scheduler") or {}
-            freq = sched_prefs.get("frequency_hours", 4)
-            last_run = sched_prefs.get("last_run_timestamp", 0)
+            try:
+                freq = float(sched_prefs.get("frequency_hours", 4))
+            except (ValueError, TypeError):
+                freq = 4.0
+                
+            try:
+                last_run = float(sched_prefs.get("last_run_timestamp", 0))
+            except (ValueError, TypeError):
+                last_run = 0.0
+                
             now = time.time()
             
             pause_weekends = sched_prefs.get("pause_weekends", False)
