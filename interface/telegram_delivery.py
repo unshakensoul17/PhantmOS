@@ -181,6 +181,8 @@ async def send_job_card(lead: dict) -> bool:
     job_id = lead.get("job_id", "")
     band   = lead.get("score_band", "WARM")
 
+    logger.info(f"Telegram: attempting delivery job={job_id} band={band} chat={chat_id} token_ok={bool(TELEGRAM_BOT_TOKEN)}")
+
     try:
         import httpx
         # ── 1. Send the main job card ─────────────────────────────────────────
@@ -208,11 +210,19 @@ async def send_job_card(lead: dict) -> bool:
             logger.info(f"Telegram: sent job card for {job_id} [{band}] to chat {chat_id}.")
             return True
         else:
-            logger.error(f"Telegram API error sending card: {resp.text}")
+            # Log full Telegram API error — this shows "chat not found", "bot blocked by user", etc.
+            logger.error(
+                f"Telegram API error for job {job_id}: "
+                f"HTTP {resp.status_code} | {resp.text}"
+            )
             return False
 
     except Exception as e:
-        logger.error(f"Telegram: error sending card for {job_id} to chat {chat_id}: {e}")
+        # repr(e) shows exception type+args even when str(e) is empty
+        logger.error(
+            f"Telegram: error sending card for {job_id} to chat {chat_id}: "
+            f"[{type(e).__name__}] {repr(e)}"
+        )
         return False
 
 
