@@ -160,8 +160,8 @@ async def send_job_card(lead: dict) -> bool:
     Send a rich job card to Telegram.
     Returns True on success, False on failure.
     """
-    if not bot:
-        logger.warning("Telegram: bot not configured.")
+    if not TELEGRAM_BOT_TOKEN:
+        logger.warning("Telegram: bot token not configured.")
         return False
 
     user_id = lead.get("user_id")
@@ -182,24 +182,34 @@ async def send_job_card(lead: dict) -> bool:
     band   = lead.get("score_band", "WARM")
 
     try:
+        import requests
         # ── 1. Send the main job card ─────────────────────────────────────────
         card_text = format_job_card(lead)
         status = lead.get("status", "")
         main_keyboard = _build_main_keyboard(job_id, status)
 
-        await bot.send_message(
-            chat_id=chat_id,
-            text=card_text,
-            parse_mode="Markdown",
-            reply_markup=main_keyboard,
-            disable_web_page_preview=True,
+        payload = {
+            "chat_id": chat_id,
+            "text": card_text,
+            "parse_mode": "Markdown",
+            "reply_markup": main_keyboard.to_dict(),
+            "disable_web_page_preview": True
+        }
+        
+        resp = requests.post(
+            f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+            json=payload,
+            timeout=10
         )
 
-
-        # Mark as Approved (delivered to user) — user_id required for RLS
-        update_job_lead(job_id, {"status": "Approved"}, user_id=user_id)
-        logger.info(f"Telegram: sent job card for {job_id} [{band}] to chat {chat_id}.")
-        return True
+        if resp.ok:
+            # Mark as Approved (delivered to user) — user_id required for RLS
+            update_job_lead(job_id, {"status": "Approved"}, user_id=user_id)
+            logger.info(f"Telegram: sent job card for {job_id} [{band}] to chat {chat_id}.")
+            return True
+        else:
+            logger.error(f"Telegram API error sending card: {resp.text}")
+            return False
 
     except Exception as e:
         logger.error(f"Telegram: error sending card for {job_id} to chat {chat_id}: {e}")

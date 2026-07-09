@@ -10,6 +10,7 @@ import uvicorn
 from dotenv import load_dotenv, set_key
 from concurrent.futures import ProcessPoolExecutor
 import asyncio
+from contextlib import asynccontextmanager
 
 from core.database_manager import get_client, update_job_lead, get_profile, update_profile, get_all_stats, _flatten_lead
 from core.logger import get_logger
@@ -19,7 +20,29 @@ from synthesis.company_research import generate_company_intelligence, generate_i
 load_dotenv(override=True)
 logger = get_logger(__name__)
 
-app = FastAPI(title="PhantmOS v3.0 SaaS Dashboard")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup logic
+    from core.config import TELEGRAM_BOT_TOKEN
+    space_host = os.getenv("SPACE_HOST")
+    if space_host and TELEGRAM_BOT_TOKEN:
+        webhook_url = f"https://{space_host}/telegram/webhook"
+        logger.info(f"Auto-registering Telegram Webhook: {webhook_url}")
+        try:
+            resp = requests.post(
+                f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/setWebhook",
+                json={"url": webhook_url},
+                timeout=10
+            )
+            logger.info(f"Webhook registration response: {resp.text}")
+        except Exception as e:
+            logger.error(f"Failed to register webhook: {e}")
+            
+    yield
+    # Shutdown logic
+    pass
+
+app = FastAPI(title="PhantmOS v3.0 SaaS Dashboard", lifespan=lifespan)
 
 # Global ProcessPool to offload the heavy orchestrator without blocking the FastAPI event loop
 process_pool = ProcessPoolExecutor(max_workers=1)
