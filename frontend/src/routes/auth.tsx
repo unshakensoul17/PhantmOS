@@ -49,17 +49,9 @@ function AuthComponent() {
       });
       if (error) throw error;
       if (data?.url) {
-        // Break out of the Hugging Face iframe to avoid Google's X-Frame-Options: DENY
-        try {
-          if (window.top) {
-            window.top.location.href = data.url;
-          } else {
-            window.location.href = data.url;
-          }
-        } catch (e) {
-          // Fallback if cross-origin policy prevents accessing window.top
-          window.location.href = data.url;
-        }
+        // Hugging Face iframe sandbox blocks 'allow-top-navigation'
+        // We MUST open OAuth in a new tab to bypass Google's iframe block.
+        window.open(data.url, '_blank', 'noopener,noreferrer');
       }
     } catch (err: any) {
       setError(err.message || 'Error initializing Google login');
