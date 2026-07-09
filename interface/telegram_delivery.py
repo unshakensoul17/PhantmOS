@@ -182,7 +182,7 @@ async def send_job_card(lead: dict) -> bool:
     band   = lead.get("score_band", "WARM")
 
     try:
-        import requests
+        import httpx
         # ── 1. Send the main job card ─────────────────────────────────────────
         card_text = format_job_card(lead)
         status = lead.get("status", "")
@@ -195,14 +195,14 @@ async def send_job_card(lead: dict) -> bool:
             "reply_markup": main_keyboard.to_dict(),
             "disable_web_page_preview": True
         }
-        
-        resp = requests.post(
-            f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
-            json=payload,
-            timeout=30
-        )
 
-        if resp.ok:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+                json=payload,
+            )
+
+        if resp.is_success:
             # Mark as Approved (delivered to user) — user_id required for RLS
             update_job_lead(job_id, {"status": "Approved"}, user_id=user_id)
             logger.info(f"Telegram: sent job card for {job_id} [{band}] to chat {chat_id}.")

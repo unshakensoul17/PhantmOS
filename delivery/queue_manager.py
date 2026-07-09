@@ -42,10 +42,7 @@ async def process_delivery_queue(profile: dict, send_fn) -> dict:
 
     logger.info(f"Delivery queue: {len(pending)} items pending.")
     
-    # Extract settings from profile
     preferences = profile.get("preferences") or {}
-    
-    # Fallback to legacy settings.json
     if not preferences:
         try:
             with open("settings.json", "r") as f:
@@ -55,61 +52,45 @@ async def process_delivery_queue(profile: dict, send_fn) -> dict:
     
     notifications = preferences.get("notifications", {})
     scoring = preferences.get("scoring", {})
-    
     telegram_enabled = notifications.get("instant_telegram_alerts", True)
     telegram_threshold = scoring.get("telegram_threshold", 75)
 
-    sent = failed = 0
-
-    for item in pending:
+    async def _process_item(item: dict) -> str:
+        """Returns 'sent', 'skipped', or 'failed'."""
         delivery_id = item.get("id")
-        # job_leads data is joined in get_pending_deliveries
         lead = item.get("job_leads") or {}
         job_id = item.get("job_id", "unknown")
-        
-        # Check settings guardrails
-        match_score_raw = lead.get("match_score", 0.0)
-        # handle case if match_score is None
-        if match_score_raw is None: match_score_raw = 0.0
-        match_score_pct = float(match_score_raw) * 100
+        match_score_pct = float(lead.get("match_score") or 0.0) * 100
 
         if not telegram_enabled:
-            logger.info(f"Delivery: skipping {job_id} because Telegram alerts are disabled.")
+            logger.info(f"Delivery: skipping {job_id} (Telegram alerts disabled).")
             update_delivery_status(delivery_id, "sent")
-            continue
-            
+            return "skipped"
+
         if match_score_pct < telegram_threshold:
-            logger.info(f"Delivery: skipping {job_id} because score {match_score_pct:.1f} < threshold {telegram_threshold}.")
+            logger.info(f"Delivery: skipping {job_id} score {match_score_pct:.1f} < threshold {telegram_threshold}.")
             update_delivery_status(delivery_id, "sent")
-            continue
+            return "skipped"
 
-        success = await _attempt_delivery(
-            delivery_id=delivery_id,
-            job_id=job_id,
-            lead=lead,
-            attempts=item.get("attempts", 0),
-            send_fn=send_fn,
+        ok = await _attempt_delivery(
+            delivery_id=delivery_id, job_id=job_id, lead=lead,
+            attempts=item.get("attempts", 0), send_fn=send_fn,
         )
+        return "sent" if ok else "failed"
 
-        if success:
-            sent += 1
-        else:
-            failed += 1
+    # Run all deliveries CONCURRENTLY — prevents 81×30s sequential blocking
+    results = await asyncio.gather(*[_process_item(i) for i in pending], return_exceptions=True)
 
-    logger.info(f"=== Delivery complete: sent={sent} failed={failed} ===")
-    return {"sent": sent, "failed": failed, "total": sent + failed}
+    sent    = sum(1 for r in results if r == "sent")
+    failed  = sum(1 for r in results if r == "failed" or isinstance(r, BaseException))
+    skipped = sum(1 for r in results if r == "skipped")
+
+    logger.info(f"=== Delivery complete: sent={sent} failed={failed} skipped={skipped} ===")
+    return {"sent": sent, "failed": failed, "skipped": skipped, "total": len(pending)}
 
 
-async def _attempt_delivery(
-    delivery_id: str,
-    job_id: str,
-    lead: dict,
-    attempts: int,
-    send_fn,
-) -> bool:
-    """
-    Try primary sender.
-    """
+async def _attempt_delivery(delivery_id: str, job_id: str, lead: dict, attempts: int, send_fn) -> bool:
+    """Try primary sender; update queue status based on result."""
     try:
         success = await send_fn(lead)
         if success:
@@ -117,21 +98,12 @@ async def _attempt_delivery(
             log_stage_success(job_id, "delivery")
             logger.info(f"Delivery: sent job {job_id} via Telegram.")
             return True
-        else:
-            raise RuntimeError("send_fn returned False")
-
+        raise RuntimeError("send_fn returned False")
     except Exception as e:
         new_attempts = attempts + 1
-        logger.warning(
-            f"Delivery: Telegram failed for {job_id} "
-            f"(attempt {new_attempts}/{DELIVERY_MAX_ATTEMPTS}): {e}"
-        )
+        logger.warning(f"Delivery: Telegram failed for {job_id} (attempt {new_attempts}/{DELIVERY_MAX_ATTEMPTS}): {e}")
         update_delivery_status(delivery_id, "pending", increment_attempts=True)
-
         if new_attempts >= DELIVERY_MAX_ATTEMPTS:
             update_delivery_status(delivery_id, "failed")
             log_stage_failure(job_id, "delivery", str(e))
-            return False
-
-        # Not yet exhausted — will retry on next queue run
         return False
