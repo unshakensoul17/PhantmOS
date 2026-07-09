@@ -199,7 +199,7 @@ async def send_job_card(lead: dict) -> bool:
         resp = requests.post(
             f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
             json=payload,
-            timeout=10
+            timeout=30
         )
 
         if resp.ok:

@@ -32,7 +32,7 @@ async def lifespan(app: FastAPI):
             resp = requests.post(
                 f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/setWebhook",
                 json={"url": webhook_url},
-                timeout=10
+                timeout=30
             )
             logger.info(f"Webhook registration response: {resp.text}")
         except Exception as e:
