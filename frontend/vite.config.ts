@@ -10,6 +10,11 @@ export default defineConfig({
           changeOrigin: true,
           secure: false,
         },
+        "/telegram": {
+          target: "http://127.0.0.1:8080",
+          changeOrigin: true,
+          secure: false,
+        },
       },
     },
   },
@@ -19,7 +24,8 @@ export default defineConfig({
   nitro: {
     preset: "node-server",
     routeRules: {
-      '/api/**': { proxy: 'http://127.0.0.1:8080/api/**' }
+      '/api/**': { proxy: 'http://127.0.0.1:8080/api/**' },
+      '/telegram/**': { proxy: 'http://127.0.0.1:8080/telegram/**' }
     }
   }
 });
