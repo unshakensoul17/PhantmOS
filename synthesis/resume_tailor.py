@@ -49,8 +49,7 @@ async def run_tailoring(profile: dict, api_keys: dict = None) -> dict:
             except Exception:
                 notes = {}
 
-            # Mark as queued-for-delivery without doing any tailoring
-            update_job_lead(job_id, {"status": "Tailored"}, user_id=user_id)
+            # Queue for delivery. Leave status untouched (e.g. 'New') so Telegram displays the 'Create Resume' button.
             queue_delivery(job_id, user_id)
             counts[band_key] += 1
             logger.info(f"Queued delivery for job {job_id}.")

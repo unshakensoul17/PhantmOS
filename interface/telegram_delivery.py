@@ -60,7 +60,6 @@ else:
 
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query   = update.callback_query
-    logger.info(f"🖱️ Button Clicked! Data: {query.data}, Chat ID: {query.message.chat_id}")
     await query.answer()
     data    = query.data or ""
     chat_id = query.message.chat_id
@@ -139,13 +138,10 @@ if application:
 
 @app.post("/webhook")
 async def telegram_webhook(request: Request):
-    logger.info("📩 Webhook endpoint hit by Telegram!")
     if application:
         payload = await request.json()
-        logger.info(f"📩 Webhook Payload: {payload}")
         update  = Update.de_json(payload, application.bot)
         await application.process_update(update)
-        logger.info("✅ Update processed successfully by application")
     else:
         logger.error("❌ Telegram application is NOT initialized in telegram_webhook!")
     return {"status": "ok"}
