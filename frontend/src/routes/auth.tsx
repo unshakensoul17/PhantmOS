@@ -40,11 +40,27 @@ function AuthComponent() {
 
   const handleGoogleLogin = async () => {
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: window.location.origin + '/auth' }
+        options: { 
+          redirectTo: window.location.origin + '/auth',
+          skipBrowserRedirect: true
+        }
       });
       if (error) throw error;
+      if (data?.url) {
+        // Break out of the Hugging Face iframe to avoid Google's X-Frame-Options: DENY
+        try {
+          if (window.top) {
+            window.top.location.href = data.url;
+          } else {
+            window.location.href = data.url;
+          }
+        } catch (e) {
+          // Fallback if cross-origin policy prevents accessing window.top
+          window.location.href = data.url;
+        }
+      }
     } catch (err: any) {
       setError(err.message || 'Error initializing Google login');
     }
