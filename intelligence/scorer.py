@@ -273,17 +273,19 @@ async def run_scoring(profile: dict, manual_query: str = None) -> dict:
         # Only pick pipeline-table columns — never pass global_jobs fields into user_job_pipelines upsert
         PIPELINE_COLS = {"user_id", "job_id", "status", "match_score", "score_band", "score_breakdown", "notes", "resume_url", "resume_tailored"}
         
-        status = "Dismissed" if band == "REJECT" else "Evaluated"
-        
+        # BUG FIX 1: Keep status as "Found" for HOT/WARM so Stage 3's
+        # get_leads_by_band(.eq("status","Found")) can find them.
+        # Only REJECT leads get status="Dismissed".
+        status = "Dismissed" if band == "REJECT" else "Found"
+
+        # BUG FIX 2: Do NOT queue_delivery here. Delivery is queued by
+        # _mark_tailored in Stage 3, AFTER the resume is actually tailored.
+        # Queueing here caused 100+ stale queue entries with no resume attached.
         if band == "REJECT":
             counts["reject"] += 1
-        elif band in ["HOT", "WARM"]:
-            counts[band.lower()] += 1
-            from core.database_manager import queue_delivery
-            queue_delivery(job_id, user_id)
         else:
             counts[band.lower()] += 1
-        
+
         pipeline_row = {
             "user_id": user_id,
             "job_id": job_id,
