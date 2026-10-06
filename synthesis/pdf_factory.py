@@ -8,16 +8,17 @@ Async PDF generation pipeline:
   4. Upload to Supabase Storage (1GB free).
   5. Return permanent public URL.
 """
+
 import asyncio
-import io
-import os
-import time
 import json
+import os
+import re as _re
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
-from core.config import SUPABASE_URL, SUPABASE_KEY
+from core.config import SUPABASE_URL
 from core.database_manager import get_client
 from core.logger import get_logger
 from synthesis.pdf_validator import validate_pdf
@@ -30,14 +31,12 @@ STORAGE_BUCKET = "resumes"
 # Typst tries to download its package on first run and can't handle concurrent moves.
 _RENDERCV_SEM = asyncio.Semaphore(1)
 
-
 # ── RenderCV PDF generation (synchronous — must run in executor) ────────────
 
-import re as _re
-
 # RenderCV only accepts: YYYY, YYYY-MM, YYYY-MM-DD, or "present"
-_YEAR_RE   = _re.compile(r"\b((19|20)\d{2})\b")  # captures the full 4-digit year
-_MONTH_RE  = _re.compile(r"\b(19|20\d{2})-(0[1-9]|1[0-2])\b")  # valid YYYY-MM
+_YEAR_RE = _re.compile(r"\b((19|20)\d{2})\b")  # captures the full 4-digit year
+_MONTH_RE = _re.compile(r"\b(19|20\d{2})-(0[1-9]|1[0-2])\b")  # valid YYYY-MM
+
 
 def _normalize_date(raw) -> str | None:
     """
@@ -88,7 +87,9 @@ def _normalize_date(raw) -> str | None:
     # Extract ANY 4-digit year from free-text like "Expected 2027", "Since 2020", "Batch 2025-26"
     matches = _YEAR_RE.findall(val)
     if matches:
-        return matches[0][0]  # findall returns tuples due to capturing group; [0] = first match, [0] = full year
+        return matches[0][
+            0
+        ]  # findall returns tuples due to capturing group; [0] = first match, [0] = full year
 
     # No year found at all — drop the field
     return None
@@ -98,18 +99,22 @@ def _sanitize_cv_data(cv: dict) -> dict:
     # 0. Migrate legacy/flat schema (e.g., from old LLM outputs or DB records) to strict RenderCV sections schema
     if "sections" not in cv:
         cv["sections"] = {}
-        
+
     for key in ["summary", "experience", "education", "projects", "skills"]:
         if key in cv:
             if key == "summary" and isinstance(cv[key], str):
                 cv["sections"][key] = [cv[key]]
-            elif key == "skills" and isinstance(cv[key], list) and (len(cv[key]) > 0 and isinstance(cv[key][0], str)):
+            elif (
+                key == "skills"
+                and isinstance(cv[key], list)
+                and (len(cv[key]) > 0 and isinstance(cv[key][0], str))
+            ):
                 # Convert list of strings to RenderCV's strict skills format
                 cv["sections"]["skills"] = [{"label": "Core Skills", "details": ", ".join(cv[key])}]
             else:
                 cv["sections"][key] = cv[key]
             del cv[key]
-            
+
     # Fix legacy field names inside arrays
     for sec in ["experience", "projects", "education"]:
         if sec in cv["sections"] and isinstance(cv["sections"][sec], list):
@@ -121,12 +126,12 @@ def _sanitize_cv_data(cv: dict) -> dict:
                         item["date"] = item.pop("dates")
                     if "bulletPoints" in item and "highlights" not in item:
                         item["highlights"] = item.pop("bulletPoints")
-                        
+
     # 0.5. Remove unknown root fields that might have leaked into `cv`
     for unknown_key in ["target_role", "job_id", "status", "score"]:
         if unknown_key in cv:
             del cv[unknown_key]
-                        
+
     # 1. Clean up social networks casing (RenderCV is strict)
     allowed_networks = {"LinkedIn", "GitHub", "GitLab", "Twitter", "Mastodon", "Website", "YouTube"}
     if "social_networks" in cv:
@@ -139,11 +144,10 @@ def _sanitize_cv_data(cv: dict) -> dict:
                     valid_socials.append(s)
                     break
         cv["social_networks"] = valid_socials
-        
+
     # 2. Normalize ALL date fields and clean short string fields
-    import re
     if "sections" in cv:
-        for sec_name, entries in cv["sections"].items():
+        for _sec_name, entries in cv["sections"].items():
             if isinstance(entries, list):
                 for entry in entries:
                     if not isinstance(entry, dict):
@@ -163,14 +167,28 @@ def _sanitize_cv_data(cv: dict) -> dict:
                         del entry["url"]
 
                     # ── Clean short string fields ──────────────────────────
-                    for short_field in ["institution", "area", "degree", "company", "position", "location", "name"]:
+                    for short_field in [
+                        "institution",
+                        "area",
+                        "degree",
+                        "company",
+                        "position",
+                        "location",
+                        "name",
+                    ]:
                         if short_field in entry and isinstance(entry[short_field], str):
                             entry[short_field] = " ".join(entry[short_field].split())
 
                     # ── Merge long degree string into area ─────────────────
-                    if "degree" in entry and isinstance(entry["degree"], str) and len(entry["degree"]) > 8:
+                    if (
+                        "degree" in entry
+                        and isinstance(entry["degree"], str)
+                        and len(entry["degree"]) > 8
+                    ):
                         area_val = entry.get("area", "")
-                        entry["area"] = f"{entry['degree']}, {area_val}" if area_val else entry["degree"]
+                        entry["area"] = (
+                            f"{entry['degree']}, {area_val}" if area_val else entry["degree"]
+                        )
                         del entry["degree"]
 
                     # ── Merge "technologies" list into highlights ──────────
@@ -181,7 +199,11 @@ def _sanitize_cv_data(cv: dict) -> dict:
                         entry["highlights"].append(f"Technologies: {techs}")
 
                     # ── Drop unknown complex fields (lists/dicts) ──────────
-                    for k in [k for k, v in list(entry.items()) if k != "highlights" and isinstance(v, (list, dict))]:
+                    for k in [
+                        k
+                        for k, v in list(entry.items())
+                        if k != "highlights" and isinstance(v, (list, dict))
+                    ]:
                         del entry[k]
 
         # 3. Strip entirely empty sections
@@ -201,64 +223,71 @@ def _sanitize_cv_data(cv: dict) -> dict:
             loc = str(cv.get("location", "")).upper()
             if any(k in loc for k in ["US", "USA", "UNITED STATES", "CA", "NY", "SF", "TX", "WA"]):
                 cv["phone"] = f"+1{digits}"
-            elif any(k in loc for k in ["INDIA", "IN", "BANGALORE", "HYDERABAD", "DELHI", "MUMBAI"]):
+            elif any(
+                k in loc for k in ["INDIA", "IN", "BANGALORE", "HYDERABAD", "DELHI", "MUMBAI"]
+            ):
                 cv["phone"] = f"+91{digits}"
             else:
                 cv["phone"] = f"+1{digits}"
         else:
             cv["phone"] = f"+{digits}"
-                
+
     return cv
+
 
 def _adapt_and_render_sync(resume_data: dict, theme: str) -> bytes:
     """Write data to a temp JSON file, run RenderCV, and return PDF bytes."""
     # Ensure RenderCV schema format
     raw_cv = resume_data.get("cv", resume_data)
-    
+
     # RenderCV expects the root to be {"cv": {...}, "design": {...}}
     cv = _sanitize_cv_data(raw_cv)
-    rendercv_data = {
-        "cv": cv,
-        "design": {
-            "theme": theme
-        }
-    }
-    
+    rendercv_data = {"cv": cv, "design": {"theme": theme}}
+
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir) / "resume.json"
         with open(tmp_path, "w") as f:
             json.dump(rendercv_data, f)
-            
+
         # Run RenderCV via subprocess (safe and decoupled)
         # rendercv render output defaults to ./rendercv_output
         env = os.environ.copy()
         env["PYTHONUTF8"] = "1"
         env["PYTHONIOENCODING"] = "utf-8"
-        
+
+        import shutil
+        import sys
+
+        cmd = ["rendercv", "render", str(tmp_path)] if shutil.which("rendercv") else [sys.executable, "-m", "rendercv", "render", str(tmp_path)]
+
         res = subprocess.run(
-            ["rendercv", "render", str(tmp_path)],
+            cmd,
             cwd=tmpdir,
             capture_output=True,
             text=True,
             env=env,
-            encoding="utf-8"
+            encoding="utf-8",
         )
-        
+
         if res.returncode != 0:
             error_details = f"STDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}"
-            logger.error(f"RenderCV failed: {error_details}\nJSON Dump: {json.dumps(rendercv_data, indent=2)}")
+            logger.error(
+                f"RenderCV failed: {error_details}\nJSON Dump: {json.dumps(rendercv_data, indent=2)}"
+            )
             raise RuntimeError(f"RenderCV execution failed: {error_details}")
-            
+
         # Find the generated PDF
         output_dir = Path(tmpdir) / "rendercv_output"
         pdfs = list(output_dir.glob("*.pdf"))
         if not pdfs:
             raise FileNotFoundError("RenderCV finished but no PDF was generated.")
-            
+
         with open(pdfs[0], "rb") as f:
             return f.read()
 
+
 # ── Supabase Storage upload ────────────────────────────────────────────────────
+
 
 def _upload_to_supabase(pdf_bytes: bytes, filename: str) -> str:
     """Upload PDF bytes to Supabase Storage and return public URL."""
@@ -278,15 +307,13 @@ def _upload_to_supabase(pdf_bytes: bytes, filename: str) -> str:
         },
     )
 
-    public_url = (
-        f"{SUPABASE_URL.rstrip('/')}"
-        f"/storage/v1/object/public/{STORAGE_BUCKET}/{filename}"
-    )
+    public_url = f"{SUPABASE_URL.rstrip('/')}/storage/v1/object/public/{STORAGE_BUCKET}/{filename}"
     logger.info(f"PDF uploaded: {public_url}")
     return public_url
 
 
 # ── Public async interface ────────────────────────────────────────────────────
+
 
 def _has_missing_dates(cv: dict) -> bool:
     """Check if critical sections (experience, projects) are missing dates."""
@@ -307,6 +334,7 @@ def _has_missing_dates(cv: dict) -> bool:
                         return True
     return False
 
+
 async def generate_and_upload_pdf(
     job_id: str,
     resume_data: dict,
@@ -320,7 +348,6 @@ async def generate_and_upload_pdf(
     candidate_name = resume_data.get("cv", {}).get("name", "")
     theme = "sb2nov"
 
-    
     # Fetch user theme preference if user_id is provided
     if user_id:
         try:
@@ -330,15 +357,19 @@ async def generate_and_upload_pdf(
                 theme = res.data[0]["preferences"].get("resume_template", "sb2nov")
         except Exception as e:
             logger.warning(f"Could not fetch user preferences: {e}")
-            
+
     # Fallback to sb2nov if a date-dependent template is chosen but dates are missing
     if theme in ["classic", "engineeringresumes"]:
         raw_cv = resume_data.get("cv", resume_data)
         if _has_missing_dates(raw_cv):
-            logger.warning(f"PDF Factory: '{theme}' requires dates, but some are missing. Falling back to 'sb2nov'.")
+            logger.warning(
+                f"PDF Factory: '{theme}' requires dates, but some are missing. Falling back to 'sb2nov'."
+            )
             theme = "sb2nov"
 
-    logger.info(f"PDF Factory: generating for job={job_id} theme={theme} candidate='{candidate_name}'")
+    logger.info(
+        f"PDF Factory: generating for job={job_id} theme={theme} candidate='{candidate_name}'"
+    )
 
     loop = asyncio.get_event_loop()
     try:
@@ -357,9 +388,7 @@ async def generate_and_upload_pdf(
 
     filename = f"{job_id}_{int(time.time())}.pdf"
     try:
-        url = await loop.run_in_executor(
-            None, _upload_to_supabase, pdf_bytes, filename
-        )
+        url = await loop.run_in_executor(None, _upload_to_supabase, pdf_bytes, filename)
         return url
     except Exception as e:
         logger.error(f"PDF Factory: Supabase upload failed for {job_id}: {e}")
