@@ -18,6 +18,8 @@ from intelligence.deduplicator import filter_new_jobs
 from harvesting.source_remotive import fetch_remotive
 from harvesting.source_secret import fetch_secret
 from harvesting.source_himalayas import fetch_himalayas
+from harvesting.source_arbeitnow import fetch_arbeitnow
+from harvesting.source_remoteok import fetch_remoteok
 from harvesting.source_hn import fetch_hn_hiring
 
 logger = get_logger(__name__)
@@ -43,6 +45,8 @@ async def run_harvest(include_hn: bool = False, search_query: str = None) -> lis
         _safe_fetch("Remotive",  lambda: fetch_remotive(search_query=search_query)),
         _safe_fetch("SecretAPI", lambda: fetch_secret(search_query=search_query)),
         _safe_fetch("Himalayas", lambda: fetch_himalayas(search_query=search_query)),
+        _safe_fetch("Arbeitnow", lambda: fetch_arbeitnow(search_query=search_query)),
+        _safe_fetch("RemoteOK",  lambda: fetch_remoteok(search_query=search_query)),
     ]
     if include_hn or _is_first_of_month():
         fetch_tasks.append(_safe_fetch("HN", lambda: fetch_hn_hiring()))

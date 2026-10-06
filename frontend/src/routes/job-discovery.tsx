@@ -4,7 +4,7 @@ import { Layout } from "../components/Layout";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
   Radar, Target, Zap, DollarSign, MapPin, Sparkles, 
-  Check, X, Loader2, ArrowUpRight, Search
+  Check, X, Loader2, ArrowUpRight, Search, Globe, Building2
 } from "lucide-react";
 import { useState } from "react";
 import { AgentPipeline } from "../components/AgentPipeline";
@@ -17,6 +17,17 @@ function scoreStyle(s: number) {
   if (s >= 90) return { color: "text-neon-green", ring: "stroke-neon-green", bg: "bg-neon-green/10 border-neon-green/30" };
   if (s >= 75) return { color: "text-neon-blue",  ring: "stroke-neon-blue",  bg: "bg-neon-blue/10 border-neon-blue/30" };
   return { color: "text-neon-amber", ring: "stroke-neon-amber", bg: "bg-neon-amber/10 border-neon-amber/30" };
+}
+
+function getLocationBadge(location: string = "") {
+  const loc = (location || "").toLowerCase();
+  if (loc.includes("remote") || loc.includes("anywhere") || loc.includes("global") || !loc) {
+    return { label: "Remote", color: "bg-neon-green/10 text-neon-green border-neon-green/30", icon: Globe };
+  }
+  if (loc.includes("hybrid")) {
+    return { label: "Hybrid", color: "bg-neon-cyan/10 text-neon-cyan border-neon-cyan/30", icon: MapPin };
+  }
+  return { label: location, color: "bg-white/5 text-muted-foreground border-white/10", icon: Building2 };
 }
 
 function JobDiscoveryPage() {
@@ -168,10 +179,12 @@ function JobDiscoveryPage() {
                 const s = scoreStyle(job.score_total || 0);
                 const circ = 2 * Math.PI * 20;
                 const dash = ((job.score_total || 0) / 100) * circ;
+                const locBadge = getLocationBadge(job.location);
+                const LocIcon = locBadge.icon;
                 
                 return (
                   <div
-                    key={job.job_id}
+                    key={job.job_id || job.id}
                     className="group relative glass rounded-xl p-4 flex items-center gap-4 hover:bg-white/[0.07] transition-all flex-wrap md:flex-nowrap"
                   >
                     {/* Score ring */}
@@ -207,9 +220,12 @@ function JobDiscoveryPage() {
                       <div className="text-xs text-muted-foreground mt-0.5">
                         {job.company}
                       </div>
-                      <div className="hidden md:flex items-center gap-3 mt-1.5 text-[13px] text-muted-foreground">
-                        <span className="flex items-center gap-1"><DollarSign className="w-3 h-3" />{job.salary || "Undisclosed"}</span>
-                        <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{job.location || "Remote"}</span>
+                      <div className="flex items-center gap-3 mt-1.5 text-[13px] text-muted-foreground flex-wrap">
+                        <span className="flex items-center gap-1 font-mono text-neon-green"><DollarSign className="w-3.5 h-3.5" />{job.salary || "Undisclosed"}</span>
+                        <span className={`flex items-center gap-1 text-[11px] px-2 py-0.5 rounded border ${locBadge.color}`}>
+                          <LocIcon className="w-3 h-3" />
+                          {job.location || locBadge.label}
+                        </span>
                       </div>
                     </div>
 
@@ -226,7 +242,7 @@ function JobDiscoveryPage() {
                     <div className="flex items-center gap-2 shrink-0">
                       {job.status !== 'Approved' && job.status !== 'Applied' && (
                         <button 
-                          onClick={() => statusMutation.mutate({ id: job.job_id, status: 'Approved' })}
+                          onClick={() => statusMutation.mutate({ id: job.job_id || job.id, status: 'Approved' })}
                           className="h-9 px-3 rounded-lg bg-neon-green/10 text-neon-green hover:bg-neon-green/20 text-xs font-medium inline-flex items-center gap-1.5 transition"
                         >
                           <Check className="w-3.5 h-3.5" /> Approve
@@ -235,7 +251,7 @@ function JobDiscoveryPage() {
                       
                       {job.status !== 'Dismissed' && (
                         <button 
-                          onClick={() => statusMutation.mutate({ id: job.job_id, status: 'Dismissed' })}
+                          onClick={() => statusMutation.mutate({ id: job.job_id || job.id, status: 'Dismissed' })}
                           className="h-9 px-3 rounded-lg glass hover:bg-white/10 text-muted-foreground hover:text-white text-xs font-medium inline-flex items-center gap-1.5 transition"
                         >
                           <X className="w-3.5 h-3.5" /> Dismiss
@@ -243,7 +259,7 @@ function JobDiscoveryPage() {
                       )}
                       
                       <a 
-                        href={job.url || job.job_url || "#"} 
+                        href={job.url || job.job_url || job.source_url || "#"} 
                         target="_blank" 
                         rel="noreferrer"
                         className="h-9 px-3 rounded-lg bg-gradient-to-r from-neon-blue to-neon-purple text-black text-xs font-semibold inline-flex items-center gap-1.5 hover:scale-[1.02] transition"
