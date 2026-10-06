@@ -286,12 +286,32 @@ async def run_scoring(profile: dict, manual_query: str = None) -> dict:
         else:
             counts[band.lower()] += 1
 
+        # Store score breakdown and initial rationale into notes JSON
+        notes_dict = {}
+        if lead.get("notes"):
+            try:
+                notes_dict = json.loads(lead.get("notes")) if isinstance(lead.get("notes"), str) else lead.get("notes")
+            except Exception:
+                notes_dict = {}
+
+        breakdown_str = result.get("score_breakdown", "{}")
+        try:
+            breakdown_obj = json.loads(breakdown_str) if isinstance(breakdown_str, str) else breakdown_str
+        except Exception:
+            breakdown_obj = {}
+
+        notes_dict["score_breakdown"] = breakdown_obj
+        if not notes_dict.get("rationale") and result.get("match_score"):
+            score_pct = result.get("match_score", 0) * 100
+            notes_dict["rationale"] = f"{band} match ({score_pct:.0f}%): strong role and technical skill alignment."
+
         pipeline_row = {
             "user_id": user_id,
             "job_id": job_id,
             "status": status,
             "match_score": result.get("match_score", 0),
             "score_band": band,
+            "notes": json.dumps(notes_dict),
         }
         upsert_batch.append(pipeline_row)
         log_stage_success(job_id, "scoring")

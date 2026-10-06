@@ -95,51 +95,59 @@ function CompanyResearchPage() {
                 <div className="flex items-start justify-between mb-6 relative z-10">
                   <div className="flex items-center gap-4">
                     <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-neon-blue/30 to-neon-purple/30 border border-white/10 grid place-items-center font-bold font-mono text-neon-cyan text-xl">
-                      {researchData.name.substring(0, 2).toUpperCase()}
+                      {researchData?.name ? researchData.name.substring(0, 2).toUpperCase() : "CO"}
                     </div>
                     <div>
-                      <div className="font-bold text-2xl tracking-tight">{researchData.name}</div>
-                      <div className="text-[14px] font-mono text-muted-foreground mt-0.5">{researchData.industry}</div>
+                      <div className="font-bold text-2xl tracking-tight">{researchData?.name || searchQuery}</div>
+                      <div className="text-[14px] font-mono text-muted-foreground mt-0.5">{researchData?.industry || "Technology"}</div>
                     </div>
                   </div>
-                  <div className={`flex items-center gap-1.5 text-[12px] font-mono px-3 py-1.5 rounded-lg border ${
-                    researchData.stability.risk_label.includes("High") && !researchData.stability.risk_label.includes("Runway") 
-                    ? "bg-neon-pink/10 text-neon-pink border-neon-pink/30"
-                    : "bg-neon-green/10 text-neon-green border-neon-green/30"
-                  }`}>
-                    {researchData.stability.risk_label.includes("High") && !researchData.stability.risk_label.includes("Runway") ? <AlertTriangle className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />} 
-                    {researchData.stability.risk_label}
-                  </div>
+                  {researchData?.stability?.risk_label && (
+                    <div className={`flex items-center gap-1.5 text-[12px] font-mono px-3 py-1.5 rounded-lg border ${
+                      researchData.stability.risk_label.includes("High") && !researchData.stability.risk_label.includes("Runway") 
+                      ? "bg-neon-pink/10 text-neon-pink border-neon-pink/30"
+                      : "bg-neon-green/10 text-neon-green border-neon-green/30"
+                    }`}>
+                      {researchData.stability.risk_label.includes("High") && !researchData.stability.risk_label.includes("Runway") ? <AlertTriangle className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />} 
+                      {researchData.stability.risk_label}
+                    </div>
+                  )}
                 </div>
 
-                <div className="mb-6 relative z-10">
-                  <h4 className="text-[11px] font-mono text-neon-blue mb-2.5 uppercase tracking-wider font-semibold">Confirmed Tech Stack</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {researchData.stack.map((t: string) => (
-                      <span key={t} className="text-[13px] font-mono px-2.5 py-1 rounded-md bg-white/5 border border-white/10 text-white shadow-sm">
-                        {t}
-                      </span>
+                {researchData?.stack && (
+                  <div className="mb-6 relative z-10">
+                    <h4 className="text-[11px] font-mono text-neon-blue mb-2.5 uppercase tracking-wider font-semibold">Confirmed Tech Stack</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {researchData.stack.map((t: string) => (
+                        <span key={t} className="text-[13px] font-mono px-2.5 py-1 rounded-md bg-white/5 border border-white/10 text-white shadow-sm">
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {researchData?.news_timeline && (
+                  <div className="relative pl-5 mb-6 z-10">
+                    <div className="absolute left-1.5 top-2 bottom-2 w-[2px] bg-gradient-to-b from-neon-cyan via-neon-blue to-transparent" />
+                    {researchData.news_timeline.map((n: string, j: number) => (
+                      <div key={j} className="relative flex items-start gap-3 mb-3 last:mb-0">
+                        <span className={`absolute -left-[22px] top-1.5 w-2 h-2 rounded-full ${j === 0 ? "bg-neon-cyan glow-cyan" : "bg-white/20"}`} />
+                        <span className={`text-[14px] leading-relaxed ${j === 0 ? "text-white" : "text-muted-foreground"}`}>{n}</span>
+                      </div>
                     ))}
                   </div>
-                </div>
+                )}
 
-                <div className="relative pl-5 mb-6 z-10">
-                  <div className="absolute left-1.5 top-2 bottom-2 w-[2px] bg-gradient-to-b from-neon-cyan via-neon-blue to-transparent" />
-                  {researchData.news_timeline.map((n: string, j: number) => (
-                    <div key={j} className="relative flex items-start gap-3 mb-3 last:mb-0">
-                      <span className={`absolute -left-[22px] top-1.5 w-2 h-2 rounded-full ${j === 0 ? "bg-neon-cyan glow-cyan" : "bg-white/20"}`} />
-                      <span className={`text-[14px] leading-relaxed ${j === 0 ? "text-white" : "text-muted-foreground"}`}>{n}</span>
+                {researchData?.insight && (
+                  <div className="rounded-xl bg-gradient-to-br from-neon-purple/10 to-transparent border border-neon-purple/20 p-4 relative z-10">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Sparkles className="w-4 h-4 text-neon-purple" />
+                      <span className="text-[13px] font-mono font-bold text-neon-purple tracking-wide">AI Strategy Insight</span>
                     </div>
-                  ))}
-                </div>
-
-                <div className="rounded-xl bg-gradient-to-br from-neon-purple/10 to-transparent border border-neon-purple/20 p-4 relative z-10">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Sparkles className="w-4 h-4 text-neon-purple" />
-                    <span className="text-[13px] font-mono font-bold text-neon-purple tracking-wide">AI Strategy Insight</span>
+                    <p className="text-[14px] leading-relaxed text-white/90">{researchData.insight}</p>
                   </div>
-                  <p className="text-[14px] leading-relaxed text-white/90">{researchData.insight}</p>
-                </div>
+                )}
               </div>
 
               {/* Playbook Section */}
@@ -180,40 +188,46 @@ function CompanyResearchPage() {
 
                 {playbookData && (
                   <div className="space-y-6 animate-fade-up relative z-10">
-                    <div>
-                      <h4 className="text-[11px] font-mono text-neon-cyan mb-2 uppercase tracking-wider font-semibold">Cultural Anchors</h4>
-                      <ul className="space-y-2">
-                        {playbookData.cultural_values.map((v: string, i: number) => (
-                          <li key={i} className="text-[13px] flex items-start gap-2.5 text-white/90 bg-white/5 p-2 rounded-lg">
-                            <Check className="w-4 h-4 mt-0.5 text-neon-green shrink-0" />
-                            <span className="leading-relaxed">{v}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    
-                    <div>
-                      <h4 className="text-[11px] font-mono text-neon-purple mb-2 uppercase tracking-wider font-semibold">Historical Technical Questions</h4>
-                      <div className="space-y-2.5">
-                        {playbookData.technical_questions.map((q: any, i: number) => (
-                          <div key={i} className="bg-black/20 rounded-lg p-3 border border-white/5 shadow-inner">
-                            <div className="text-[11px] font-mono text-neon-purple/80 mb-1.5 font-semibold">{q.stage}</div>
-                            <div className="text-[13px] leading-relaxed">{q.question}</div>
-                          </div>
-                        ))}
+                    {playbookData.cultural_values && playbookData.cultural_values.length > 0 && (
+                      <div>
+                        <h4 className="text-[11px] font-mono text-neon-cyan mb-2 uppercase tracking-wider font-semibold">Cultural Anchors</h4>
+                        <ul className="space-y-2">
+                          {playbookData.cultural_values.map((v: string, i: number) => (
+                            <li key={i} className="text-[13px] flex items-start gap-2.5 text-white/90 bg-white/5 p-2 rounded-lg">
+                              <Check className="w-4 h-4 mt-0.5 text-neon-green shrink-0" />
+                              <span className="leading-relaxed">{v}</span>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
-                    </div>
+                    )}
                     
-                    <div>
-                      <h4 className="text-[11px] font-mono text-neon-blue mb-2 uppercase tracking-wider font-semibold">Recent Launches (Mention These)</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {playbookData.product_launches.map((p: string, i: number) => (
-                          <span key={i} className="text-[12px] px-2.5 py-1.5 rounded-lg bg-neon-blue/10 text-neon-blue border border-neon-blue/20">
-                            {p}
-                          </span>
-                        ))}
+                    {playbookData.technical_questions && playbookData.technical_questions.length > 0 && (
+                      <div>
+                        <h4 className="text-[11px] font-mono text-neon-purple mb-2 uppercase tracking-wider font-semibold">Historical Technical Questions</h4>
+                        <div className="space-y-2.5">
+                          {playbookData.technical_questions.map((q: any, i: number) => (
+                            <div key={i} className="bg-black/20 rounded-lg p-3 border border-white/5 shadow-inner">
+                              <div className="text-[11px] font-mono text-neon-purple/80 mb-1.5 font-semibold">{q.stage || "Interview"}</div>
+                              <div className="text-[13px] leading-relaxed">{q.question}</div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    )}
+                    
+                    {playbookData.product_launches && playbookData.product_launches.length > 0 && (
+                      <div>
+                        <h4 className="text-[11px] font-mono text-neon-blue mb-2 uppercase tracking-wider font-semibold">Recent Launches (Mention These)</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {playbookData.product_launches.map((p: string, i: number) => (
+                            <span key={i} className="text-[12px] px-2.5 py-1.5 rounded-lg bg-neon-blue/10 text-neon-blue border border-neon-blue/20">
+                              {p}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

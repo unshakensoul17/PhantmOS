@@ -75,13 +75,13 @@ async def process_delivery_queue(profile: dict, send_fn) -> dict:
         except Exception as e:
             logger.error(f"Delivery: batch skip update failed: {e}")
 
-    # ── Run active deliveries (Web App Digest) ────────────────────────────────
+    # ── Run active deliveries (Triage Deck Carousel) ─────────────────────────
     sent = failed = 0
     if to_deliver:
         chat_id = profile.get("telegram_chat_id")
         if chat_id:
-            from interface.telegram_delivery import send_webapp_digest
-            success = await send_webapp_digest(chat_id, len(to_deliver))
+            from interface.telegram_delivery import send_triage_deck
+            success = await send_triage_deck(profile=profile, chat_id=chat_id)
             if success:
                 delivery_ids = [i["id"] for i in to_deliver]
                 get_client().table("delivery_queue").update({"status": "sent"}).in_("id", delivery_ids).execute()

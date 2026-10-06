@@ -102,7 +102,20 @@ function AuthComponent() {
         setTimeout(() => navigate({ to: '/dashboard' }), 1000);
       }
     } catch (err: any) {
-      setError(err.message || 'An error occurred.');
+      let friendlyError = err.message || 'An error occurred.';
+      const rawMsg = friendlyError.toLowerCase();
+      
+      if (rawMsg.includes('rate limit')) {
+        friendlyError = 'Please wait a moment before requesting another code.';
+      } else if (rawMsg.includes('invalid login credentials') || rawMsg.includes('password')) {
+        friendlyError = 'Invalid credentials. If you registered via Google, please use "Continue with Google".';
+      } else if (rawMsg.includes('expired') || rawMsg.includes('invalid token') || rawMsg.includes('token has expired or is invalid')) {
+        friendlyError = 'The verification code is invalid or has expired. Please request a new one.';
+      } else if (rawMsg.includes('user not found')) {
+        friendlyError = 'No account found with this email.';
+      }
+      
+      setError(friendlyError);
     } finally {
       setLoading(false);
     }

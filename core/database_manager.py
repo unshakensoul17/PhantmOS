@@ -113,6 +113,39 @@ def update_profile(updates: dict, user_id: Optional[str] = None) -> Optional[dic
         return None
 
 
+def get_profile_by_chat_id(chat_id: str | int) -> Optional[dict]:
+    """Retrieve user profile by telegram_chat_id."""
+    try:
+        resp = get_client().table("user_profiles").select("id").eq("telegram_chat_id", str(chat_id)).limit(1).execute()
+        if resp.data and len(resp.data) > 0:
+            return get_profile(resp.data[0]["id"])
+        return None
+    except Exception as e:
+        logger.error(f"Error fetching profile by chat_id {chat_id}: {e}")
+        return None
+
+
+def get_triage_leads_for_user(user_id: str, limit: int = 20, min_score: float = 0.5) -> list[dict]:
+    """Retrieve active triage leads for a user (Found, Approved, Tailored) ordered by score."""
+    try:
+        resp = (
+            get_client()
+            .table("user_job_pipelines")
+            .select("*, global_jobs(*)")
+            .eq("user_id", user_id)
+            .in_("status", ["Found", "Approved", "Tailored"])
+            .gte("match_score", min_score)
+            .order("match_score", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return [_flatten_lead(row) for row in (resp.data or [])]
+    except Exception as e:
+        logger.error(f"Error fetching triage leads for {user_id}: {e}")
+        return []
+
+
+
 # ─────────────────────────────────────────────────────────
 #  JOB LEADS
 # ─────────────────────────────────────────────────────────
@@ -209,6 +242,8 @@ def _flatten_lead(row: dict) -> dict:
             import json
             notes_dict = json.loads(notes_raw)
             flat["justification"] = notes_dict.get("rationale")
+            if "score_breakdown" in notes_dict:
+                flat["score_breakdown"] = notes_dict.get("score_breakdown")
         except Exception:
             pass
             
@@ -525,15 +560,16 @@ def update_delivery_status(
 #  USER FEEDBACK (learning loop)
 # ─────────────────────────────────────────────────────────
 
-def store_feedback(job_id: str, action: str, skip_reason: str = "") -> None:
+def store_feedback(job_id: str, action: str, skip_reason: str = "", user_id: str = None) -> None:
     try:
-        get_client().table("user_feedback").insert(
-            {
-                "job_id": job_id,
-                "action": action,
-                "skip_reason": skip_reason or None,
-            }
-        ).execute()
+        payload = {
+            "job_id": job_id,
+            "action": action,
+            "skip_reason": skip_reason or None,
+        }
+        if user_id:
+            payload["user_id"] = user_id
+        get_client().table("user_feedback").insert(payload).execute()
     except Exception as e:
         logger.error(f"Error storing feedback for job {job_id}: {e}")
 
@@ -577,23 +613,24 @@ def store_embedding(key: str, embedding: list[float]) -> None:
 #  STAGE LOGS
 # ─────────────────────────────────────────────────────────
 
-def log_stage_success(job_id: str, stage: str, message: str = "") -> None:
-    _log_stage(job_id, stage, "success", message)
+def log_stage_success(job_id: str, stage: str, message: str = "", user_id: str = None) -> None:
+    _log_stage(job_id, stage, "success", message, user_id=user_id)
 
 
-def log_stage_failure(job_id: str, stage: str, message: str = "") -> None:
-    _log_stage(job_id, stage, "failure", message)
+def log_stage_failure(job_id: str, stage: str, message: str = "", user_id: str = None) -> None:
+    _log_stage(job_id, stage, "failure", message, user_id=user_id)
 
 
-def _log_stage(job_id: str, stage: str, status: str, message: str) -> None:
+def _log_stage(job_id: str, stage: str, status: str, message: str, user_id: str = None) -> None:
     try:
-        get_client().table("stage_logs").insert(
-            {
-                "job_id": job_id or None,
-                "stage": stage,
-                "status": status,
-                "message": message[:2000],  # cap length
-            }
-        ).execute()
+        payload = {
+            "job_id": job_id or None,
+            "stage": stage,
+            "status": status,
+            "message": str(message)[:2000],
+        }
+        if user_id:
+            payload["user_id"] = user_id
+        get_client().table("stage_logs").insert(payload).execute()
     except Exception as e:
         logger.error(f"Error writing stage log ({stage}): {e}")

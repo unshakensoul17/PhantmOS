@@ -197,10 +197,10 @@ function JobDiscoveryPage() {
                         <h3 className="font-semibold truncate">{job.title}</h3>
                         {job.score_band && (
                           <span className={`text-[13px] font-mono px-1.5 py-0.5 rounded ${
-                            job.score_band === 'A' ? "bg-neon-green/15 text-neon-green border border-neon-green/30" : 
-                            job.score_band === 'B' ? "bg-neon-blue/15 text-neon-blue border border-neon-blue/30" :
+                            ['A', 'HOT'].includes(job.score_band?.toUpperCase()) ? "bg-neon-green/15 text-neon-green border border-neon-green/30" : 
+                            ['B', 'WARM'].includes(job.score_band?.toUpperCase()) ? "bg-neon-blue/15 text-neon-blue border border-neon-blue/30" :
                             "bg-neon-amber/15 text-neon-amber border border-neon-amber/30"
-                          }`}>{job.score_band}-Tier</span>
+                          }`}>{job.score_band.toUpperCase()}</span>
                         )}
                         <span className="text-[11px] px-1.5 py-0.5 rounded bg-white/10 text-muted-foreground uppercase">{job.status}</span>
                       </div>

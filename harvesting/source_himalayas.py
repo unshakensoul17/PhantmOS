@@ -13,24 +13,20 @@ BASE_URL = "https://himalayas.app/jobs/api/search"
 async def fetch_himalayas(limit_per_term: int = 20, search_query: str = None) -> list[dict]:
     """Fetch jobs from Himalayas Remote Jobs Search API."""
     results: list[dict] = []
-    if not search_query:
-        return []
     async with httpx.AsyncClient(timeout=20.0) as client:
-        terms_to_search = [search_query]
-        for term in terms_to_search:
-            try:
-                resp = await client.get(
-                    BASE_URL,
-                    params={"q": term, "limit": limit_per_term}
-                )
-                resp.raise_for_status()
-                data = resp.json()
-                jobs = data.get("jobs", [])
-                for job in jobs:
-                    results.append(_normalise(job))
-                logger.info(f"Himalayas: fetched {len(jobs)} jobs for '{term}'")
-            except Exception as e:
-                logger.warning(f"Himalayas: failed for term '{term}': {e}")
+        params = {"limit": limit_per_term}
+        if search_query and search_query.strip():
+            params["q"] = search_query.strip()
+        try:
+            resp = await client.get(BASE_URL, params=params)
+            resp.raise_for_status()
+            data = resp.json()
+            jobs = data.get("jobs", [])
+            for job in jobs:
+                results.append(_normalise(job))
+            logger.info(f"Himalayas: fetched {len(jobs)} jobs for '{search_query or 'ALL'}'")
+        except Exception as e:
+            logger.warning(f"Himalayas: failed for query '{search_query}': {e}")
     return results
 
 def _normalise(job: dict) -> dict:

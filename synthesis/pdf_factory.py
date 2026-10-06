@@ -192,15 +192,21 @@ def _sanitize_cv_data(cv: dict) -> dict:
     if "phone" in cv:
         phone_str = str(cv["phone"]).strip()
         digits = "".join(filter(str.isdigit, phone_str))
-        # RenderCV will crash if the phone number has placeholder characters or is too short
-        if "X" in phone_str.upper() or "x" in phone_str.lower() or len(digits) < 10:
+        if "X" in phone_str.upper() or "x" in phone_str.lower() or len(digits) < 7:
             del cv["phone"]
-        elif not phone_str.startswith("+"):
-            cv["phone"] = f"+91{digits}"
-        else:
-            # It starts with + and has enough digits, but we strip out weird chars just in case
-            safe_phone = "".join(c for c in phone_str if c.isdigit() or c in "+ -()")
+        elif phone_str.startswith("+"):
+            safe_phone = "+" + "".join(c for c in phone_str[1:] if c.isdigit() or c in " -()")
             cv["phone"] = safe_phone
+        elif len(digits) == 10:
+            loc = str(cv.get("location", "")).upper()
+            if any(k in loc for k in ["US", "USA", "UNITED STATES", "CA", "NY", "SF", "TX", "WA"]):
+                cv["phone"] = f"+1{digits}"
+            elif any(k in loc for k in ["INDIA", "IN", "BANGALORE", "HYDERABAD", "DELHI", "MUMBAI"]):
+                cv["phone"] = f"+91{digits}"
+            else:
+                cv["phone"] = f"+1{digits}"
+        else:
+            cv["phone"] = f"+{digits}"
                 
     return cv
 

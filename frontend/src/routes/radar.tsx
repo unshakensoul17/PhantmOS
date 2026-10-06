@@ -29,11 +29,11 @@ function RadarPage() {
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
 
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
-    queryKey: ["leads", "New"],
+    queryKey: ["leads", "Found"],
     initialPageParam: "",
     queryFn: async ({ pageParam = "" }) => {
       const url = new URL("/api/leads", window.location.origin);
-      url.searchParams.set("status", "New");
+      url.searchParams.set("status", "Found");
       if (pageParam) url.searchParams.set("cursor", pageParam);
       url.searchParams.set("limit", "10");
       const res = await apiFetch(url.pathname + url.search);

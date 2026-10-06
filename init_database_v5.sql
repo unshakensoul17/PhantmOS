@@ -73,6 +73,9 @@ CREATE TABLE delivery_queue (
     id SERIAL PRIMARY KEY,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     job_id TEXT,
+    status TEXT DEFAULT 'pending',
+    attempts INTEGER DEFAULT 0,
+    last_attempt TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     FOREIGN KEY (user_id, job_id) REFERENCES user_job_pipelines(user_id, job_id) ON DELETE CASCADE
 );
@@ -81,6 +84,8 @@ CREATE TABLE user_feedback (
     id SERIAL PRIMARY KEY,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     job_id TEXT,
+    action TEXT,
+    skip_reason TEXT,
     feedback TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     FOREIGN KEY (user_id, job_id) REFERENCES user_job_pipelines(user_id, job_id) ON DELETE CASCADE

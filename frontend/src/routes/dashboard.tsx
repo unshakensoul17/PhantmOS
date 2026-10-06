@@ -7,7 +7,8 @@ import {
   Target, Send, Calendar, Zap, ChevronRight, Briefcase, FileText, Search, Loader2, BookOpen, AlertTriangle
 } from "lucide-react";
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/dashboard")({
   component: PhantmOSDashboard,
@@ -16,6 +17,7 @@ export const Route = createFileRoute("/dashboard")({
 /* ------------------------------ HERO STATS ------------------------------ */
 
 function HeroStats() {
+  const queryClient = useQueryClient();
   const { data: stats } = useQuery({
     queryKey: ["dashboard-stats"],
     queryFn: async () => {
@@ -24,6 +26,25 @@ function HeroStats() {
       return res.json();
     },
     refetchInterval: 15000,
+  });
+
+  const deployMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiFetch("/api/harvest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: "" }),
+      });
+      if (!res.ok) throw new Error("Failed to deploy harvest pipeline");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast.success("PhantmOS pipeline deployed across all active sources!");
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to trigger PhantmOS");
+    },
   });
 
   const STATS = [
@@ -51,9 +72,17 @@ function HeroStats() {
             Six specialized agents operating in concert — discovering, ranking, tailoring, and applying to opportunities across 240+ sources in real time.
           </p>
         </div>
-        <button className="group relative overflow-hidden inline-flex items-center gap-2 px-5 h-11 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 font-semibold text-sm text-white transition-all hover:scale-[1.02] hover:border-white/30">
-          <Zap className="w-4 h-4 text-neon-blue" />
-          Deploy PhantmOS
+        <button
+          onClick={() => deployMutation.mutate()}
+          disabled={deployMutation.isPending}
+          className="group relative overflow-hidden inline-flex items-center gap-2 px-5 h-11 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 font-semibold text-sm text-white transition-all hover:scale-[1.02] hover:border-white/30 disabled:opacity-50"
+        >
+          {deployMutation.isPending ? (
+            <Loader2 className="w-4 h-4 text-neon-blue animate-spin" />
+          ) : (
+            <Zap className="w-4 h-4 text-neon-blue" />
+          )}
+          {deployMutation.isPending ? "Deploying..." : "Deploy PhantmOS"}
           <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
         </button>
       </div>

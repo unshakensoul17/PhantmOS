@@ -40,12 +40,12 @@ async def run_harvest(include_hn: bool = False, search_query: str = None) -> lis
 
     # ── 1. Fetch all sources in parallel ─────────────────────────────────────
     fetch_tasks = [
-        _safe_fetch("Remotive",  fetch_remotive(search_query=search_query)),
-        _safe_fetch("SecretAPI", fetch_secret(search_query=search_query)),
-        _safe_fetch("Himalayas", fetch_himalayas(search_query=search_query)),
+        _safe_fetch("Remotive",  lambda: fetch_remotive(search_query=search_query)),
+        _safe_fetch("SecretAPI", lambda: fetch_secret(search_query=search_query)),
+        _safe_fetch("Himalayas", lambda: fetch_himalayas(search_query=search_query)),
     ]
     if include_hn or _is_first_of_month():
-        fetch_tasks.append(_safe_fetch("HN", fetch_hn_hiring()))
+        fetch_tasks.append(_safe_fetch("HN", lambda: fetch_hn_hiring()))
 
     source_results = await asyncio.gather(*fetch_tasks)
 
@@ -72,15 +72,15 @@ async def run_harvest(include_hn: bool = False, search_query: str = None) -> lis
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-async def _safe_fetch(source_name: str, coro) -> list[dict]:
+async def _safe_fetch(source_name: str, fetch_fn) -> list[dict]:
     """
     Wraps each source fetch with retry (2 attempts) + error isolation.
-    A single source failing never blocks the others.
+    Uses a factory function so each attempt creates a fresh coroutine.
     """
     last_error: str = "unknown"
     for attempt in range(1, 3):
         try:
-            results = await coro
+            results = await fetch_fn()
             return results
         except Exception as e:
             last_error = str(e)
@@ -88,7 +88,7 @@ async def _safe_fetch(source_name: str, coro) -> list[dict]:
                 f"{source_name}: attempt {attempt}/2 failed — {last_error}"
             )
             if attempt < 2:
-                await asyncio.sleep(10)
+                await asyncio.sleep(5)
     logger.error(f"{source_name}: all attempts failed, skipping source.")
     log_stage_failure(None, f"harvest_{source_name.lower()}", last_error)
     return []
