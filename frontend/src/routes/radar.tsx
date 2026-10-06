@@ -3,10 +3,28 @@ import { AuthGuard } from "../components/AuthGuard";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "../lib/api";
 import {
-  Loader2, DollarSign, MapPin, Sparkles, Target, ExternalLink,
-  Check, X, Zap, ChevronUp, ChevronDown, Building2, Globe,
-  RotateCcw, Download, Eye, Heart, FileText, Send, BarChart2,
-  Copy, CheckCheck
+  Loader2,
+  DollarSign,
+  MapPin,
+  Sparkles,
+  Target,
+  ExternalLink,
+  Check,
+  X,
+  Zap,
+  ChevronUp,
+  ChevronDown,
+  Building2,
+  Globe,
+  RotateCcw,
+  Download,
+  Eye,
+  Heart,
+  FileText,
+  Send,
+  BarChart2,
+  Copy,
+  CheckCheck,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
@@ -17,22 +35,24 @@ export const Route = createFileRoute("/radar")({
 });
 
 function scoreStyle(s: number) {
-  if (s >= 88) return {
-    color: "text-neon-green",
-    ring: "stroke-neon-green",
-    bg: "bg-neon-green/10 border-neon-green/30",
-    badge: "bg-neon-green/15 text-neon-green border-neon-green/30",
-    label: "HOT MATCH",
-    emoji: "🔥",
-  };
-  if (s >= 70) return {
-    color: "text-neon-blue",
-    ring: "stroke-neon-blue",
-    bg: "bg-neon-blue/10 border-neon-blue/30",
-    badge: "bg-neon-blue/15 text-neon-blue border-neon-blue/30",
-    label: "GOOD MATCH",
-    emoji: "🟢",
-  };
+  if (s >= 88)
+    return {
+      color: "text-neon-green",
+      ring: "stroke-neon-green",
+      bg: "bg-neon-green/10 border-neon-green/30",
+      badge: "bg-neon-green/15 text-neon-green border-neon-green/30",
+      label: "HOT MATCH",
+      emoji: "🔥",
+    };
+  if (s >= 70)
+    return {
+      color: "text-neon-blue",
+      ring: "stroke-neon-blue",
+      bg: "bg-neon-blue/10 border-neon-blue/30",
+      badge: "bg-neon-blue/15 text-neon-blue border-neon-blue/30",
+      label: "GOOD MATCH",
+      emoji: "🟢",
+    };
   return {
     color: "text-white/70",
     ring: "stroke-white/40",
@@ -46,15 +66,29 @@ function scoreStyle(s: number) {
 function getLocationBadge(location: string = "") {
   const loc = (location || "").toLowerCase();
   if (loc.includes("remote") || loc.includes("anywhere") || loc.includes("global") || !loc) {
-    return { label: "Remote", color: "bg-neon-green/10 text-neon-green border-neon-green/30", icon: Globe };
+    return {
+      label: "Remote",
+      color: "bg-neon-green/10 text-neon-green border-neon-green/30",
+      icon: Globe,
+    };
   }
   if (loc.includes("hybrid")) {
-    return { label: "Hybrid", color: "bg-neon-cyan/10 text-neon-cyan border-neon-cyan/30", icon: MapPin };
+    return {
+      label: "Hybrid",
+      color: "bg-neon-cyan/10 text-neon-cyan border-neon-cyan/30",
+      icon: MapPin,
+    };
   }
-  return { label: location, color: "bg-white/5 text-muted-foreground border-white/10", icon: Building2 };
+  return {
+    label: location,
+    color: "bg-white/5 text-muted-foreground border-white/10",
+    icon: Building2,
+  };
 }
 
-function triggerHaptic(type: "light" | "medium" | "heavy" | "success" | "warning" | "error" = "medium") {
+function triggerHaptic(
+  type: "light" | "medium" | "heavy" | "success" | "warning" | "error" = "medium",
+) {
   try {
     const tg = (window as any).Telegram?.WebApp?.HapticFeedback;
     if (tg) {
@@ -75,21 +109,31 @@ function extractBullets(job: any): string[] {
   const bullets: string[] = [];
   let notes: any = {};
   try {
-    notes = typeof job.notes === "string" ? JSON.parse(job.notes) : (job.notes || {});
+    notes = typeof job.notes === "string" ? JSON.parse(job.notes) : job.notes || {};
   } catch {}
 
   let breakdown: any = {};
   try {
-    breakdown = typeof job.score_breakdown === "string" ? JSON.parse(job.score_breakdown) : (job.score_breakdown || {});
+    breakdown =
+      typeof job.score_breakdown === "string"
+        ? JSON.parse(job.score_breakdown)
+        : job.score_breakdown || {};
   } catch {}
 
   if (notes.rationale) {
-    const parts = notes.rationale.split(/[.·•\n]/).map((s: string) => s.trim()).filter(Boolean);
+    const parts = notes.rationale
+      .split(/[.·•\n]/)
+      .map((s: string) => s.trim())
+      .filter(Boolean);
     bullets.push(...parts.slice(0, 3));
   }
 
   if (bullets.length < 3 && breakdown.matched_skills && Array.isArray(breakdown.matched_skills)) {
-    bullets.push(...breakdown.matched_skills.map((s: string) => `Strong alignment with ${s}`).slice(0, 3 - bullets.length));
+    bullets.push(
+      ...breakdown.matched_skills
+        .map((s: string) => `Strong alignment with ${s}`)
+        .slice(0, 3 - bullets.length),
+    );
   }
 
   if (bullets.length < 3) {
@@ -133,7 +177,7 @@ const slideVariants = {
     opacity: 1,
     scale: 1,
     transition: {
-      x: { type: "spring", stiffness: 350, damping: 30 },
+      x: { type: "spring" as const, stiffness: 350, damping: 30 },
       opacity: { duration: 0.18 },
       scale: { duration: 0.18 },
     },
@@ -144,7 +188,7 @@ const slideVariants = {
     opacity: 0,
     scale: 0.94,
     transition: {
-      x: { type: "spring", stiffness: 350, damping: 30 },
+      x: { type: "spring" as const, stiffness: 350, damping: 30 },
       opacity: { duration: 0.18 },
       scale: { duration: 0.18 },
     },
@@ -183,7 +227,11 @@ function RadarPage() {
   }, []);
 
   // Fetch pending radar leads
-  const { data: leads = [], isLoading, refetch } = useQuery({
+  const {
+    data: leads = [],
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ["leads", "Found"],
     queryFn: async () => {
       const res = await apiFetch("/api/leads?status=Found&limit=30");
@@ -271,7 +319,7 @@ function RadarPage() {
     const jobId = job.job_id || job.id;
     triggerHaptic("success");
     statusMutation.mutate({ id: jobId, status: "Approved" });
-    setSessionStats(prev => ({ ...prev, saved: prev.saved + 1 }));
+    setSessionStats((prev) => ({ ...prev, saved: prev.saved + 1 }));
     setLastAction({ job, type: "saved", index: currentIndex });
     advanceToNext(1);
   };
@@ -281,7 +329,7 @@ function RadarPage() {
     const jobId = job.job_id || job.id;
     triggerHaptic("light");
     statusMutation.mutate({ id: jobId, status: "Dismissed" });
-    setSessionStats(prev => ({ ...prev, passed: prev.passed + 1 }));
+    setSessionStats((prev) => ({ ...prev, passed: prev.passed + 1 }));
     setLastAction({ job, type: "passed", index: currentIndex });
     advanceToNext(1);
   };
@@ -303,7 +351,7 @@ function RadarPage() {
       const data = await res.json();
       triggerHaptic("success");
       toast.success("Tailored ATS resume created!");
-      setSessionStats(prev => ({ ...prev, tailored: prev.tailored + 1 }));
+      setSessionStats((prev) => ({ ...prev, tailored: prev.tailored + 1 }));
       setTailoredLead({ ...job, resume_url: data.resume_url, status: "Tailored" });
       queryClient.invalidateQueries({ queryKey: ["leads"] });
     } catch (err: any) {
@@ -327,9 +375,9 @@ function RadarPage() {
         body: JSON.stringify({ status: "Found" }),
       });
       if (type === "saved") {
-        setSessionStats(prev => ({ ...prev, saved: Math.max(0, prev.saved - 1) }));
+        setSessionStats((prev) => ({ ...prev, saved: Math.max(0, prev.saved - 1) }));
       } else {
-        setSessionStats(prev => ({ ...prev, passed: Math.max(0, prev.passed - 1) }));
+        setSessionStats((prev) => ({ ...prev, passed: Math.max(0, prev.passed - 1) }));
       }
       setPageIndex([index, -1]);
       setLastAction(null);
@@ -364,7 +412,9 @@ function RadarPage() {
             <button
               onClick={() => setActiveTab("radar")}
               className={`px-2.5 py-1 rounded-full transition ${
-                activeTab === "radar" ? "bg-neon-cyan/20 text-neon-cyan font-bold" : "text-muted-foreground hover:text-white"
+                activeTab === "radar"
+                  ? "bg-neon-cyan/20 text-neon-cyan font-bold"
+                  : "text-muted-foreground hover:text-white"
               }`}
             >
               🎯 Radar
@@ -372,7 +422,9 @@ function RadarPage() {
             <button
               onClick={() => setActiveTab("saved")}
               className={`px-2 py-1 rounded-full transition ${
-                activeTab === "saved" ? "bg-neon-pink/20 text-neon-pink font-bold" : "text-muted-foreground hover:text-white"
+                activeTab === "saved"
+                  ? "bg-neon-pink/20 text-neon-pink font-bold"
+                  : "text-muted-foreground hover:text-white"
               }`}
             >
               ❤️ Saved
@@ -380,7 +432,9 @@ function RadarPage() {
             <button
               onClick={() => setActiveTab("resumes")}
               className={`px-2 py-1 rounded-full transition ${
-                activeTab === "resumes" ? "bg-neon-green/20 text-neon-green font-bold" : "text-muted-foreground hover:text-white"
+                activeTab === "resumes"
+                  ? "bg-neon-green/20 text-neon-green font-bold"
+                  : "text-muted-foreground hover:text-white"
               }`}
             >
               📄 Resumes
@@ -388,7 +442,9 @@ function RadarPage() {
             <button
               onClick={() => setActiveTab("applications")}
               className={`px-2 py-1 rounded-full transition ${
-                activeTab === "applications" ? "bg-neon-purple/20 text-neon-purple font-bold" : "text-muted-foreground hover:text-white"
+                activeTab === "applications"
+                  ? "bg-neon-purple/20 text-neon-purple font-bold"
+                  : "text-muted-foreground hover:text-white"
               }`}
             >
               📤 Applied
@@ -399,13 +455,15 @@ function RadarPage() {
 
       {/* Main Container */}
       <main className="flex-1 flex items-center justify-center p-3 relative max-w-md w-full mx-auto my-auto overflow-hidden">
-        {activeTab === "radar" && (
-          isLoading ? (
+        {activeTab === "radar" &&
+          (isLoading ? (
             <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
               <Loader2 className="w-9 h-9 animate-spin mb-3 text-neon-cyan" />
-              <p className="font-mono text-xs tracking-wider uppercase text-neon-cyan">Scanning Live Radar...</p>
+              <p className="font-mono text-xs tracking-wider uppercase text-neon-cyan">
+                Scanning Live Radar...
+              </p>
             </div>
-          ) : (!activeLead || currentIndex >= leads.length) ? (
+          ) : !activeLead || currentIndex >= leads.length ? (
             /* Radar Complete Screen */
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
@@ -425,16 +483,28 @@ function RadarPage() {
               {/* Session Summary Counts */}
               <div className="grid grid-cols-3 gap-2 py-2 bg-white/5 rounded-2xl border border-white/10 text-center">
                 <div className="p-2">
-                  <div className="text-lg font-bold font-mono text-neon-cyan">{sessionStats.tailored}</div>
-                  <div className="text-[10px] text-muted-foreground uppercase font-mono mt-0.5">⚡ Resumes</div>
+                  <div className="text-lg font-bold font-mono text-neon-cyan">
+                    {sessionStats.tailored}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground uppercase font-mono mt-0.5">
+                    ⚡ Resumes
+                  </div>
                 </div>
                 <div className="p-2 border-x border-white/10">
-                  <div className="text-lg font-bold font-mono text-neon-pink">{sessionStats.saved}</div>
-                  <div className="text-[10px] text-muted-foreground uppercase font-mono mt-0.5">❤️ Saved</div>
+                  <div className="text-lg font-bold font-mono text-neon-pink">
+                    {sessionStats.saved}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground uppercase font-mono mt-0.5">
+                    ❤️ Saved
+                  </div>
                 </div>
                 <div className="p-2">
-                  <div className="text-lg font-bold font-mono text-white/60">{sessionStats.passed}</div>
-                  <div className="text-[10px] text-muted-foreground uppercase font-mono mt-0.5">❌ Passed</div>
+                  <div className="text-lg font-bold font-mono text-white/60">
+                    {sessionStats.passed}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground uppercase font-mono mt-0.5">
+                    ❌ Passed
+                  </div>
                 </div>
               </div>
 
@@ -444,7 +514,11 @@ function RadarPage() {
                   disabled={harvestMutation.isPending}
                   className="w-full py-3 rounded-xl bg-gradient-to-r from-neon-blue to-neon-purple text-black font-semibold text-xs tracking-wider uppercase flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-98 transition shadow-[0_0_20px_rgba(0,240,255,0.3)] disabled:opacity-50"
                 >
-                  {harvestMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  {harvestMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-4 h-4" />
+                  )}
                   {harvestMutation.isPending ? "Harvesting..." : "Scan New Opportunities"}
                 </button>
                 <button
@@ -474,8 +548,7 @@ function RadarPage() {
                 />
               </AnimatePresence>
             </div>
-          )
-        )}
+          ))}
 
         {/* Tab: Saved Jobs */}
         {activeTab === "saved" && (
@@ -489,11 +562,16 @@ function RadarPage() {
               </div>
             ) : (
               savedLeads.map((job: any) => (
-                <div key={job.job_id || job.id} className="p-3 rounded-2xl glass border border-white/10 flex items-center justify-between gap-3">
+                <div
+                  key={job.job_id || job.id}
+                  className="p-3 rounded-2xl glass border border-white/10 flex items-center justify-between gap-3"
+                >
                   <div className="min-w-0 flex-1">
                     <h3 className="text-xs font-bold text-white truncate">{job.title}</h3>
                     <p className="text-[11px] text-neon-cyan truncate">{job.company}</p>
-                    <span className="text-[10px] text-muted-foreground font-mono">{job.location || "Remote"}</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">
+                      {job.location || "Remote"}
+                    </span>
                   </div>
                   <button
                     onClick={() => handleTailor(job)}
@@ -519,7 +597,10 @@ function RadarPage() {
               </div>
             ) : (
               tailoredLeads.map((job: any) => (
-                <div key={job.job_id || job.id} className="p-3 rounded-2xl glass border border-white/10 flex items-center justify-between gap-3">
+                <div
+                  key={job.job_id || job.id}
+                  className="p-3 rounded-2xl glass border border-white/10 flex items-center justify-between gap-3"
+                >
                   <div className="min-w-0 flex-1">
                     <h3 className="text-xs font-bold text-white truncate">{job.title}</h3>
                     <p className="text-[11px] text-neon-cyan truncate">{job.company}</p>
@@ -554,7 +635,10 @@ function RadarPage() {
               </div>
             ) : (
               appliedLeads.map((job: any) => (
-                <div key={job.job_id || job.id} className="p-3 rounded-2xl glass border border-white/10 flex items-center justify-between gap-3">
+                <div
+                  key={job.job_id || job.id}
+                  className="p-3 rounded-2xl glass border border-white/10 flex items-center justify-between gap-3"
+                >
                   <div className="min-w-0 flex-1">
                     <h3 className="text-xs font-bold text-white truncate">{job.title}</h3>
                     <p className="text-[11px] text-neon-cyan truncate">{job.company}</p>
@@ -637,11 +721,12 @@ function CompactDecisionCard({
 
   let notes: any = {};
   try {
-    notes = typeof job.notes === "string" ? JSON.parse(job.notes) : (job.notes || {});
+    notes = typeof job.notes === "string" ? JSON.parse(job.notes) : job.notes || {};
   } catch {}
 
   const handleCopyEmail = () => {
-    const coldEmail = notes.cold_email || `Hi ${job.company} Team,\n\nI am applying for the ${job.title} role.`;
+    const coldEmail =
+      notes.cold_email || `Hi ${job.company} Team,\n\nI am applying for the ${job.title} role.`;
     navigator.clipboard.writeText(coldEmail);
     setCopiedEmail(true);
     triggerHaptic("light");
@@ -662,9 +747,13 @@ function CompactDecisionCard({
       <div className="p-4 pb-2 border-b border-white/5">
         <div className="flex items-center justify-between gap-2 mb-2">
           {/* Match Score Banner Badge */}
-          <span className={`text-[11px] font-mono px-2.5 py-0.5 rounded-full border font-bold flex items-center gap-1 ${s.badge}`}>
+          <span
+            className={`text-[11px] font-mono px-2.5 py-0.5 rounded-full border font-bold flex items-center gap-1 ${s.badge}`}
+          >
             <span>{s.emoji}</span>
-            <span>{score}% {s.label}</span>
+            <span>
+              {score}% {s.label}
+            </span>
           </span>
 
           {/* Progress Indicator: 1 of 14 */}
@@ -674,7 +763,10 @@ function CompactDecisionCard({
         </div>
 
         {/* Title & Company */}
-        <h2 className="text-base font-bold font-unbounded text-white leading-tight line-clamp-1" title={job.title}>
+        <h2
+          className="text-base font-bold font-unbounded text-white leading-tight line-clamp-1"
+          title={job.title}
+        >
           {job.title}
         </h2>
         <div className="text-xs font-semibold text-neon-cyan mt-1 flex items-center gap-2">
@@ -708,7 +800,9 @@ function CompactDecisionCard({
             </div>
             <div>
               <h3 className="text-xs font-bold text-white font-unbounded">Tailored Resume Ready</h3>
-              <p className="text-[11px] text-neon-green font-mono mt-0.5">Optimized for {job.company}</p>
+              <p className="text-[11px] text-neon-green font-mono mt-0.5">
+                Optimized for {job.company}
+              </p>
             </div>
             <div className="flex items-center justify-center gap-2 pt-1">
               <a
@@ -727,20 +821,20 @@ function CompactDecisionCard({
               </button>
             </div>
           </motion.div>
-        ) : isGenerating ? (
-          /* Live Tailoring Animation State */
-          <div className="p-6 rounded-2xl glass border border-neon-cyan/30 text-center space-y-3">
-            <Loader2 className="w-8 h-8 animate-spin text-neon-cyan mx-auto" />
-            <div>
-              <h3 className="text-xs font-bold font-unbounded text-white">Tailoring ATS Resume</h3>
-              <p className="text-[11px] text-neon-cyan font-mono mt-1 animate-pulse">
-                Analyzing JD & compiling RenderCV Typst PDF...
-              </p>
-            </div>
-          </div>
         ) : (
           /* Standard Decision Intel */
           <>
+            {/* If currently tailoring in background, show active indicator banner */}
+            {isGenerating && (
+              <div className="p-2.5 rounded-xl bg-neon-cyan/10 border border-neon-cyan/30 flex items-center gap-2 animate-pulse">
+                <Loader2 className="w-4 h-4 animate-spin text-neon-cyan shrink-0" />
+                <div className="text-[11px] text-neon-cyan font-mono leading-tight">
+                  <span className="font-bold">Tailoring ATS resume in background...</span>
+                  <div className="text-[10px] text-white/70">You can continue deciding on other jobs!</div>
+                </div>
+              </div>
+            )}
+
             {/* Why You Match Bullets */}
             <div className="p-3 rounded-2xl glass border border-white/10 space-y-1.5 bg-black/40">
               <div className="flex items-center gap-1.5 text-[11px] font-mono text-neon-cyan font-semibold">
@@ -774,7 +868,9 @@ function CompactDecisionCard({
               >
                 {job.raw_description && (
                   <div>
-                    <div className="text-[10px] font-mono uppercase font-bold text-white/70 mb-1">Job Overview</div>
+                    <div className="text-[10px] font-mono uppercase font-bold text-white/70 mb-1">
+                      Job Overview
+                    </div>
                     <p className="line-clamp-4 leading-relaxed bg-black/30 p-2 rounded-xl text-[11px] text-white/80">
                       {job.raw_description.replace(/<[^>]*>?/gm, "")}
                     </p>
@@ -796,7 +892,11 @@ function CompactDecisionCard({
                     onClick={handleCopyEmail}
                     className="text-[11px] font-mono text-white/80 hover:text-white flex items-center gap-1 bg-white/5 px-2 py-1 rounded-lg border border-white/10 transition active:scale-95"
                   >
-                    {copiedEmail ? <CheckCheck className="w-3 h-3 text-neon-green" /> : <Copy className="w-3 h-3" />}
+                    {copiedEmail ? (
+                      <CheckCheck className="w-3 h-3 text-neon-green" />
+                    ) : (
+                      <Copy className="w-3 h-3" />
+                    )}
                     {copiedEmail ? "Copied" : "Copy Cold Email"}
                   </button>
                 </div>

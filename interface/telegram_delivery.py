@@ -4,6 +4,7 @@ interface/telegram_delivery.py — PhantmOS v2.0
 Rich job card delivery with HOT/WARM bands.
 3-button inline keyboard: ✅ Auto-Apply | 👀 Review | ❌ Skip
 """
+
 import asyncio
 import json
 import os
@@ -33,7 +34,7 @@ logger = get_logger(__name__)
 # Telegram's 1 msg/s per-chat rate limit.
 _SEND_LOCK = None
 _LAST_SEND_TIME: float = 0.0
-_MIN_SEND_INTERVAL: float = 1.5   # seconds
+_MIN_SEND_INTERVAL: float = 1.5  # seconds
 
 # ── Endpoint resolution ────────────────────────────────────────────────────────
 # Try api.telegram.org directly first (fastest, no proxy hop).
@@ -59,9 +60,10 @@ else:
 
 # ── Button callback handler ────────────────────────────────────────────────────
 
+
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query   = update.callback_query
-    data    = query.data or ""
+    query = update.callback_query
+    data = query.data or ""
     chat_id = query.message.chat_id
 
     # Handle Triage Deck interactions
@@ -137,32 +139,42 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         chat_id=chat_id, text=f"Resume file not found: {resume_url}"
                     )
             else:
-                await context.bot.send_message(chat_id=chat_id, text="Resume PDF not yet generated.")
+                await context.bot.send_message(
+                    chat_id=chat_id, text="Resume PDF not yet generated."
+                )
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    args    = context.args
+    args = context.args
     if args:
         user_id = args[0]
         from core.database_manager import update_profile
+
         try:
             update_profile({"telegram_chat_id": str(chat_id)}, user_id=user_id)
-            await update.message.reply_text("✅ PhantmOS connected successfully to your account!\n\nType /radar or /deck to review your opportunities.")
+            await update.message.reply_text(
+                "✅ PhantmOS connected successfully to your account!\n\nType /radar or /deck to review your opportunities."
+            )
         except Exception as e:
             logger.error(f"Error mapping telegram chat_id: {e}")
             await update.message.reply_text("❌ Failed to connect Telegram to your account.")
     else:
-        await update.message.reply_text("Welcome to PhantmOS Bot! Please connect via the Dashboard or type /radar to review your active deck.")
+        await update.message.reply_text(
+            "Welcome to PhantmOS Bot! Please connect via the Dashboard or type /radar to review your active deck."
+        )
 
 
 async def radar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /radar or /deck command to deliver the user's interactive Triage Deck."""
     chat_id = update.effective_chat.id
     from core.database_manager import get_profile_by_chat_id
+
     profile = get_profile_by_chat_id(chat_id)
     if not profile:
-        await update.message.reply_text("❌ Telegram account is not linked yet. Please click Connect Telegram in your PhantmOS Dashboard.")
+        await update.message.reply_text(
+            "❌ Telegram account is not linked yet. Please click Connect Telegram in your PhantmOS Dashboard."
+        )
         return
     await send_triage_deck(profile=profile, chat_id=chat_id)
 
@@ -174,14 +186,14 @@ if application:
     application.add_handler(CallbackQueryHandler(button_callback))
 
 
-
 # ── Webhook endpoint ───────────────────────────────────────────────────────────
+
 
 @app.post("/webhook")
 async def telegram_webhook(request: Request):
     if application:
         payload = await request.json()
-        update  = Update.de_json(payload, application.bot)
+        update = Update.de_json(payload, application.bot)
         await application.process_update(update)
     else:
         logger.error("❌ Telegram application is NOT initialized in telegram_webhook!")
@@ -189,6 +201,7 @@ async def telegram_webhook(request: Request):
 
 
 # ── Core HTTP helper ───────────────────────────────────────────────────────────
+
 
 async def _post_to_telegram(path: str, payload: dict):
     """
@@ -200,15 +213,19 @@ async def _post_to_telegram(path: str, payload: dict):
     Uses requests wrapped in asyncio.to_thread.
     """
     import requests
+
     for base in _TELEGRAM_ENDPOINTS:
         url = f"{base}/bot{TELEGRAM_BOT_TOKEN}/{path}"
         try:
+
             def _send(target_url=url):
-                return requests.post(target_url, json=payload, timeout=30.0, proxies={"http": None, "https": None})
+                return requests.post(
+                    target_url, json=payload, timeout=30.0, proxies={"http": None, "https": None}
+                )
 
             resp = await asyncio.to_thread(_send)
             logger.debug(f"Telegram [{base}] → HTTP {resp.status_code}")
-            return resp                           # success or Telegram-level error
+            return resp  # success or Telegram-level error
         except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
             logger.warning(f"Telegram: {base} unreachable — trying next endpoint.")
         except Exception as e:
@@ -219,6 +236,7 @@ async def _post_to_telegram(path: str, payload: dict):
 
 
 # ── Main card sender ───────────────────────────────────────────────────────────
+
 
 async def send_job_card(lead: dict) -> bool:
     """
@@ -234,6 +252,7 @@ async def send_job_card(lead: dict) -> bool:
     chat_id = None
     if user_id:
         from core.database_manager import get_profile
+
         profile = get_profile(user_id)
         if profile:
             chat_id = profile.get("telegram_chat_id")
@@ -244,7 +263,7 @@ async def send_job_card(lead: dict) -> bool:
         return False
 
     job_id = lead.get("job_id", "")
-    band   = lead.get("score_band", "WARM")
+    band = lead.get("score_band", "WARM")
 
     logger.info(
         f"Telegram: attempting delivery job={job_id} band={band} "
@@ -256,20 +275,20 @@ async def send_job_card(lead: dict) -> bool:
         _SEND_LOCK = asyncio.Lock()
 
     async with _SEND_LOCK:
-        elapsed   = asyncio.get_event_loop().time() - _LAST_SEND_TIME
+        elapsed = asyncio.get_event_loop().time() - _LAST_SEND_TIME
         wait_secs = _MIN_SEND_INTERVAL - elapsed
         if wait_secs > 0:
             await asyncio.sleep(wait_secs)
 
         try:
-            card_text    = format_job_card(lead)
+            card_text = format_job_card(lead)
             main_keyboard = _build_main_keyboard(job_id, lead.get("status", ""))
 
             payload = {
-                "chat_id":                  chat_id,
-                "text":                     card_text,
-                "parse_mode":               "Markdown",
-                "reply_markup":             main_keyboard.to_dict(),
+                "chat_id": chat_id,
+                "text": card_text,
+                "parse_mode": "Markdown",
+                "reply_markup": main_keyboard.to_dict(),
                 "disable_web_page_preview": True,
             }
 
@@ -285,8 +304,7 @@ async def send_job_card(lead: dict) -> bool:
                 return True
             else:
                 logger.error(
-                    f"Telegram API error for job {job_id}: "
-                    f"HTTP {resp.status_code} | {resp.text}"
+                    f"Telegram API error for job {job_id}: HTTP {resp.status_code} | {resp.text}"
                 )
                 return False
 
@@ -318,9 +336,9 @@ async def send_triage_deck(profile: dict, chat_id: int | str) -> bool:
     text = format_radar_summary(leads)
 
     web_app_url = os.getenv("DASHBOARD_URL", "https://unshakensoul17-phantmos.hf.space") + "/radar"
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🚀 Open Radar", web_app=WebAppInfo(url=web_app_url))]
-    ])
+    keyboard = InlineKeyboardMarkup(
+        [[InlineKeyboardButton("🚀 Open Radar", web_app=WebAppInfo(url=web_app_url))]]
+    )
 
     payload = {
         "chat_id": chat_id,
@@ -343,8 +361,8 @@ async def send_webapp_digest(chat_id: int, count: int, email: str = None) -> boo
     return await send_triage_deck(profile={"telegram_chat_id": chat_id}, chat_id=chat_id)
 
 
-
 # ── Action handlers ────────────────────────────────────────────────────────────
+
 
 async def _on_create_resume(context, chat_id: int, job_id: str, query):
     from core.database_manager import get_client, get_lead_by_id, get_profile, update_job_lead
@@ -356,7 +374,7 @@ async def _on_create_resume(context, chat_id: int, job_id: str, query):
         return
 
     btn_loading = InlineKeyboardButton("⏳ Generating...", callback_data="ignore")
-    btn_skip    = InlineKeyboardButton("🗑️ Skip", callback_data=f"skipask_{job_id}")
+    btn_skip = InlineKeyboardButton("🗑️ Skip", callback_data=f"skipask_{job_id}")
     await query.edit_message_text(
         text=format_job_card(lead),
         parse_mode="Markdown",
@@ -364,13 +382,13 @@ async def _on_create_resume(context, chat_id: int, job_id: str, query):
         reply_markup=InlineKeyboardMarkup([[btn_loading, btn_skip]]),
     )
 
-    user_id       = lead.get("user_id")
-    profile       = get_profile(user_id)
+    user_id = lead.get("user_id")
+    profile = get_profile(user_id)
     if not profile:
         return
-    band          = lead.get("score_band", "WARM")
+    band = lead.get("score_band", "WARM")
     master_resume = profile.get("resume_data") or {}
-    preferences   = profile.get("preferences") or {}
+    preferences = profile.get("preferences") or {}
 
     if not master_resume:
         await context.bot.send_message(
@@ -383,22 +401,26 @@ async def _on_create_resume(context, chat_id: int, job_id: str, query):
             lead, master_resume, user_id=user_id, preferences=preferences
         )
         if success:
-            lead      = get_lead_by_id(job_id)
-            notes     = {}
+            lead = get_lead_by_id(job_id)
+            notes = {}
             try:
                 notes = json.loads(lead.get("notes") or "{}")
             except Exception:
                 pass
             resume_data = notes.get("updated_resume_json") or master_resume
-            url = await generate_and_upload_pdf(job_id=job_id, resume_data=resume_data, user_id=user_id)
+            url = await generate_and_upload_pdf(
+                job_id=job_id, resume_data=resume_data, user_id=user_id
+            )
             if url:
                 update_job_lead(job_id, {"resume_url": url}, user_id=user_id)
                 lead["resume_url"] = url
-                lead["status"]     = "Tailored"
+                lead["status"] = "Tailored"
                 get_client().table("delivery_queue").delete().eq("job_id", job_id).execute()
             else:
                 logger.error(f"PDF generation failed for {job_id}.")
-                await context.bot.send_message(chat_id=chat_id, text="⚠️ PDF generation failed. Please try again.")
+                await context.bot.send_message(
+                    chat_id=chat_id, text="⚠️ PDF generation failed. Please try again."
+                )
                 return
             await query.edit_message_text(
                 text=format_job_card(lead),
@@ -427,39 +449,54 @@ async def _on_send_cold_email(context, chat_id: int, job_id: str):
     if not lead:
         await context.bot.send_message(chat_id=chat_id, text="Lead not found.")
         return
-    notes     = {}
+    notes = {}
     try:
         notes = json.loads(lead.get("notes") or "{}")
     except Exception:
         pass
     cold_email = notes.get("cold_email", "")
     resume_url = lead.get("resume_url") or notes.get("resume_path", "")
-    company    = lead.get("company", "")
-    title      = lead.get("title", "")
+    company = lead.get("company", "")
+    title = lead.get("title", "")
     if not cold_email:
-        await context.bot.send_message(chat_id=chat_id, text="⚠️ No cold email generated for this lead.")
+        await context.bot.send_message(
+            chat_id=chat_id, text="⚠️ No cold email generated for this lead."
+        )
         return
     user_id = lead.get("user_id")
     profile = get_profile(user_id)
     if not profile:
         await context.bot.send_message(chat_id=chat_id, text="❌ Could not load your profile.")
         return
-    prefs      = profile.get("preferences") or {}
-    llm_prefs  = prefs.get("llm") or {}
+    prefs = profile.get("preferences") or {}
+    llm_prefs = prefs.get("llm") or {}
     gmail_user = llm_prefs.get("gmail_user", "")
     gmail_pass = llm_prefs.get("gmail_app_password", "")
     target_email = find_company_email(company)
     if not target_email:
         target_email = os.getenv("GMAIL_USER", gmail_user)
-        await context.bot.send_message(chat_id=chat_id, text=f"⚠️ No recruiter email found. Sending to default ({target_email}).")
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"⚠️ No recruiter email found. Sending to default ({target_email}).",
+        )
     else:
-        await context.bot.send_message(chat_id=chat_id, text=f"🎯 Recruiter: {target_email}. Dispatching…")
-    lines   = cold_email.strip().split("\n")
-    subject = lines[0].replace("Subject: ", "") if lines[0].startswith("Subject:") else f"Application: {title} at {company}"
-    body    = "\n".join(lines[1:]).strip() if lines[0].startswith("Subject:") else cold_email
+        await context.bot.send_message(
+            chat_id=chat_id, text=f"🎯 Recruiter: {target_email}. Dispatching…"
+        )
+    lines = cold_email.strip().split("\n")
+    subject = (
+        lines[0].replace("Subject: ", "")
+        if lines[0].startswith("Subject:")
+        else f"Application: {title} at {company}"
+    )
+    body = "\n".join(lines[1:]).strip() if lines[0].startswith("Subject:") else cold_email
     success = await send_cold_email(
-        target_email=target_email, subject=subject, body_text=body,
-        attachment_path=resume_url, gmail_user=gmail_user, gmail_password=gmail_pass,
+        target_email=target_email,
+        subject=subject,
+        body_text=body,
+        attachment_path=resume_url,
+        gmail_user=gmail_user,
+        gmail_password=gmail_pass,
     )
     if success:
         await handle_apply(job_id)
@@ -470,7 +507,9 @@ async def _on_send_cold_email(context, chat_id: int, job_id: str):
             parse_mode="Markdown",
         )
     else:
-        await context.bot.send_message(chat_id=chat_id, text="❌ Failed to send email. Check SMTP credentials.")
+        await context.bot.send_message(
+            chat_id=chat_id, text="❌ Failed to send email. Check SMTP credentials."
+        )
 
 
 async def _on_review(context, chat_id: int, job_id: str):
@@ -479,12 +518,17 @@ async def _on_review(context, chat_id: int, job_id: str):
         await context.bot.send_message(chat_id=chat_id, text="Lead not found.")
         return
     await handle_review(job_id)
-    await context.bot.send_message(chat_id=chat_id, text=format_review_card(lead), parse_mode="Markdown")
+    await context.bot.send_message(
+        chat_id=chat_id, text=format_review_card(lead), parse_mode="Markdown"
+    )
 
 
 async def _show_skip_reasons(context, chat_id: int, job_id: str, query):
-    reasons  = get_skip_reasons()
-    keyboard = [[InlineKeyboardButton(r["label"], callback_data=f"skip_{job_id}|{r['value']}")] for r in reasons]
+    reasons = get_skip_reasons()
+    keyboard = [
+        [InlineKeyboardButton(r["label"], callback_data=f"skip_{job_id}|{r['value']}")]
+        for r in reasons
+    ]
     await query.edit_message_text(
         text="❌ Why are you skipping this lead?",
         reply_markup=InlineKeyboardMarkup(keyboard),
@@ -500,18 +544,28 @@ async def _on_skip(context, chat_id: int, job_id: str, reason: str):
 
 
 # ── Triage Deck In-Memory Cache (Sub-millisecond navigation) ──────────────────
-_TRIAGE_CACHE: dict[str, dict] = {}  # chat_id -> {"timestamp": float, "user_id": str, "leads": list}
+_TRIAGE_CACHE: dict[
+    str, dict
+] = {}  # chat_id -> {"timestamp": float, "user_id": str, "leads": list}
 _CACHE_TTL = 300.0  # 5 minutes cache TTL
 
 
-def _get_cached_triage_leads(chat_id: int | str, force_refresh: bool = False) -> tuple[str | None, list]:
+def _get_cached_triage_leads(
+    chat_id: int | str, force_refresh: bool = False
+) -> tuple[str | None, list]:
     now = time.time()
     chat_key = str(chat_id)
     cached = _TRIAGE_CACHE.get(chat_key)
-    if not force_refresh and cached and (now - cached["timestamp"] < _CACHE_TTL) and cached.get("leads"):
+    if (
+        not force_refresh
+        and cached
+        and (now - cached["timestamp"] < _CACHE_TTL)
+        and cached.get("leads")
+    ):
         return cached["user_id"], cached["leads"]
 
     from core.database_manager import get_profile_by_chat_id, get_triage_leads_for_user
+
     profile = get_profile_by_chat_id(chat_id)
     if not profile:
         return None, []
@@ -547,12 +601,18 @@ def _build_triage_keyboard(lead: dict, idx: int, total: int) -> InlineKeyboardMa
     # Row 1: Fast Navigation (Prev | Next)
     row1 = []
     if idx > 0:
-        row1.append(InlineKeyboardButton(f"◀️ Prev ({idx}/{total})", callback_data=f"triage_nav_{idx - 1}"))
+        row1.append(
+            InlineKeyboardButton(f"◀️ Prev ({idx}/{total})", callback_data=f"triage_nav_{idx - 1}")
+        )
     else:
         row1.append(InlineKeyboardButton("◀️ Start", callback_data="triage_noop"))
 
     if idx < total - 1:
-        row1.append(InlineKeyboardButton(f"Next ▶️ ({idx + 2}/{total})", callback_data=f"triage_nav_{idx + 1}"))
+        row1.append(
+            InlineKeyboardButton(
+                f"Next ▶️ ({idx + 2}/{total})", callback_data=f"triage_nav_{idx + 1}"
+            )
+        )
     else:
         row1.append(InlineKeyboardButton("End ⏹️", callback_data="triage_noop"))
     keyboard.append(row1)
@@ -562,7 +622,9 @@ def _build_triage_keyboard(lead: dict, idx: int, total: int) -> InlineKeyboardMa
     if status == "Tailored" or (resume_url and str(resume_url).startswith("http")):
         row2.append(InlineKeyboardButton("📥 Download PDF", callback_data=f"triage_pdf_{job_id}"))
     else:
-        row2.append(InlineKeyboardButton("⚡ Tailor Resume", callback_data=f"triage_tailor_{job_id}_{idx}"))
+        row2.append(
+            InlineKeyboardButton("⚡ Tailor Resume", callback_data=f"triage_tailor_{job_id}_{idx}")
+        )
     row2.append(InlineKeyboardButton("✉️ Cold Email", callback_data=f"triage_email_{job_id}_{idx}"))
     keyboard.append(row2)
 
@@ -642,75 +704,107 @@ async def _on_triage_tailor(context, chat_id: int, payload: str, query):
     preferences = profile.get("preferences") or {}
 
     if not master_resume:
-        await query.answer("❌ Master resume missing in Dashboard. Please upload one first.", show_alert=True)
+        await query.answer(
+            "❌ Master resume missing in Dashboard. Please upload one first.", show_alert=True
+        )
         return
 
-    btn_loading = InlineKeyboardButton("⏳ Generating Tailored PDF...", callback_data="triage_noop")
-    await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup([[btn_loading]]))
+    company_name = lead.get("company", "Company")
+    title_name = lead.get("title", "Role")
 
-    try:
-        band = lead.get("score_band", "WARM")
-        success = await (_tailor_hot if band == "HOT" else _tailor_warm)(
-            lead, master_resume, user_id=user_id, preferences=preferences
-        )
-        if success:
-            updated_lead = get_lead_by_id(job_id) or lead
-            notes = {}
-            try:
-                notes = json.loads(updated_lead.get("notes") or "{}")
-            except Exception:
-                pass
-            resume_data = notes.get("updated_resume_json") or master_resume
-            url = await generate_and_upload_pdf(job_id=job_id, resume_data=resume_data, user_id=user_id)
-            if url:
-                update_job_lead(job_id, {"resume_url": url, "status": "Tailored"}, user_id=user_id)
-                updated_lead["resume_url"] = url
-                updated_lead["status"] = "Tailored"
-                _update_lead_in_cache(chat_id, job_id, {"resume_url": url, "status": "Tailored"})
+    # Acknowledge immediately so UI doesn't hang
+    await query.answer(f"⚡ Tailoring resume for {company_name}...", show_alert=False)
+
+    # Send dedicated progress message below the deck
+    progress_msg = await context.bot.send_message(
+        chat_id=chat_id,
+        text=(
+            f"⏳ *Tailoring Resume for {company_name}*\n"
+            f"💼 *{title_name}*\n\n"
+            f"⚙️ _Analyzing JD, optimizing bullet points & compiling ATS PDF..._"
+        ),
+        parse_mode="Markdown",
+    )
+
+    async def _async_tailor_task():
+        try:
+            band = lead.get("score_band", "WARM")
+            success = await (_tailor_hot if band == "HOT" else _tailor_warm)(
+                lead, master_resume, user_id=user_id, preferences=preferences
+            )
+            if success:
+                updated_lead = get_lead_by_id(job_id) or lead
+                notes = {}
                 try:
-                    get_client().table("delivery_queue").delete().eq("job_id", job_id).execute()
+                    notes = json.loads(updated_lead.get("notes") or "{}")
                 except Exception:
                     pass
+                resume_data = notes.get("updated_resume_json") or master_resume
+                url = await generate_and_upload_pdf(
+                    job_id=job_id, resume_data=resume_data, user_id=user_id
+                )
+                if url:
+                    update_job_lead(job_id, {"resume_url": url, "status": "Tailored"}, user_id=user_id)
+                    updated_lead["resume_url"] = url
+                    updated_lead["status"] = "Tailored"
+                    _update_lead_in_cache(chat_id, job_id, {"resume_url": url, "status": "Tailored"})
+                    try:
+                        get_client().table("delivery_queue").delete().eq("job_id", job_id).execute()
+                    except Exception:
+                        pass
 
-                await query.answer("✅ Tailored resume & PDF created!")
+                    # Edit progress message to completed state with download button
+                    ready_kb = InlineKeyboardMarkup([
+                        [
+                            InlineKeyboardButton("📥 Download PDF", callback_data=f"triage_pdf_{job_id}"),
+                            InlineKeyboardButton("✉️ Cold Email", callback_data=f"triage_email_{job_id}_{idx}"),
+                        ]
+                    ])
+                    await progress_msg.edit_text(
+                        text=(
+                            f"✅ *Tailored Resume Ready!*\n"
+                            f"🏢 *{company_name}* · {title_name}\n\n"
+                            f"📄 PDF compiled with RenderCV & ATS optimized."
+                        ),
+                        parse_mode="Markdown",
+                        reply_markup=ready_kb,
+                    )
 
-                # Send PDF document directly to Telegram chat
-                try:
-                    comp_name = lead.get("company", "PhantmOS")
-                    title_name = lead.get("title", "Role")
-                    await context.bot.send_document(
-                        chat_id=chat_id,
-                        document=url,
-                        filename=f"Resume_{comp_name}.pdf",
-                        caption=f"📄 *Tailored Resume PDF*\n🏢 *{comp_name}* · {title_name}\n\n[Download Direct Link]({url})",
+                    # Send PDF document directly to Telegram chat
+                    try:
+                        await context.bot.send_document(
+                            chat_id=chat_id,
+                            document=url,
+                            filename=f"Resume_{company_name}.pdf",
+                            caption=f"📄 *Tailored Resume PDF*\n🏢 *{company_name}* · {title_name}\n\n[Direct Link]({url})",
+                            parse_mode="Markdown",
+                        )
+                    except Exception as doc_err:
+                        logger.warning(f"Could not send PDF as document: {doc_err}")
+                else:
+                    await progress_msg.edit_text(
+                        f"⚠️ PDF compile failed for *{company_name}*. Please try again.",
                         parse_mode="Markdown",
                     )
-                except Exception as doc_err:
-                    logger.warning(f"Could not send PDF as document: {doc_err}")
             else:
-                await query.answer("⚠️ PDF compile error. Try again.", show_alert=True)
-        else:
-            await query.answer("❌ Failed to tailor resume.", show_alert=True)
-    except Exception as e:
-        logger.error(f"Error tailoring in triage deck: {e}")
-        await query.answer(f"Error: {e}", show_alert=True)
+                await progress_msg.edit_text(
+                    f"❌ LLM tailoring failed for *{company_name}*. Please try again.",
+                    parse_mode="Markdown",
+                )
+        except Exception as e:
+            logger.error(f"Error in async tailoring task: {e}")
+            try:
+                await progress_msg.edit_text(f"❌ Error generating resume for {company_name}: {e}")
+            except Exception:
+                pass
 
-    _, leads = _get_cached_triage_leads(chat_id)
-    if leads:
-        idx = max(0, min(idx, len(leads) - 1))
-        current_lead = leads[idx]
-        card_text = format_triage_card(current_lead, idx, len(leads))
-        keyboard = _build_triage_keyboard(current_lead, idx, len(leads))
-        await query.edit_message_text(
-            text=card_text,
-            parse_mode="Markdown",
-            reply_markup=keyboard,
-            disable_web_page_preview=True,
-        )
+    # Launch tailoring in background task so user can continue navigating immediately
+    asyncio.create_task(_async_tailor_task())
 
 
 async def _on_triage_pdf(context, chat_id: int, job_id: str, query):
     from core.database_manager import get_lead_by_id
+
     lead = get_lead_by_id(job_id)
     if not lead:
         await query.answer("Lead not found.", show_alert=True)
@@ -805,7 +899,9 @@ async def _on_triage_email(context, chat_id: int, payload: str, query):
         pass
 
     cold_email = notes.get("cold_email", "")
-    recruiter_email = find_company_email(company) or f"careers@{company.lower().replace(' ', '')}.com"
+    recruiter_email = (
+        find_company_email(company) or f"careers@{company.lower().replace(' ', '')}.com"
+    )
 
     if not cold_email:
         profile = get_profile_by_chat_id(chat_id)
@@ -842,6 +938,7 @@ async def _on_triage_email(context, chat_id: int, payload: str, query):
 
 # ── Keyboard builders ──────────────────────────────────────────────────────────
 
+
 def _build_main_keyboard(job_id: str, status: str) -> InlineKeyboardMarkup:
     if status == "Tailored":
         btn1 = InlineKeyboardButton("📄 Download Resume", callback_data=f"resume_{job_id}")
@@ -849,7 +946,6 @@ def _build_main_keyboard(job_id: str, status: str) -> InlineKeyboardMarkup:
         btn1 = InlineKeyboardButton("📄 Download Resume", callback_data=f"createresume_{job_id}")
     btn2 = InlineKeyboardButton("🗑️ Skip", callback_data=f"skipask_{job_id}")
     return InlineKeyboardMarkup([[btn1, btn2]])
-
 
 
 if __name__ == "__main__":
