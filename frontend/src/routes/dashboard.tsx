@@ -9,6 +9,7 @@ import {
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { AgentPipeline } from "../components/AgentPipeline";
 
 export const Route = createFileRoute("/dashboard")({
   component: PhantmOSDashboard,
@@ -134,11 +135,7 @@ function StatCard({ label, value, delta, icon: Icon, color, spark, index }: any)
   );
 }
 
-import { AgentPipeline } from "../components/AgentPipeline";
-
 /* ------------------------------ JOB FEED ------------------------------ */
-
-import { useQuery } from "@tanstack/react-query";
 
 function scoreStyle(s: number) {
   if (s >= 90) return { color: "text-neon-green", ring: "stroke-neon-green", bg: "bg-neon-green/10 border-neon-green/30" };
