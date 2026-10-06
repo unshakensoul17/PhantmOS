@@ -247,6 +247,58 @@ async def change_lead_status(job_id: str, request: StatusUpdateRequest, user_id:
     return {"status": "ok", "updated_lead": updated}
 
 
+@app.post("/api/leads/{job_id}/resume")
+async def generate_lead_resume(job_id: str, user_id: str = Depends(get_current_user_id)):
+    """Generate tailored resume and PDF for a specific lead on-demand."""
+    from core.database_manager import get_lead_by_id, get_profile, update_job_lead
+    from synthesis.resume_tailor_impl import _tailor_hot, _tailor_warm
+    from synthesis.pdf_factory import generate_and_upload_pdf
+
+    lead = get_lead_by_id(job_id)
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found.")
+
+    profile = get_profile(user_id) or {}
+    master_resume = profile.get("resume_data") or {}
+    if not master_resume:
+        raise HTTPException(status_code=400, detail="Please upload your master resume in Resume Studio first.")
+
+    preferences = profile.get("preferences") or {}
+    band = lead.get("score_band", "WARM")
+
+    # Tailor resume via LLM waterfall
+    await (_tailor_hot if band == "HOT" else _tailor_warm)(
+        lead, master_resume, user_id=user_id, preferences=preferences
+    )
+
+    # Refresh lead to get tailored JSON from notes
+    updated_lead = get_lead_by_id(job_id) or lead
+    notes = {}
+    try:
+        notes = json.loads(updated_lead.get("notes") or "{}")
+    except Exception:
+        pass
+
+    resume_data = notes.get("updated_resume_json") or master_resume
+    url = await generate_and_upload_pdf(
+        job_id=job_id,
+        resume_data=resume_data,
+        user_id=user_id,
+        company_name=lead.get("company", "")
+    )
+
+    if not url:
+        raise HTTPException(status_code=500, detail="PDF generation failed. Please check master resume structure.")
+
+    update_job_lead(job_id, {"resume_url": url, "status": "Tailored"}, user_id=user_id)
+    return {
+        "status": "ok",
+        "resume_url": url,
+        "job_id": job_id,
+        "message": "Tailored resume generated and uploaded successfully."
+    }
+
+
 @app.post("/api/harvest")
 async def trigger_pipeline(request: HarvestRequest, user_id: str = Depends(get_current_user_id)):
     """Trigger the full pipeline run scoped to the authenticated user only."""

@@ -178,14 +178,25 @@ function RadarPage() {
     setGeneratingFor(jobId);
     triggerHaptic("heavy");
     try {
-      await new Promise(r => setTimeout(r, 1800));
-      toast.success("Tailored resume generated and queued for delivery!");
-      statusMutation.mutate({ id: jobId, status: "Tailored" });
+      const res = await apiFetch(`/api/leads/${jobId}/resume`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || "Resume tailoring failed");
+      }
+      const data = await res.json();
+      toast.success("Tailored ATS resume generated!");
+      if (data.resume_url) {
+        window.open(data.resume_url, "_blank");
+      }
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
       if (currentIndex < leads.length - 1) {
         paginate(1);
       }
-    } catch {
-      toast.error("Resume generation failed");
+    } catch (err: any) {
+      toast.error(err.message || "Resume generation failed");
     } finally {
       setGeneratingFor(null);
     }
