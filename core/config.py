@@ -3,7 +3,9 @@ core/config.py — PhantmOS v2.0
 Centralised environment variables, constants, and tuning parameters.
 All modules import from here — never from os.getenv directly.
 """
+
 import os
+
 from dotenv import load_dotenv
 
 load_dotenv(override=True)
@@ -19,10 +21,10 @@ SERVICE_ROLE_KEY: str = os.getenv("SERVICE_ROLE_KEY", "").strip()
 #  LLM PROVIDERS
 # ─────────────────────────────────────────────────────────
 GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "").strip()
-GROQ_MODEL: str = "llama-3.1-8b-instant"
+GROQ_MODEL: str = "openai/gpt-oss-120b"
 
 GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "").strip()
-GEMINI_MODEL: str = "gemini-flash-latest"
+GEMINI_MODEL: str = "gemini-2.5-flash"
 
 HF_API_KEY: str = os.getenv("HF_API_KEY", "").strip()
 HF_MODEL: str = "mistralai/Mistral-7B-Instruct-v0.3"
@@ -72,18 +74,17 @@ SCORE_WEIGHTS = {
 }
 
 BAND_THRESHOLDS = {
-    "HOT":  85.0,   # HOT  >= 85%  → full tailoring
-    "WARM": 60.0,   # WARM >= 60%  → light tailoring
-    "COLD": 40.0,   # COLD >= 40%  → store only
+    "HOT": 85.0,  # HOT  >= 85%  → full tailoring
+    "WARM": 60.0,  # WARM >= 60%  → light tailoring
+    "COLD": 40.0,  # COLD >= 40%  → store only
     # REJECT        # < 40%        → discard
 }
-
 
 
 # ─────────────────────────────────────────────────────────
 #  RETRY CONFIG
 # ─────────────────────────────────────────────────────────
-RETRY_WAITS: list[int] = [5, 15, 30]   # seconds, exponential-ish backoff
+RETRY_WAITS: list[int] = [5, 15, 30]  # seconds, exponential-ish backoff
 
 # ─────────────────────────────────────────────────────────
 #  COMPANY CONTEXT CACHE TTL
@@ -99,9 +100,9 @@ DELIVERY_MAX_ATTEMPTS: int = 3
 #  FEEDBACK WEIGHT ADJUSTMENTS
 # ─────────────────────────────────────────────────────────
 SKIP_REASON_WEIGHTS: dict[str, dict] = {
-    "too_junior":      {"seniority_penalty": 0.1},
-    "wrong_stack":     {"keyword_weight_boost": 0.05},
-    "bad_company":     {"blacklist": True},
-    "wrong_location":  {"location_filter": True},
-    "not_interested":  {"title_penalty": 0.05},
+    "too_junior": {"seniority_penalty": 0.1},
+    "wrong_stack": {"keyword_weight_boost": 0.05},
+    "bad_company": {"blacklist": True},
+    "wrong_location": {"location_filter": True},
+    "not_interested": {"title_penalty": 0.05},
 }
