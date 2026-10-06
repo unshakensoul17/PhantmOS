@@ -2,6 +2,7 @@ import { apiFetch } from "../lib/api";
 import { createFileRoute } from "@tanstack/react-router";
 import { Layout } from "../components/Layout";
 import { Upload, Check, Loader2, Save, Plus, Trash2, Code } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
@@ -25,6 +26,7 @@ const DEFAULT_PROFILE = {
 };
 
 function ResumeStudioPage() {
+  const queryClient = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -119,7 +121,12 @@ function ResumeStudioPage() {
         body: JSON.stringify({ resume_data: payload }),
       });
       if (!res.ok) throw new Error("Failed to save on server");
-      toast.success("Profile Saved Successfully!");
+      
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      
+      toast.success("Profile saved! Job Discovery will now tailor opportunities to your resume.");
       if (viewMode === "json") setProfile(payload);
     } catch (err: any) {
       toast.error(err.message.includes("mandatory") || err.message.includes("Invalid") ? err.message : "Save Failed: " + err.message);
