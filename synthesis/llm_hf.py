@@ -1,5 +1,5 @@
 """
-synthesis/llm_hf.py — Ghost Protocol v2.0
+synthesis/llm_hf.py — PhantmOS v2.0
 
 HuggingFace Inference API adapter (Try 3 in the LLM waterfall).
 Model: mistralai/Mistral-7B-Instruct-v0.3 (free tier).

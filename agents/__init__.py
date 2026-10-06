@@ -1,5 +1,5 @@
 """
-agents/ — Ghost Protocol Multi-Agent Architecture
+agents/ — PhantmOS Multi-Agent Architecture
 
 Each agent owns a single responsibility and exposes a clean public interface.
 The orchestrator coordinates agents without containing business logic.

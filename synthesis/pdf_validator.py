@@ -1,5 +1,5 @@
 """
-synthesis/pdf_validator.py — Ghost Protocol v2.0
+synthesis/pdf_validator.py — PhantmOS v2.0
 
 Post-generation PDF validation.
 Checks file integrity, required sections, and page count.

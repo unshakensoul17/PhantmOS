@@ -1,5 +1,5 @@
 """
-synthesis/prompt_builder.py — Ghost Protocol v2.0
+synthesis/prompt_builder.py — PhantmOS v2.0
 
 Strict prompt templates for HOT (full tailor) and WARM (light tailor).
 The LLM is given no wiggle room — output schema is enforced.
@@ -34,10 +34,10 @@ def build_hot_prompt(
         f"JOB DESCRIPTION:\n{jd_text[:3000]}\n\n"
         f"COMPANY RESEARCH:\n{company_context[:800]}\n\n"
         "TASK:\n"
-        "1. Rewrite 2-3 existing bullet points in the most recent experience role "
+        "1. Rewrite 2-3 existing bullet points in the most recent experience OR projects section "
         "to mirror the JD's exact technical keywords. Keep them truthful.\n"
-        "2. For the most recent role: keep EXACTLY 3 bullet points.\n"
-        "3. For all older roles: keep EXACTLY 1-2 bullet points each.\n"
+        "2. For the most recent role/project: keep EXACTLY 3 bullet points.\n"
+        "3. For all older roles/projects: keep EXACTLY 1-2 bullet points each.\n"
         "4. Write a 3-sentence cold email:\n"
         "   - Sentence 1: Hook referencing a specific company detail from research.\n"
         "   - Sentence 2: Pitch matching their top requirement to your best metric.\n"

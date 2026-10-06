@@ -1,5 +1,5 @@
 """
-core/encryption.py — Ghost Protocol v3.0
+core/encryption.py — PhantmOS v3.0
 Symmetric credential encryption for user BYOK keys.
 """
 import os

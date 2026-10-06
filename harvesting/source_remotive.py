@@ -1,5 +1,5 @@
 """
-harvesting/source_remotive.py — Ghost Protocol v2.0
+harvesting/source_remotive.py — PhantmOS v2.0
 
 Remotive.com public API adapter.
 Endpoint: https://remotive.com/api/remote-jobs
@@ -13,25 +13,22 @@ logger = get_logger(__name__)
 
 BASE_URL = "https://remotive.com/api/remote-jobs"
 
-# Map our target queries to Remotive category slugs
-SEARCH_TERMS = [
-    "machine learning",
-    "ai engineer",
-    "data scientist",
-    "nlp",
-    "python developer",
-]
 
 
-async def fetch_remotive(limit_per_term: int = 20) -> list[dict]:
+
+async def fetch_remotive(limit_per_term: int = 20, search_query: str = None) -> list[dict]:
     """
-    Fetch jobs from Remotive across all target search terms.
+    Fetch jobs from Remotive across all target search terms or a specific query.
     Returns a normalised list of job dicts.
     """
     results: list[dict] = []
 
+    if not search_query:
+        return []
+
     async with httpx.AsyncClient(timeout=20.0) as client:
-        for term in SEARCH_TERMS:
+        terms_to_search = [search_query]
+        for term in terms_to_search:
             try:
                 resp = await client.get(
                     BASE_URL,
@@ -50,7 +47,7 @@ async def fetch_remotive(limit_per_term: int = 20) -> list[dict]:
 
 
 def _normalise(job: dict) -> dict:
-    """Map Remotive fields → Ghost Protocol standard schema."""
+    """Map Remotive fields → PhantmOS standard schema."""
     return {
         "title":           job.get("title", ""),
         "company":         job.get("company_name", ""),

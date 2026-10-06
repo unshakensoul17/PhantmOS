@@ -1,0 +1,278 @@
+import { ReactNode, useState } from "react";
+import { Link, useLocation } from "@tanstack/react-router";
+import {
+  LayoutDashboard, Search, FileText, Building2, Send,
+  Settings, Activity, ChevronRight, Cpu, Wifi, LogOut, RefreshCw, Users,
+} from "lucide-react";
+import { AuthGuard } from "./AuthGuard";
+import { useAuth } from "../hooks/useAuth";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiFetch } from "../lib/api";
+
+function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen?: boolean; setMobileOpen?: (v: boolean) => void }) {
+  const location = useLocation();
+  const { signOut } = useAuth();
+  
+  const queryClient = useQueryClient();
+
+  // Dedicated credits query — 5 s polling, separate key so it's always fresh
+  const { data: credits, isFetching: creditsFetching } = useQuery({
+    queryKey: ["sidebar-credits"],
+    queryFn: async () => {
+      const res = await apiFetch("/api/stats");
+      if (!res.ok) return { credits: 0, max_credits: 1000 };
+      const d = await res.json();
+      return { credits: d.credits ?? 0, max_credits: d.max_credits ?? 1000 };
+    },
+    refetchInterval: 5000,
+    staleTime: 0,
+  });
+
+  // Shared stats for nav badges
+  const { data: stats } = useQuery({
+    queryKey: ["dashboard-stats"],
+    queryFn: async () => {
+      const res = await apiFetch("/api/stats");
+      if (!res.ok) return { discovered: 0, applied: 0 };
+      return res.json();
+    },
+    refetchInterval: 15000,
+  });
+
+  // Active leads = everything in the pipeline that isn't dismissed
+  const activeApps = Math.max(0, (stats?.total || 0) - (stats?.dismissed || 0));
+
+  const current   = credits?.credits    ?? 0;
+  const maxC      = credits?.max_credits ?? 1000;
+  const pct       = Math.round((current / maxC) * 100);
+  const barColor  = pct > 50 ? "from-neon-green to-neon-cyan"
+                  : pct > 20 ? "from-neon-amber to-neon-blue"
+                  : "from-red-500 to-neon-amber";
+
+  const NAV = [
+    { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
+    { icon: FileText, label: "Resume Studio", path: "/resume-studio" },
+    { icon: Search, label: "Job Discovery", badge: stats?.total > 0 ? stats.total.toString() : null, path: "/job-discovery" },
+    { icon: Building2, label: "Company Research", path: "/company-research" },
+    { icon: Send, label: "Applications", badge: activeApps > 0 ? activeApps.toString() : null, path: "/applications" },
+    { icon: Settings, label: "Settings", path: "/settings" },
+    { icon: Users, label: "Contact Us", path: "/contact" },
+  ];
+
+  return (
+    <>
+      {mobileOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-black/80 lg:hidden" 
+          onClick={() => setMobileOpen?.(false)}
+        />
+      )}
+      <aside className={`fixed left-0 top-0 h-screen w-64 flex-col glass-strong border-r border-white/8 z-50 transition-transform duration-300 ${mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} flex`}>
+      <Link to="/" className="flex items-center gap-3 px-6 h-20 border-b border-white/5 hover:bg-white/[0.02] transition-colors cursor-pointer">
+        <div className="relative">
+          <div className="w-12 h-12 rounded-xl overflow-hidden bg-black grid place-items-center border border-white/10 glow-blue p-1">
+            <img src="/logo.png" alt="PhantmOS Logo" className="w-full h-full object-contain" />
+          </div>
+          <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-neon-green ring-2 ring-[#0B1020] animate-pulse-glow" />
+        </div>
+        <div className="min-w-0">
+          <div className="font-bold tracking-tight text-[15px] leading-tight">PhantmOS</div>
+          <div className="text-[12px] font-medium text-muted-foreground">Engine v3.2</div>
+        </div>
+      </Link>
+
+      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+        <div className="px-3 pb-2 text-[12px] font-medium text-muted-foreground/60">Command</div>
+        {NAV.map((item, i) => {
+          const Icon = item.icon;
+          const isActive = location.pathname === item.path;
+          return (
+            <Link
+              key={item.label}
+              to={item.path}
+              className={`group w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[15px] transition-all relative overflow-hidden ${
+                isActive
+                  ? "bg-gradient-to-r from-neon-blue/20 via-neon-purple/10 to-transparent text-white border border-neon-blue/30"
+                  : "text-muted-foreground hover:text-white hover:bg-white/5"
+              }`}
+            >
+              {isActive && (
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r bg-gradient-to-b from-neon-blue to-neon-purple" />
+              )}
+              <Icon className={`w-4 h-4 shrink-0 ${isActive ? "text-neon-cyan" : ""}`} />
+              <span className="flex-1 text-left font-medium">{item.label}</span>
+              {item.badge && (
+                <span className="text-[12px] font-mono px-1.5 py-0.5 rounded bg-white/10 text-neon-cyan">
+                  {item.badge}
+                </span>
+              )}
+              {i === 0 && <ChevronRight className="w-3.5 h-3.5 opacity-60" />}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Credits / Engine Usage card */}
+      <div className="p-3 border-t border-white/5">
+        <div className="glass rounded-xl p-3 space-y-2">
+          {/* Header row */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Cpu className={`w-3.5 h-3.5 ${pct > 50 ? 'text-neon-green' : pct > 20 ? 'text-neon-amber' : 'text-red-400'}`} />
+              <span className="text-[12px] font-mono text-muted-foreground">Engine Credits</span>
+            </div>
+            <button
+              title="Refresh credits"
+              onClick={() => queryClient.invalidateQueries({ queryKey: ["sidebar-credits"] })}
+              className="text-muted-foreground hover:text-white transition-colors"
+            >
+              <RefreshCw className={`w-3 h-3 ${creditsFetching ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+
+          {/* Credit count */}
+          <div className="flex items-baseline gap-1">
+            <span
+              className={`text-xl font-bold font-mono transition-all duration-500 ${
+                pct > 50 ? 'text-neon-cyan' : pct > 20 ? 'text-neon-amber' : 'text-red-400'
+              }`}
+            >
+              {current.toLocaleString()}
+            </span>
+            <span className="text-xs text-muted-foreground font-mono">/ {maxC.toLocaleString()} left</span>
+          </div>
+
+          {/* Depleting progress bar */}
+          <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+            <div
+              className={`h-full bg-gradient-to-r ${barColor} transition-all duration-700 ease-in-out`}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+
+          <div className="text-[10px] font-mono text-muted-foreground/50 text-right">
+            {pct}% remaining · auto-refills monthly
+          </div>
+        </div>
+      </div>
+    </aside>
+    </>
+  );
+}
+
+function StatusPill({ icon: Icon, label, value, color, onClick, loading }: { icon: any; label: string; value: string; color: "green" | "cyan" | "amber" | "red"; onClick?: () => void; loading?: boolean }) {
+  const dot = color === "green" ? "bg-neon-green" : color === "amber" ? "bg-neon-amber" : color === "red" ? "bg-red-500" : "bg-neon-cyan";
+  const Comp = onClick ? "button" : "div";
+  return (
+    <Comp 
+      onClick={onClick}
+      disabled={loading}
+      className={`hidden md:flex items-center gap-2 h-11 px-3 rounded-xl glass ${onClick ? 'cursor-pointer hover:bg-white/10 transition-colors' : ''} ${loading ? 'opacity-70' : ''}`}
+    >
+      <span className={`w-1.5 h-1.5 rounded-full ${dot} ${!loading ? 'animate-pulse-glow' : ''}`} />
+      <Icon className={`w-3.5 h-3.5 text-muted-foreground ${loading ? 'animate-spin' : ''}`} />
+      <div className="text-[13px] leading-none text-left">
+        <div className="text-muted-foreground font-mono text-[13px]">{label}</div>
+        <div className="font-semibold mt-0.5">{value}</div>
+      </div>
+    </Comp>
+  );
+}
+
+function TopBar({ setMobileOpen }: { setMobileOpen?: (v: boolean) => void }) {
+  const { user, signOut } = useAuth();
+  const queryClient = useQueryClient();
+  
+  const { data: settings } = useQuery({
+    queryKey: ["settings"],
+    queryFn: async () => {
+      const res = await apiFetch("/api/settings");
+      if (!res.ok) return {};
+      return res.json();
+    }
+  });
+
+  const { data: health, isFetching: isCheckingHealth } = useQuery({
+    queryKey: ["health"],
+    queryFn: async () => {
+      try {
+        const res = await apiFetch("/api/health");
+        if (!res.ok) return { status: "offline" };
+        return res.json();
+      } catch (e) {
+        return { status: "offline" };
+      }
+    },
+    refetchInterval: 30000,
+  });
+
+  return (
+    <header className="sticky top-0 z-30 h-20 glass-strong border-b border-white/5 flex items-center gap-4 px-6">
+      <button 
+        className="lg:hidden text-white/70 p-2 -ml-2" 
+        onClick={() => setMobileOpen?.(true)}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" x2="21" y1="6" y2="6"/><line x1="3" x2="21" y1="12" y2="12"/><line x1="3" x2="21" y1="18" y2="18"/></svg>
+      </button>
+      <div className="flex-1"></div>
+
+      <div className="flex items-center gap-2">
+        <StatusPill 
+          icon={Wifi} 
+          label="Telegram" 
+          value={settings?.telegram_connected ? "Synced" : "Pending"} 
+          color={settings?.telegram_connected ? "green" : "amber"} 
+        />
+        <StatusPill 
+          icon={Activity} 
+          label="System" 
+          value={isCheckingHealth ? "Pinging..." : (health?.status === "ok" ? "Nominal" : "Offline")} 
+          color={health?.status === "ok" ? "cyan" : "red"} 
+          loading={isCheckingHealth}
+          onClick={() => {
+            queryClient.invalidateQueries({ queryKey: ["health"] });
+          }}
+        />
+
+        <div className="flex items-center gap-3 pl-4 ml-2 border-l border-white/10">
+          <div className="text-right hidden sm:block">
+            <div className="text-sm font-medium leading-none text-white/90">{user?.email?.split('@')[0] || 'User'}</div>
+            <div className="flex items-center justify-end gap-1.5 mt-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse-glow" />
+              <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Online</div>
+            </div>
+          </div>
+          <button 
+            onClick={() => signOut()}
+            className="w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 hover:border-white/20 hover:text-red-400 transition-colors text-muted-foreground ml-1"
+            title="Sign Out"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+export function Layout({ children }: { children: ReactNode }) {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  return (
+    <AuthGuard>
+      <div className="min-h-screen text-foreground">
+        <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
+        <div className="lg:pl-64 flex flex-col min-h-screen">
+          <TopBar setMobileOpen={setMobileOpen} />
+          <main className="flex-1 p-4 md:p-6 xl:p-8 space-y-6 max-w-[1800px] w-full mx-auto relative z-10">
+            {children}
+          </main>
+        </div>
+        
+        {/* Ambient orbs */}
+        <div className="pointer-events-none fixed -top-40 -left-40 w-96 h-96 rounded-full bg-neon-blue/15 blur-[120px]" />
+        <div className="pointer-events-none fixed top-1/3 -right-40 w-96 h-96 rounded-full bg-neon-purple/15 blur-[120px]" />
+        <div className="pointer-events-none fixed bottom-0 left-1/3 w-96 h-96 rounded-full bg-neon-cyan/10 blur-[120px]" />
+      </div>
+    </AuthGuard>
+  );
+}

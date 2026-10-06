@@ -1,5 +1,5 @@
 """
-synthesis/resume_tailor.py — Ghost Protocol v2.0  (Tailor Orchestrator)
+synthesis/resume_tailor.py — PhantmOS v2.0  (Tailor Orchestrator)
 
 Tiered tailoring strategy based on score band:
   HOT  (85%+) → Full tailoring: company research + LLM waterfall + cold email
@@ -57,13 +57,14 @@ async def run_tailoring(profile: dict, api_keys: dict = None) -> dict:
     logger.info("=== Stage 3: Resume Tailoring started ===")
     user_id = profile.get("id")
     master_resume = profile.get("resume_data", {})
+    preferences = profile.get("preferences", {})
     counts = {"hot_tailored": 0, "warm_tailored": 0, "cold_queued": 0, "failed": 0}
 
     # ── HOT leads: full tailoring ─────────────────────────────────────────────
     hot_leads = get_leads_by_band("HOT", user_id=user_id)
     logger.info(f"HOT leads to tailor: {len(hot_leads)}")
 
-    hot_tasks = [_tailor_hot(lead, master_resume, api_keys, user_id) for lead in hot_leads]
+    hot_tasks = [_tailor_hot(lead, master_resume, api_keys, user_id, preferences) for lead in hot_leads]
     hot_results = await asyncio.gather(*hot_tasks, return_exceptions=True)
 
     for lead, result in zip(hot_leads, hot_results):
@@ -79,7 +80,7 @@ async def run_tailoring(profile: dict, api_keys: dict = None) -> dict:
     warm_leads = get_leads_by_band("WARM", user_id=user_id)
     logger.info(f"WARM leads to tailor: {len(warm_leads)}")
 
-    warm_tasks = [_tailor_warm(lead, master_resume, api_keys, user_id) for lead in warm_leads]
+    warm_tasks = [_tailor_warm(lead, master_resume, api_keys, user_id, preferences) for lead in warm_leads]
     warm_results = await asyncio.gather(*warm_tasks, return_exceptions=True)
 
     for lead, result in zip(warm_leads, warm_results):
@@ -123,12 +124,12 @@ async def run_tailoring(profile: dict, api_keys: dict = None) -> dict:
 
 # ── Per-lead handlers ─────────────────────────────────────────────────────────
 
-async def _tailor_hot(lead: dict, master_resume: dict, api_keys: dict = None, user_id: str = None) -> bool:
+async def _tailor_hot(lead: dict, master_resume: dict, api_keys: dict = None, user_id: str = None, preferences: dict = None) -> bool:
     """Full tailoring pipeline for a single HOT lead."""
-    job_id  = lead.get("job_id", "")
-    company = lead.get("company", "")
-    title   = lead.get("title", "")
-    desc    = lead.get("raw_description", "")
+    job_id  = lead.get("job_id") or ""
+    company = lead.get("company") or ""
+    title   = lead.get("title") or ""
+    desc    = lead.get("raw_description") or ""
 
     logger.info(f"HOT: tailoring '{title}' @ {company}")
 
@@ -138,7 +139,7 @@ async def _tailor_hot(lead: dict, master_resume: dict, api_keys: dict = None, us
 
         # Build prompt and run waterfall
         user_prompt = build_hot_prompt(master_resume, desc, context)
-        result = await run_waterfall(SYSTEM_PROMPT, user_prompt, master_resume, api_keys)
+        result = await run_waterfall(SYSTEM_PROMPT, user_prompt, master_resume, api_keys, preferences)
 
         if result:
             updated_res = result.get("updated_resume_json", master_resume)
@@ -180,18 +181,18 @@ async def _tailor_hot(lead: dict, master_resume: dict, api_keys: dict = None, us
         return False
 
 
-async def _tailor_warm(lead: dict, master_resume: dict, api_keys: dict = None, user_id: str = None) -> bool:
+async def _tailor_warm(lead: dict, master_resume: dict, api_keys: dict = None, user_id: str = None, preferences: dict = None) -> bool:
     """Light tailoring (summary + generic email) for a single WARM lead."""
-    job_id = lead.get("job_id", "")
-    company = lead.get("company", "")
-    title   = lead.get("title", "")
-    desc    = lead.get("raw_description", "")
+    job_id = lead.get("job_id") or ""
+    company = lead.get("company") or ""
+    title   = lead.get("title") or ""
+    desc    = lead.get("raw_description") or ""
 
     logger.info(f"WARM: light tailoring '{title}' @ {company}")
 
     try:
         user_prompt = build_warm_prompt(master_resume, desc)
-        result = await run_waterfall(SYSTEM_PROMPT, user_prompt, master_resume, api_keys)
+        result = await run_waterfall(SYSTEM_PROMPT, user_prompt, master_resume, api_keys, preferences)
 
         if result:
             updated_res = result.get("updated_resume_json", master_resume)
@@ -268,5 +269,5 @@ def _mark_tailored(
     }, user_id=user_id)
 
     # Add to delivery queue so Stage 5 picks it up
-    queue_delivery(job_id)
+    queue_delivery(job_id, user_id)
     logger.info(f"Queued delivery for job {job_id}.")

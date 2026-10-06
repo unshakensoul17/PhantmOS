@@ -1,5 +1,5 @@
 """
-agents/ranking_agent.py — Ghost Protocol Multi-Agent Architecture
+agents/ranking_agent.py — PhantmOS Multi-Agent Architecture
 
 Purpose:
     Scores discovered jobs against the user's resume using a multi-signal
@@ -34,14 +34,17 @@ logger = get_logger(__name__)
 class RankingAgent:
     """Owns the scoring & band classification pipeline (Stage 2)."""
 
-    async def run(self, profile: dict) -> dict:
+    async def run(self, profile: dict, manual_query: str = None) -> dict:
         """
         Score all 'Found' leads for the given user profile.
+        manual_query: if provided, overrides profile target_roles for the title signal.
         Returns summary dict with band counts: {hot, warm, cold, reject, total}.
         """
         logger.info(f"RankingAgent: scoring leads for user {profile.get('id')}")
         try:
-            return await run_scoring(profile)
+            return await run_scoring(profile, manual_query=manual_query)
         except Exception as e:
+            import traceback
             logger.error(f"RankingAgent: scoring failed — {e}")
+            logger.error(traceback.format_exc())
             return {"hot": 0, "warm": 0, "cold": 0, "reject": 0, "total": 0}

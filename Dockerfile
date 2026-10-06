@@ -15,12 +15,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpangoft2-1.0-0 \
     libpangocairo-1.0-0 \
     libcairo2 \
-    libgdk-pixbuf2.0-0 \
+    libgdk-pixbuf-xlib-2.0-0 \
     libffi-dev \
     libglib2.0-0 \
     # Font rendering
     fonts-liberation \
     fontconfig \
+    # Node.js for frontend build
+    nodejs \
+    npm \
     # General utilities
     curl \
     git \
@@ -31,10 +34,15 @@ RUN fc-cache -fv
 
 # ── Python dependencies ───────────────────────────────────────────────────────
 COPY requirements.txt /app/requirements.txt
-RUN pip install --upgrade pip && pip install -r /app/requirements.txt
+RUN pip install --upgrade pip && \
+    pip install torch --index-url https://download.pytorch.org/whl/cpu && \
+    pip install -r /app/requirements.txt
 
 # ── Application code ──────────────────────────────────────────────────────────
 COPY . /app
+
+# ── Build frontend ─────────────────────────────────────────────────────────────
+RUN cd /app/frontend && npm ci && npm run build
 
 RUN chmod +x /app/entrypoint.sh
 

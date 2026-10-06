@@ -1,5 +1,5 @@
 """
-intelligence/scorer.py — Ghost Protocol v2.0
+intelligence/scorer.py — PhantmOS v2.0
 
 Multi-signal job scoring engine:
   Signal 1 — Semantic similarity  (50%) via embedding cosine distance
@@ -10,12 +10,11 @@ Final score is 0–100. Band assigned as HOT / WARM / COLD / REJECT.
 """
 import asyncio
 import json
+import os
 from typing import Optional
 
 from core.config import (
     SCORE_WEIGHTS,
-    BAND_THRESHOLDS,
-    TARGET_TITLES,
 )
 from core.database_manager import (
     update_job_lead,
@@ -25,7 +24,7 @@ from core.database_manager import (
 )
 from core.logger import get_logger
 from intelligence.embedding_engine import (
-    embed_text_async,
+    get_job_embedding,
     cosine_similarity,
     get_master_embedding,
 )
@@ -45,20 +44,22 @@ def _keyword_score(job_description: str, resume_skills: list[str]) -> float:
     if not resume_skills:
         return 0.0
 
-    jd_words = set(job_description.lower().split())
+    desc_lower = job_description.lower()
     resume_words = {s.lower() for s in resume_skills}
 
-    hits    = len(jd_words & resume_words)
-    overlap = hits / len(resume_words)
+    hits = sum(1 for skill in resume_words if skill in desc_lower)
+    overlap = hits / len(resume_words) if len(resume_words) > 0 else 0
     return min(overlap * 2.0, 1.0)   # ×2 so 50% overlap = perfect score
 
 
-def _title_score(job_title: str) -> float:
+def _title_score(job_title: str, target_titles: list[str]) -> float:
     """
     1.0 if the job title contains any target title phrase, else 0.3.
     """
     title_lower = job_title.lower()
-    return 1.0 if any(t in title_lower for t in TARGET_TITLES) else 0.3
+    if not target_titles:
+        return 0.3
+    return 1.0 if any(t.lower() in title_lower for t in target_titles) else 0.3
 
 
 def _compute_final_score(
@@ -78,16 +79,20 @@ def _compute_final_score(
     return round(raw * 100, 2)
 
 
-def assign_band(score: float) -> str:
-    """Map a 0–100 score to a band string."""
-    if score >= BAND_THRESHOLDS["HOT"]:
+def _assign_band(score: float, telegram_threshold: float) -> str:
+    """
+    Map 0-100 score to WARM or HOT based on the user's telegram_threshold.
+    HOT is halfway between threshold and 100.
+    """
+    hot_threshold = telegram_threshold + ((100.0 - telegram_threshold) / 2.0)
+    
+    if score >= hot_threshold:
         return "HOT"
-    elif score >= BAND_THRESHOLDS["WARM"]:
+    elif score >= telegram_threshold:
         return "WARM"
-    elif score >= BAND_THRESHOLDS["COLD"]:
+    elif score >= 40.0:
         return "COLD"
-    else:
-        return "REJECT"
+    return "REJECT"
 
 
 # ─────────────────────────────────────────────────────────
@@ -98,6 +103,8 @@ async def score_job(
     job: dict,
     master_embedding: list[float],
     resume_skills: list[str],
+    target_titles: list[str],
+    telegram_threshold: float,
 ) -> dict:
     """
     Score a single job lead and return the updated fields to write to DB.
@@ -110,21 +117,27 @@ async def score_job(
     if not desc:
         logger.warning(f"Scorer: job {job_id} has no description — skipping.")
         return {}
+        
+    # Check blacklist if provided in kwargs
+    # We will pass blacklist through master_embedding as a hack, or better just use a global
+    # Wait, it's cleaner to pass blacklist into score_job as arguments. Let's just do it in run_scoring before calling score_job.
 
     try:
         # Signal 1: Semantic similarity
-        job_embedding   = await embed_text_async(desc)
+        job_embedding   = await get_job_embedding(desc)
         semantic        = cosine_similarity(master_embedding, job_embedding)
 
         # Signal 2: Keyword overlap
         keyword         = _keyword_score(desc, resume_skills)
 
         # Signal 3: Title match
-        title_s         = _title_score(title)
+        title_s         = _title_score(title, target_titles)
 
         # Final weighted score
         final_score     = _compute_final_score(semantic, keyword, title_s)
-        band            = assign_band(final_score)
+
+        # Convert to band
+        band            = _assign_band(final_score, telegram_threshold)
 
         breakdown = {
             "semantic": round(semantic, 4),
@@ -154,32 +167,28 @@ async def score_job(
 #  Batch scorer — run Stage 2 for all "Found" leads
 # ─────────────────────────────────────────────────────────
 
-async def run_scoring(profile: dict) -> dict:
+async def run_scoring(profile: dict, manual_query: str = None) -> dict:
     """
     Score all leads with status='Found'.
-    Updates each lead in Supabase with match_score, score_band, score_breakdown.
-    REJECT-band leads are updated to status='Dismissed' immediately.
-
-    Args:
-        profile: master user profile dict from DB (must have resume_data).
-
-    Returns:
-        Summary dict with band counts.
+    manual_query: when provided (manual pipeline trigger), use it to build target_roles
+                  so the title signal reflects what was actually searched — not the
+                  user's saved profile preferences.
     """
-    logger.info("=== Stage 2: Embedding & Matching started ===")
 
-    resume_data  = profile.get("resume_data", {})
+    # 1. Fetch resume & skills
+    resume_data  = profile.get("resume_data") or {}
     resume_text  = json.dumps(resume_data)
 
     # Extract skill keywords for keyword signal
     resume_skills = _extract_skills(resume_data)
     logger.info(f"Scoring with {len(resume_skills)} resume skill keywords.")
+    
+    user_id = profile.get("id")
 
     # Get (or compute + cache) master embedding
-    master_embedding = await get_master_embedding(resume_text)
+    master_embedding = await get_master_embedding(resume_text, user_id)
 
     # Fetch all unscored leads for this user
-    user_id = profile.get("id")
     leads = get_leads_by_status("Found", limit=200, user_id=user_id)
     if not leads:
         logger.info(f"No 'Found' leads to score for user {user_id}.")
@@ -187,17 +196,68 @@ async def run_scoring(profile: dict) -> dict:
 
     logger.info(f"Scoring {len(leads)} leads for user {user_id}…")
 
+    # Fetch settings from user profile
+    preferences = profile.get("preferences") or {}
+    
+    # Fallback to settings.json if preferences is empty
+    if not preferences:
+        try:
+            with open("settings.json", "r") as f:
+                preferences = json.load(f)
+        except:
+            pass
+            
+    scoring_settings = preferences.get("scoring") or {}
+    
+    blacklist_companies = scoring_settings.get("blacklist_companies") or []
+    blacklist_companies = [c.lower() for c in blacklist_companies if c]
+    
+    blacklist_keywords = scoring_settings.get("blacklist_keywords") or []
+    blacklist_keywords = [k.lower() for k in blacklist_keywords if k]
+    
+    target_roles = scoring_settings.get("target_roles") or []
+    # KEY FIX: if a manual query was used (e.g. "cloud engineer"),
+    # override target_roles with the search terms so the title signal
+    # scores cloud jobs high, not the profile's saved ML/AI preferences.
+    if manual_query:
+        target_roles = [manual_query]
+        logger.info(f"Scoring: title signal overridden by manual_query='{manual_query}'")
+    elif not target_roles:
+        target_roles = ["developer", "engineer"]  # safe fallback
+
+    logger.info("=== Stage 2: Embedding & Matching started ===")
+    telegram_threshold = scoring_settings.get("telegram_threshold", 60.0)
+        
     counts = {"hot": 0, "warm": 0, "cold": 0, "reject": 0}
+    
+    # Pre-filter blacklist
+    filtered_leads = []
+    for lead in leads:
+        company_lower = (lead.get("company") or "").lower()
+        desc_lower = (lead.get("raw_description") or "").lower()
+        
+        is_blacklisted = False
+        if any(bc in company_lower for bc in blacklist_companies if bc):
+            is_blacklisted = True
+        elif any(bk in desc_lower for bk in blacklist_keywords if bk):
+            is_blacklisted = True
+            
+        if is_blacklisted:
+            job_id = lead.get("job_id", "")
+            logger.info(f"Scorer: auto-rejecting blacklisted job {job_id}")
+            update_job_lead(job_id, {"status": "Dismissed"}, user_id=user_id)
+            counts["reject"] += 1
+        else:
+            filtered_leads.append(lead)
 
     # Score all jobs concurrently (each embed call is async)
-    tasks = [score_job(lead, master_embedding, resume_skills) for lead in leads]
+    tasks = [score_job(lead, master_embedding, resume_skills, target_roles, telegram_threshold) for lead in filtered_leads]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    async def _update_lead_async(jid, udict, uid):
-        return await asyncio.to_thread(update_job_lead, jid, udict, user_id=uid)
-
-    update_tasks = []
-    for lead, result in zip(leads, results):
+    # Bulk update all scored jobs in a single DB request
+    upsert_batch = []
+    
+    for lead, result in zip(filtered_leads, results):
         job_id = lead.get("job_id", "")
 
         if isinstance(result, Exception):
@@ -209,23 +269,38 @@ async def run_scoring(profile: dict) -> dict:
             continue
 
         band = result.get("score_band", "REJECT")
-        upd = {
-            "match_score": result["match_score"],
-            "score_band": band,
-            "score_breakdown": result.get("score_breakdown"),
-        }
-
+        
+        # Only pick pipeline-table columns — never pass global_jobs fields into user_job_pipelines upsert
+        PIPELINE_COLS = {"user_id", "job_id", "status", "match_score", "score_band", "score_breakdown", "notes", "resume_url", "resume_tailored"}
+        
+        status = "Dismissed" if band == "REJECT" else "Evaluated"
+        
         if band == "REJECT":
-            upd["status"] = "Dismissed"
             counts["reject"] += 1
+        elif band in ["HOT", "WARM"]:
+            counts[band.lower()] += 1
+            from core.database_manager import queue_delivery
+            queue_delivery(job_id, user_id)
         else:
             counts[band.lower()] += 1
-
-        update_tasks.append(_update_lead_async(job_id, upd, user_id))
+        
+        pipeline_row = {
+            "user_id": user_id,
+            "job_id": job_id,
+            "status": status,
+            "match_score": result.get("match_score", 0),
+            "score_band": band,
+        }
+        upsert_batch.append(pipeline_row)
         log_stage_success(job_id, "scoring")
 
-    if update_tasks:
-        await asyncio.gather(*update_tasks)
+    if upsert_batch:
+        try:
+            from core.database_manager import get_client
+            # Perform a single bulk upsert for all scored leads!
+            get_client().table("user_job_pipelines").upsert(upsert_batch, on_conflict="user_id, job_id").execute()
+        except Exception as e:
+            logger.error(f"Scorer: bulk upsert failed - {e}")
 
     total = sum(counts.values())
     logger.info(
@@ -264,12 +339,5 @@ def _extract_skills(resume_data: dict) -> list[str]:
     tech = resume_data.get("tech_stack", {})
     for s in tech.get("skills", []):
         skills.append(s.lower())
-
-    # Common AI/ML terms — always include as anchor keywords
-    anchors = [
-        "python", "pytorch", "tensorflow", "nlp", "ml", "machine learning",
-        "deep learning", "llm", "transformer", "fastapi", "docker",
-    ]
-    skills.extend(anchors)
 
     return list(set(skills))

@@ -1,5 +1,5 @@
 """
-delivery/card_formatter.py — Ghost Protocol v2.0
+delivery/card_formatter.py — PhantmOS v2.0
 
 Builds rich Telegram markdown job cards.
 Format matches the v2 spec exactly:
@@ -69,38 +69,28 @@ def format_job_card(lead: dict) -> str:
         tailored_lines = "• Original resume sent (best match as-is)"
 
     # ── PDF / resume line ──────────────────────────────────────────────────────
-    resume_line = (
-        f"📎 [View Tailored Resume]({resume_url})"
-        if resume_url and resume_url.startswith("http")
-        else "📎 Resume: generating..."
-    )
+    resume_link = f"[View PDF]({resume_url})" if (resume_url and resume_url.startswith("http")) else "Generating PDF..."
+    jd_link = f"[View JD]({job_url})" if job_url else "No Link"
 
-    # ── Apply link ─────────────────────────────────────────────────────────────
-    apply_line = f"🔗 [View Job Posting]({job_url})" if job_url else ""
-
-    # ── Source tag ─────────────────────────────────────────────────────────────
-    source_tag = f" · via {source.title()}" if source else ""
+    # We want rationale as the hook. If missing, fallback to one bullet from breakdown.
+    if rationale:
+        hook_text = _escape(rationale)
+    else:
+        # fallback to breakdown bullets
+        hook_text = _build_why_bullets(breakdown, rationale)
 
     card = (
-        f"{emoji} *{band} LEAD — {score:.0f}% Match*\n"
+        f"🚀 *{_escape(title)}* @ *{_escape(company)}*\n"
+        f"*{_escape(location)}* · {score:.0f}% Match ({band})\n"
         f"\n"
-        f"🏢 *Company*  : {_escape(company)}\n"
-        f"💼 *Role*     : {_escape(title)}\n"
-        f"📍 *Location* : {_escape(location)}{source_tag}\n"
+        f"💡 *The Angle:*\n"
+        f"_{hook_text}_\n"
         f"\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"🧠 *WHY YOU MATCH*\n"
-        f"{why_bullets}\n"
-        f"\n"
-        f"📋 *WHAT WAS TAILORED*\n"
+        f"✏️ *Tailoring Applied:*\n"
         f"{tailored_lines}\n"
         f"\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"{resume_line}\n"
+        f"📄 {resume_link}   |   🔗 {jd_link}"
     )
-
-    if apply_line:
-        card += f"{apply_line}\n"
 
     return card.strip()
 
@@ -176,6 +166,9 @@ def _build_why_bullets(breakdown: dict, rationale: str) -> str:
 
 def _escape(text: str) -> str:
     """Escape Telegram MarkdownV2 special characters in user content."""
+    if text is None:
+        return ""
+    text = str(text)
     # For Markdown mode (not V2), fewer escapes needed
     special = ["_", "*", "[", "]", "(", ")", "~", "`", ">", "#",
                "+", "-", "=", "|", "{", "}", ".", "!"]

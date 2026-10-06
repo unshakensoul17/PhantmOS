@@ -1,5 +1,5 @@
 """
-delivery/feedback_processor.py — Ghost Protocol v2.0
+delivery/feedback_processor.py — PhantmOS v2.0
 
 Handles user feedback signals (skip/apply/review) from Telegram buttons.
 Stores feedback to DB and adjusts scoring weight preferences.

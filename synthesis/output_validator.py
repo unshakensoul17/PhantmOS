@@ -1,5 +1,5 @@
 """
-synthesis/output_validator.py — Ghost Protocol v2.0
+synthesis/output_validator.py — PhantmOS v2.0
 
 Validates LLM output before it enters the PDF pipeline.
 Catches hallucinations, malformed JSON, and constraint violations.
@@ -73,10 +73,12 @@ def validate_output(llm_response: dict, master_resume: dict) -> dict | None:
 def _extract_all_skills(master_resume: dict) -> set[str]:
     """Pull every skill keyword from the master resume as a lowercase set."""
     skills: set[str] = set()
-    cv       = master_resume.get("cv", {})
-    sections = cv.get("sections", {})
+    cv       = master_resume.get("cv") or {}
+    sections = cv.get("sections") or {}
 
-    for entry in sections.get("skills", []):
+    for entry in (sections.get("skills") or []):
+        if not entry:
+            continue
         details = entry.get("details", "")
         for s in re.split(r"[,/]", details):
             s = s.strip().lower()
@@ -91,11 +93,13 @@ def _find_injected_skills(updated: dict, master_skills: set[str]) -> list[str]:
     Only flags clear skill-like tokens (CamelCase or known tech patterns).
     """
     # Get all bullet point text
-    cv       = updated.get("cv", {})
-    sections = cv.get("sections", {})
+    cv       = updated.get("cv") or {}
+    sections = cv.get("sections") or {}
     bullets  = []
 
-    for exp in sections.get("experience", []):
+    for exp in (sections.get("experience") or []):
+        if not exp:
+            continue
         bullets.extend(exp.get("highlights", []))
 
     # Extract potential skill tokens (CamelCase, or all-caps 2-8 chars)
@@ -114,10 +118,12 @@ def _find_injected_skills(updated: dict, master_skills: set[str]) -> list[str]:
 
 def _check_bullet_counts(updated: dict) -> None:
     """Log a warning if any role has more than 6 bullets."""
-    cv       = updated.get("cv", {})
-    sections = cv.get("sections", {})
+    cv       = updated.get("cv") or {}
+    sections = cv.get("sections") or {}
 
-    for i, exp in enumerate(sections.get("experience", [])):
+    for i, exp in enumerate(sections.get("experience") or []):
+        if not exp:
+            continue
         highlights = exp.get("highlights", [])
         if len(highlights) > 6:
             logger.warning(
@@ -134,10 +140,12 @@ def _sanitise_rendercv(updated: dict, master_resume: dict) -> dict:
     - 'design' key misplaced inside 'cv' block
     Restore top-level config blocks from the master resume.
     """
-    cv = updated.get("cv", {})
+    cv = updated.get("cv") or {}
 
     # Remove 'url' from social networks
-    for net in cv.get("social_networks", []):
+    for net in (cv.get("social_networks") or []):
+        if not net:
+            continue
         net.pop("url", None)
 
     # Remove 'design' if it sneaked inside 'cv'

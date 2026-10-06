@@ -1,5 +1,5 @@
 """
-intelligence/deduplicator.py — Ghost Protocol v2.0
+intelligence/deduplicator.py — PhantmOS v2.0
 
 Hash-based job deduplication.
 A job is a duplicate if (lower(company) + lower(title)) was already seen.

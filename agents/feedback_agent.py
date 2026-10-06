@@ -1,5 +1,5 @@
 """
-agents/feedback_agent.py — Ghost Protocol Multi-Agent Architecture
+agents/feedback_agent.py — PhantmOS Multi-Agent Architecture
 
 Purpose:
     Records and processes user feedback signals from Telegram button

@@ -1,5 +1,5 @@
 """
-harvesting/source_hn.py — Ghost Protocol v2.0
+harvesting/source_hn.py — PhantmOS v2.0
 
 Hacker News "Who is Hiring?" monthly thread scraper.
 Runs ONCE per month (on the 1st) to pick up startup roles.
@@ -67,6 +67,7 @@ async def _find_thread_id() -> str | None:
 
 async def _fetch_comments(thread_id: str, max_comments: int) -> list[dict]:
     """Fetch top-level child comment items from HN Firebase API."""
+    import asyncio
     comments: list[dict] = []
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
@@ -76,15 +77,21 @@ async def _fetch_comments(thread_id: str, max_comments: int) -> list[dict]:
             thread = resp.json()
             kids   = (thread.get("kids") or [])[:max_comments]
 
-            # Fetch each comment (concurrently via gather would be ideal,
-            # but sequential is safer for rate limits on a free scraper)
-            for kid_id in kids:
-                try:
-                    r = await client.get(ITEM_URL.format(id=kid_id))
-                    r.raise_for_status()
-                    comments.append(r.json())
-                except Exception:
-                    pass
+            # BUG-14 fix: Fetch concurrently using an asyncio semaphore to limit concurrency
+            # to 10 at a time, so it's polite but doesn't block sequentially.
+            sem = asyncio.Semaphore(10)
+
+            async def _fetch_kid(kid_id):
+                async with sem:
+                    try:
+                        r = await client.get(ITEM_URL.format(id=kid_id))
+                        r.raise_for_status()
+                        return r.json()
+                    except Exception:
+                        return None
+
+            results = await asyncio.gather(*[_fetch_kid(k) for k in kids])
+            comments = [c for c in results if c]
     except Exception as e:
         logger.warning(f"HN: Failed to fetch comments: {e}")
     return comments

@@ -1,5 +1,5 @@
 """
-interface/telegram_delivery.py — Ghost Protocol v2.0
+interface/telegram_delivery.py — PhantmOS v2.0
 
 Rich job card delivery with HOT/WARM bands.
 3-button inline keyboard: ✅ Auto-Apply | 👀 Review | ❌ Skip
@@ -23,7 +23,6 @@ from core.database_manager import update_job_lead, get_lead_by_id
 from core.logger import get_logger
 from delivery.card_formatter import (
     format_job_card,
-    format_cold_email_preview,
     format_review_card,
 )
 from delivery.feedback_processor import (
@@ -37,7 +36,7 @@ load_dotenv()
 logger = get_logger(__name__)
 
 # FastAPI app (webhook endpoint)
-app = FastAPI(title="Ghost Protocol Webhook")
+app = FastAPI(title="PhantmOS Webhook")
 
 # Telegram bot + application
 bot         = Bot(token=TELEGRAM_BOT_TOKEN) if TELEGRAM_BOT_TOKEN else None
@@ -63,11 +62,15 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     action = parts[0]
     payload = parts[1] if len(parts) > 1 else ""
 
-    if action == "apply":
-        await _on_auto_apply(context, chat_id, payload)
-
-    elif action == "review":
+    if action == "review":
         await _on_review(context, chat_id, payload)
+        await query.edit_message_reply_markup(reply_markup=None)
+
+    elif action == "createresume":
+        await _on_create_resume(context, chat_id, payload, query)
+
+    elif action == "sendemail":
+        await _on_send_cold_email(context, chat_id, payload)
         await query.edit_message_reply_markup(reply_markup=None)
 
     elif action == "skipask":
@@ -80,14 +83,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _on_skip(context, chat_id, job_id, reason)
         await query.edit_message_reply_markup(reply_markup=None)
 
-    elif action == "email":
-        # Show cold email preview
-        lead = get_lead_by_id(payload)
-        if lead:
-            msg = format_cold_email_preview(lead)
-            await context.bot.send_message(
-                chat_id=chat_id, text=msg, parse_mode="Markdown"
-            )
+
 
     elif action == "resume":
         # Legacy PDF button — send resume URL or upload local file
@@ -120,9 +116,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     chat_id=chat_id, text="Resume PDF not yet generated."
                 )
 
-    elif action == "sendemail":
-        await _on_auto_apply(context, chat_id, payload)
-
 
 from telegram.ext import CommandHandler
 
@@ -135,12 +128,12 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         from core.database_manager import update_profile
         try:
             update_profile({"telegram_chat_id": str(chat_id)}, user_id=user_id)
-            await update.message.reply_text("✅ Ghost Protocol connected successfully to your account!")
+            await update.message.reply_text("✅ PhantmOS connected successfully to your account!")
         except Exception as e:
             logger.error(f"Error mapping telegram chat_id: {e}")
             await update.message.reply_text("❌ Failed to connect Telegram to your account.")
     else:
-        await update.message.reply_text("Welcome to Ghost Protocol Bot! Please connect via the Dashboard.")
+        await update.message.reply_text("Welcome to PhantmOS Bot! Please connect via the Dashboard.")
 
 
 if application:
@@ -191,8 +184,8 @@ async def send_job_card(lead: dict) -> bool:
     try:
         # ── 1. Send the main job card ─────────────────────────────────────────
         card_text = format_job_card(lead)
-        resume_url = lead.get("resume_url")
-        main_keyboard = _build_main_keyboard(job_id, has_resume=bool(resume_url))
+        status = lead.get("status", "")
+        main_keyboard = _build_main_keyboard(job_id, status)
 
         await bot.send_message(
             chat_id=chat_id,
@@ -202,26 +195,9 @@ async def send_job_card(lead: dict) -> bool:
             disable_web_page_preview=True,
         )
 
-        # ── 2. Send cold email preview inline ─────────────────────────────────
-        notes_raw = lead.get("notes") or "{}"
-        try:
-            notes = json.loads(notes_raw)
-        except Exception:
-            notes = {}
 
-        cold_email = notes.get("cold_email", "")
-        if cold_email:
-            email_preview = format_cold_email_preview(lead)
-            email_keyboard = _build_email_keyboard(job_id)
-            await bot.send_message(
-                chat_id=chat_id,
-                text=email_preview,
-                parse_mode="Markdown",
-                reply_markup=email_keyboard,
-            )
-
-        # Mark as Approved (delivered to user)
-        update_job_lead(job_id, {"status": "Approved"})
+        # Mark as Approved (delivered to user) — user_id required for RLS
+        update_job_lead(job_id, {"status": "Approved"}, user_id=user_id)
         logger.info(f"Telegram: sent job card for {job_id} [{band}] to chat {chat_id}.")
         return True
 
@@ -232,10 +208,86 @@ async def send_job_card(lead: dict) -> bool:
 
 # ── Action handlers ────────────────────────────────────────────────────────────
 
-async def _on_auto_apply(context, chat_id: int, job_id: str):
-    """Handle Auto-Apply button — send cold email via Gmail."""
+async def _on_create_resume(context, chat_id: int, job_id: str, query):
+    """Handle Create Resume button — trigger synthesis pipeline."""
+    from core.database_manager import get_profile, get_lead_by_id, update_job_lead, get_client
+    from synthesis.resume_tailor import _tailor_hot, _tailor_warm
+    from synthesis.pdf_factory import generate_and_upload_pdf
+    
+    await query.edit_message_text(
+        text=query.message.text + "\n\n⏳ *Generating highly-tailored resume... Please wait ~15s.*",
+        parse_mode="Markdown"
+    )
+    
+    lead = get_lead_by_id(job_id)
+    if not lead:
+        return
+        
+    user_id = lead.get("user_id")
+    profile = get_profile(user_id)
+    if not profile:
+        return
+        
+    band = lead.get("score_band", "WARM")
+    master_resume = profile.get("resume_data") or {}
+    preferences = profile.get("preferences") or {}
+    
+    if not master_resume:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="❌ You haven't uploaded a master resume yet! Please go to your Dashboard to upload one before tailoring."
+        )
+        return
+    
+    try:
+        if band == "HOT":
+            success = await _tailor_hot(lead, master_resume, user_id=user_id, preferences=preferences)
+        else:
+            success = await _tailor_warm(lead, master_resume, user_id=user_id, preferences=preferences)
+            
+        if success:
+            lead = get_lead_by_id(job_id)
+            notes_raw = lead.get("notes") or "{}"
+            try:
+                notes = json.loads(notes_raw)
+            except Exception:
+                notes = {}
+                
+            resume_data = notes.get("updated_resume_json") or master_resume
+            company = lead.get("company", "")
+            
+            url = await generate_and_upload_pdf(job_id=job_id, resume_data=resume_data, user_id=user_id)
+            if url:
+                update_job_lead(job_id, {"resume_url": url}, user_id=user_id)
+                lead["resume_url"] = url
+                lead["status"] = "Tailored"
+                # BUG-03 fix: only purge queue entry after PDF is confirmed uploaded
+                get_client().table("delivery_queue").delete().eq("job_id", job_id).execute()
+            else:
+                logger.error(f"Telegram: PDF generation failed for {job_id} — delivery queue entry preserved for retry.")
+                await context.bot.send_message(chat_id=chat_id, text="⚠️ PDF generation failed. Please try again.")
+                return
+
+            new_text = format_job_card(lead)
+            new_kb = _build_main_keyboard(job_id, "Tailored")
+
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=new_text + "\n\n✅ *Resume successfully generated!*",
+                parse_mode="Markdown",
+                reply_markup=new_kb,
+                disable_web_page_preview=True
+            )
+        else:
+            await context.bot.send_message(chat_id=chat_id, text="❌ Failed to tailor resume.")
+    except Exception as e:
+        await context.bot.send_message(chat_id=chat_id, text=f"❌ Error generating resume: {e}")
+
+async def _on_send_cold_email(context, chat_id: int, job_id: str):
+    """Handle Send Cold Email button."""
     from interface.email_dispatcher import send_cold_email
     from intelligence.email_hunter import find_company_email
+    from core.database_manager import get_profile, update_job_lead
 
     lead = get_lead_by_id(job_id)
     if not lead:
@@ -254,32 +306,29 @@ async def _on_auto_apply(context, chat_id: int, job_id: str):
     title       = lead.get("title", "")
 
     if not cold_email:
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text="⚠️ No cold email generated for this lead."
-        )
+        await context.bot.send_message(chat_id=chat_id, text="⚠️ No cold email generated for this lead.")
         return
 
-    # Hunt for recruiter email
-    await context.bot.send_message(
-        chat_id=chat_id,
-        text=f"🔍 Hunting recruiter email at {company}…"
-    )
+    user_id = lead.get("user_id")
+    profile = get_profile(user_id)
+    # BUG-02/BUG-10 fix: guard against None profile; read from prefs["llm"] where Settings page saves them
+    if not profile:
+        logger.error(f"Telegram: could not load profile for user {user_id} — aborting cold email.")
+        await context.bot.send_message(chat_id=chat_id, text="❌ Could not load your profile. Please try again.")
+        return
+    prefs = profile.get("preferences") or {}
+    llm_prefs = prefs.get("llm") or {}
+    gmail_user = llm_prefs.get("gmail_user", "")
+    gmail_pass = llm_prefs.get("gmail_app_password", "")
+
     target_email = find_company_email(company)
-
+    
     if not target_email:
-        target_email = os.getenv("GMAIL_USER", "")
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=f"⚠️ Could not find recruiter email. Sending to self ({target_email}) for manual forwarding."
-        )
+        target_email = os.getenv("GMAIL_USER", gmail_user)
+        await context.bot.send_message(chat_id=chat_id, text=f"⚠️ Could not find recruiter email. Sending to default ({target_email}) for manual forwarding.")
     else:
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=f"🎯 Recruiter found: {target_email}. Dispatching…"
-        )
+        await context.bot.send_message(chat_id=chat_id, text=f"🎯 Recruiter found: {target_email}. Dispatching…")
 
-    # Parse subject/body
     lines   = cold_email.strip().split("\n")
     subject = (
         lines[0].replace("Subject: ", "")
@@ -288,21 +337,21 @@ async def _on_auto_apply(context, chat_id: int, job_id: str):
     )
     body    = "\n".join(lines[1:]).strip() if lines[0].startswith("Subject:") else cold_email
 
-    success = send_cold_email(target_email, subject, body, resume_url)
+    success = await send_cold_email(
+        target_email=target_email,
+        subject=subject,
+        body_text=body,
+        attachment_path=resume_url,
+        gmail_user=gmail_user,
+        gmail_password=gmail_pass
+    )
 
     if success:
         await handle_apply(job_id)
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=f"✅ Applied to *{company}*! Email sent to {target_email}.",
-            parse_mode="Markdown",
-        )
+        update_job_lead(job_id, {"status": "Applied"}, user_id=user_id)
+        await context.bot.send_message(chat_id=chat_id, text=f"✅ Successfully applied to *{company}*! Cold email sent to {target_email}.", parse_mode="Markdown")
     else:
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=f"❌ Failed to send email. Check GMAIL_USER and GMAIL_APP_PASSWORD in .env."
-        )
-
+        await context.bot.send_message(chat_id=chat_id, text=f"❌ Failed to send email. Check SMTP credentials.")
 
 async def _on_review(context, chat_id: int, job_id: str):
     """Handle Review button — show JD + tailoring summary."""
@@ -345,22 +394,32 @@ async def _on_skip(context, chat_id: int, job_id: str, reason: str):
 
 # ── Keyboard builders ──────────────────────────────────────────────────────────
 
-def _build_main_keyboard(job_id: str, has_resume: bool = False) -> InlineKeyboardMarkup:
-    """Main action keyboard (optionally with PDF download button)."""
-    buttons = [
-        InlineKeyboardButton("✅ Auto-Apply",  callback_data=f"apply_{job_id}"),
-        InlineKeyboardButton("👀 Review",      callback_data=f"review_{job_id}"),
-        InlineKeyboardButton("❌ Skip",        callback_data=f"skipask_{job_id}"),
-    ]
-    if has_resume:
-        buttons.append(InlineKeyboardButton("📄 PDF", callback_data=f"resume_{job_id}"))
-    return InlineKeyboardMarkup([buttons])
+def _build_main_keyboard(job_id: str, status: str) -> InlineKeyboardMarkup:
+    """Main action keyboard (dynamic based on status)."""
+    buttons = []
+    
+    if status == "Tailored":
+        buttons.append(InlineKeyboardButton("⚡ 1-Click Apply", callback_data=f"sendemail_{job_id}"))
+        buttons.append(InlineKeyboardButton("📄 View PDF", callback_data=f"resume_{job_id}"))
+    else:
+        buttons.append(InlineKeyboardButton("📄 Create Resume", callback_data=f"createresume_{job_id}"))
+        
+    buttons.append(InlineKeyboardButton("🔍 Inspect & Edit", callback_data=f"review_{job_id}"))
+    buttons.append(InlineKeyboardButton("🗑️ Pass", callback_data=f"skipask_{job_id}"))
+    
+    # Split into rows of 2 for better UI
+    rows = [buttons[i:i+2] for i in range(0, len(buttons), 2)]
+    return InlineKeyboardMarkup(rows)
 
 
-def _build_email_keyboard(job_id: str) -> InlineKeyboardMarkup:
-    """Email action keyboard."""
-    return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("🚀 Send This Email", callback_data=f"sendemail_{job_id}"),
-        ]
-    ])
+if __name__ == "__main__":
+    if not TELEGRAM_BOT_TOKEN:
+        print("Error: TELEGRAM_BOT_TOKEN is missing in .env")
+    else:
+        print("Starting Telegram Bot in Polling Mode (Local Development)...")
+        
+        # run_polling automatically drops webhook if drop_pending_updates=True is passed
+        application.run_polling(drop_pending_updates=True)
+
+
+

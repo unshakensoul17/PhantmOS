@@ -1,5 +1,5 @@
 """
-core/logger.py — Ghost Protocol v2.0
+core/logger.py — PhantmOS v2.0
 Centralised structured logger. All modules get a named child logger
 from get_logger() instead of using bare print() statements.
 """
@@ -39,7 +39,7 @@ def get_logger(name: str, level: Optional[int] = None) -> logging.Logger:
 
 
 # ── module-level root logger for quick one-liners ──────────────────────────
-_root = get_logger("ghost_protocol")
+_root = get_logger("phantmos")
 
 
 def info(msg: str) -> None:

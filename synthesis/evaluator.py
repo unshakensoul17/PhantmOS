@@ -1,5 +1,5 @@
 """
-synthesis/evaluator.py — Ghost Protocol v3.0
+synthesis/evaluator.py — PhantmOS v3.0
 ATS Score & Interview Prep Card Generator (Phase 4).
 Runs a single compact LLM call to score the resume and generate 3 prep questions.
 """
@@ -43,7 +43,7 @@ async def evaluate_lead(
     )
     try:
         # We reuse the waterfall to be completely rate-limit safe
-        res = await run_waterfall(SYSTEM_PROMPT, user_prompt, master_resume, api_keys)
+        res = await run_waterfall(SYSTEM_PROMPT, user_prompt, master_resume, api_keys, validator_fn=None)
         if res and "ats_score" in res:
             return {
                 "ats_score": int(res.get("ats_score", 75)),

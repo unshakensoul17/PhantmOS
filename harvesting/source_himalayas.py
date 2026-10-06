@@ -1,5 +1,5 @@
 """
-harvesting/source_himalayas.py — Ghost Protocol v3.0
+harvesting/source_himalayas.py — PhantmOS v3.0
 Himalayas.app Remote Jobs API adapter.
 """
 import httpx
@@ -8,19 +8,16 @@ from core.logger import get_logger
 logger = get_logger(__name__)
 
 BASE_URL = "https://himalayas.app/jobs/api/search"
-SEARCH_TERMS = [
-    "machine learning",
-    "ai engineer",
-    "data scientist",
-    "nlp",
-    "python developer",
-]
 
-async def fetch_himalayas(limit_per_term: int = 20) -> list[dict]:
+
+async def fetch_himalayas(limit_per_term: int = 20, search_query: str = None) -> list[dict]:
     """Fetch jobs from Himalayas Remote Jobs Search API."""
     results: list[dict] = []
+    if not search_query:
+        return []
     async with httpx.AsyncClient(timeout=20.0) as client:
-        for term in SEARCH_TERMS:
+        terms_to_search = [search_query]
+        for term in terms_to_search:
             try:
                 resp = await client.get(
                     BASE_URL,
@@ -38,22 +35,31 @@ async def fetch_himalayas(limit_per_term: int = 20) -> list[dict]:
 
 def _normalise(job: dict) -> dict:
     """Map Himalayas fields to standard schema."""
-    company_obj = job.get("company", {})
-    company_name = company_obj.get("name", "") if isinstance(company_obj, dict) else str(company_obj)
+    company_name = job.get("companyName", "")
     
     # Extract salary if present
-    sal_range = job.get("salaryRange", {})
+    min_sal = job.get("minSalary")
+    max_sal = job.get("maxSalary")
+    currency = job.get("currency", "USD")
     sal_str = ""
-    if isinstance(sal_range, dict) and sal_range.get("min"):
-        sal_str = f"{sal_range.get('min')} - {sal_range.get('max', '')} {sal_range.get('currency', 'USD')}"
+    if min_sal and max_sal:
+        sal_str = f"{min_sal} - {max_sal} {currency}"
+    elif min_sal:
+        sal_str = f"{min_sal}+ {currency}"
+        
+    # Extract location restrictions if present
+    loc_restrictions = job.get("locationRestrictions") or []
+    location = ", ".join(loc_restrictions) if isinstance(loc_restrictions, list) else str(loc_restrictions)
+    if not location:
+        location = "Remote"
 
     return {
         "title":           job.get("title", ""),
         "company":         company_name,
-        "job_url":         job.get("applicationUrl", ""),
+        "job_url":         job.get("applicationLink", ""),
         "raw_description": job.get("description", ""),
         "source":          "himalayas",
-        "location":        job.get("location", "Remote"),
+        "location":        location,
         "salary":          sal_str,
         "tags":            "",
     }

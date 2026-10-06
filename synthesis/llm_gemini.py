@@ -1,5 +1,5 @@
 """
-synthesis/llm_gemini.py — Ghost Protocol v2.0
+synthesis/llm_gemini.py — PhantmOS v2.0
 
 Google Gemini Flash adapter (Try 2 in the LLM waterfall).
 Model: gemini-1.5-flash — generous free tier (1,500 req/day).
@@ -19,7 +19,7 @@ GEMINI_URL = (
 )
 
 
-async def call_gemini(system_prompt: str, user_prompt: str, api_key: str = None) -> dict:
+async def call_gemini(system_prompt: str, user_prompt: str, api_key: str = None, model: str = None) -> dict:
     """
     Call Gemini Flash API and return parsed JSON dict.
     Raises on failure so the waterfall can try the next provider.
@@ -28,7 +28,7 @@ async def call_gemini(system_prompt: str, user_prompt: str, api_key: str = None)
     if not key:
         raise EnvironmentError("GEMINI_API_KEY not configured.")
 
-    url = GEMINI_URL.format(model=GEMINI_MODEL, key=key)
+    url = GEMINI_URL.format(model=model or GEMINI_MODEL, key=key)
 
     # Gemini uses a single 'contents' array — prepend system as first turn
     combined_prompt = f"{system_prompt}\n\n{user_prompt}"

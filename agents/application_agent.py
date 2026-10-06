@@ -1,5 +1,5 @@
 """
-agents/application_agent.py — Ghost Protocol Multi-Agent Architecture
+agents/application_agent.py — PhantmOS Multi-Agent Architecture
 
 Purpose:
     Handles all outbound communication: PDF generation, Telegram delivery,
@@ -10,7 +10,6 @@ Responsibilities:
     - PDF upload to Supabase Storage
     - Telegram job card delivery
     - Cold email dispatch via Gmail SMTP
-    - WhatsApp fallback via CallMeBot
     - Delivery queue processing with retry logic
 
 Must NOT:
@@ -25,7 +24,7 @@ Public Methods:
 
 Dependencies:
     synthesis.pdf_factory, delivery.queue_manager, interface.telegram_delivery,
-    delivery.whatsapp_fallback, interface.email_dispatcher
+    interface.email_dispatcher
 """
 import asyncio
 import json
@@ -35,7 +34,6 @@ from core.logger import get_logger
 from synthesis.pdf_factory import generate_and_upload_pdf
 from delivery.queue_manager import process_delivery_queue
 from interface.telegram_delivery import send_job_card
-from delivery.whatsapp_fallback import send_whatsapp_job_alert
 
 logger = get_logger(__name__)
 
@@ -54,8 +52,7 @@ class ApplicationAgent:
         )
         generated = failed = 0
 
-        async def _gen(lead: dict):
-            nonlocal generated, failed
+        async def _gen(lead: dict) -> bool:
             job_id = lead.get("job_id", "")
             company = lead.get("company", "")
 
@@ -73,25 +70,35 @@ class ApplicationAgent:
             )
             if url:
                 update_job_lead(job_id, {"resume_url": url}, user_id=user_id)
+                return True
+            return False
+
+        # BUG-08 fix: inspect every result — exceptions are returned as values,
+        # not raised, so we must check isinstance to count them as failures.
+        results = await asyncio.gather(*[_gen(l) for l in needs_pdf], return_exceptions=True)
+        for r in results:
+            if isinstance(r, BaseException):
+                logger.error(f"ApplicationAgent: PDF task raised exception: {r}")
+                failed += 1
+            elif r:
                 generated += 1
             else:
                 failed += 1
-
-        await asyncio.gather(*[_gen(l) for l in needs_pdf], return_exceptions=True)
         return {
             "generated": generated,
             "failed": failed,
             "skipped": len(leads) - len(needs_pdf),
         }
 
-    async def process_deliveries(self) -> dict:
-        """Process the global delivery queue (Telegram → WhatsApp fallback)."""
+    async def process_deliveries(self, profile: dict) -> dict:
+        """Process the global delivery queue."""
         return await process_delivery_queue(
-            send_fn=send_job_card, fallback_fn=send_whatsapp_job_alert
+            profile=profile,
+            send_fn=send_job_card
         )
 
     async def run(self, profile: dict) -> dict:
         """Full outbound pipeline: generate PDFs then process delivery queue."""
         pdf_summary = await self.generate_pdfs(profile)
-        delivery_summary = await self.process_deliveries()
+        delivery_summary = await self.process_deliveries(profile)
         return {"pdf": pdf_summary, "delivery": delivery_summary}

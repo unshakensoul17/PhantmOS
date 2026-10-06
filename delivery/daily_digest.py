@@ -1,5 +1,5 @@
 """
-delivery/daily_digest.py — Ghost Protocol v2.0
+delivery/daily_digest.py — PhantmOS v2.0
 
 Formats and sends the 9AM daily summary message to Telegram.
 Includes yesterday's pipeline stats, top leads, and system health indicators.
@@ -87,7 +87,7 @@ def _format_digest(stats: dict, top_leads: list[dict], health: dict) -> str:
 
     # ── Full message ──────────────────────────────────────────────────────────
     msg = (
-        f"🌅 *Ghost Protocol — Daily Report*\n"
+        f"🌅 *PhantmOS — Daily Report*\n"
         f"📅 {date_str}\n"
         f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
         f"\n"
@@ -110,7 +110,7 @@ def _format_digest(stats: dict, top_leads: list[dict], health: dict) -> str:
         f"   Telegram   : {status(health.get('telegram', True))}\n"
         f"\n"
         f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"_Ghost Protocol v2.0 — Running autonomously_"
+        f"_PhantmOS v2.0 — Running autonomously_"
     )
     return msg
 
@@ -123,15 +123,20 @@ def _get_todays_top_leads(user_id: Optional[str] = None) -> list[dict]:
         today = datetime.utcnow().date().isoformat()
         q = (
             get_client()
-            .table("job_leads")
-            .select("company, title, match_score, score_band, job_url")
+            .table("user_job_pipelines")
+            .select("score_band, match_score, global_jobs(company, title, url)")
             .in_("score_band", ["HOT", "WARM"])
             .gte("created_at", today)
         )
         if user_id:
             q = q.eq("user_id", user_id)
         resp = q.order("match_score", desc=True).limit(3).execute()
-        return resp.data or []
+        
+        leads = []
+        for row in (resp.data or []):
+            global_job = row.pop("global_jobs", {})
+            leads.append({**global_job, **row})
+        return leads
     except Exception as e:
         logger.warning(f"Daily Digest: could not fetch top leads: {e}")
         return []
@@ -144,7 +149,7 @@ def _get_system_health() -> dict:
     """
     health = {"groq": True, "jina": True, "supabase": True, "telegram": True}
     try:
-        get_client().table("job_leads").select("job_id").limit(1).execute()
+        get_client().table("user_job_pipelines").select("id").limit(1).execute()
         health["supabase"] = True
     except Exception:
         health["supabase"] = False
