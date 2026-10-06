@@ -1,8 +1,8 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { Session, User } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
-import { setGlobalAuthToken } from '../lib/api';
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Session, User } from "@supabase/supabase-js";
+import { supabase } from "../lib/supabase";
+import { setGlobalAuthToken } from "../lib/api";
 
 interface AuthContextType {
   session: Session | null;
@@ -27,34 +27,67 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     let realtimeChannel: any = null;
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setGlobalAuthToken(session?.access_token ?? null);
-      setLoading(false);
-      
-      // OPTIMIZATION 6: Global WebSockets
-      if (session?.user && !realtimeChannel) {
-        realtimeChannel = supabase.channel('dashboard-realtime')
-          .on(
-            'postgres_changes',
-            {
-              event: '*',
-              schema: 'public',
-              table: 'user_job_pipelines',
-              filter: `user_id=eq.${session.user.id}`
-            },
-            () => {
-              // Automatically invalidate frontend caches so dashboard re-renders with fresh data natively!
-              queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
-              queryClient.invalidateQueries({ queryKey: ["leads"] });
-            }
-          )
-          .subscribe();
+    const initAuth = async () => {
+      // 1. Check existing Supabase session first
+      try {
+        const {
+          data: { session: existingSession },
+        } = await supabase.auth.getSession();
+        if (existingSession?.user) {
+          setSession(existingSession);
+          setUser(existingSession.user);
+          setGlobalAuthToken(existingSession.access_token);
+          setLoading(false);
+          return;
+        }
+      } catch {
+        // Fallback to Telegram auth
       }
-    });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      // 2. Seamless zero-click authentication for Telegram Mini App users
+      try {
+        const tg = (window as any).Telegram?.WebApp;
+        const initData = tg?.initData;
+        const tgUser = tg?.initDataUnsafe?.user;
+
+        if (initData || tgUser) {
+          const res = await fetch("/api/auth/telegram", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              init_data: initData || "",
+              user_id: tgUser?.id ? String(tgUser.id) : "",
+            }),
+          });
+
+          if (res.ok) {
+            const authData = await res.json();
+            if (authData.access_token) {
+              setGlobalAuthToken(authData.access_token);
+              const syntheticUser = {
+                id: authData.user_id,
+                email: authData.email || "telegram-user@phantmos.ai",
+                user_metadata: authData.user_metadata || {},
+              } as any;
+              setUser(syntheticUser);
+              setSession({ access_token: authData.access_token, user: syntheticUser } as any);
+              setLoading(false);
+              return;
+            }
+          }
+        }
+      } catch (tgErr) {
+        console.warn("Telegram auto-auth check failed:", tgErr);
+      }
+
+      setLoading(false);
+    };
+
+    initAuth();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       setGlobalAuthToken(session?.access_token ?? null);
