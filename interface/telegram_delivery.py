@@ -4,24 +4,25 @@ interface/telegram_delivery.py — PhantmOS v2.0
 Rich job card delivery with HOT/WARM bands.
 3-button inline keyboard: ✅ Auto-Apply | 👀 Review | ❌ Skip
 """
-import os
-import json
 import asyncio
-import httpx
-from fastapi import FastAPI, Request
-from telegram import Bot, Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
-from telegram.ext import Application, CallbackQueryHandler, ContextTypes
-from dotenv import load_dotenv
+import json
+import os
+import time
 
-from core.config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_API_BASE_URL
-from core.database_manager import update_job_lead, get_lead_by_id
+from dotenv import load_dotenv
+from fastapi import FastAPI, Request
+from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup, Update, WebAppInfo
+from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes
+
+from core.config import TELEGRAM_API_BASE_URL, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+from core.database_manager import get_lead_by_id, update_job_lead
 from core.logger import get_logger
 from delivery.card_formatter import format_job_card, format_review_card
 from delivery.feedback_processor import (
+    get_skip_reasons,
     handle_apply,
     handle_review,
     handle_skip,
-    get_skip_reasons,
 )
 
 load_dotenv()
@@ -139,9 +140,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.send_message(chat_id=chat_id, text="Resume PDF not yet generated.")
 
 
-from telegram.ext import CommandHandler
-
-
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     args    = context.args
@@ -205,8 +203,9 @@ async def _post_to_telegram(path: str, payload: dict):
     for base in _TELEGRAM_ENDPOINTS:
         url = f"{base}/bot{TELEGRAM_BOT_TOKEN}/{path}"
         try:
-            def _send():
-                return requests.post(url, json=payload, timeout=30.0, proxies={"http": None, "https": None})
+            def _send(target_url=url):
+                return requests.post(target_url, json=payload, timeout=30.0, proxies={"http": None, "https": None})
+
             resp = await asyncio.to_thread(_send)
             logger.debug(f"Telegram [{base}] → HTTP {resp.status_code}")
             return resp                           # success or Telegram-level error
@@ -318,7 +317,7 @@ async def send_triage_deck(profile: dict, chat_id: int | str) -> bool:
     leads = get_triage_leads_for_user(user_id=user_id, limit=25, min_score=0.4)
     text = format_radar_summary(leads)
 
-    web_app_url = os.getenv("DASHBOARD_URL", "https://phantmos.hf.space") + "/radar"
+    web_app_url = os.getenv("DASHBOARD_URL", "https://unshakensoul17-phantmos.hf.space") + "/radar"
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("🚀 Open Radar", web_app=WebAppInfo(url=web_app_url))]
     ])
@@ -348,14 +347,14 @@ async def send_webapp_digest(chat_id: int, count: int, email: str = None) -> boo
 # ── Action handlers ────────────────────────────────────────────────────────────
 
 async def _on_create_resume(context, chat_id: int, job_id: str, query):
-    from core.database_manager import get_profile, get_lead_by_id, update_job_lead, get_client
-    from synthesis.resume_tailor_impl import _tailor_hot, _tailor_warm
+    from core.database_manager import get_client, get_lead_by_id, get_profile, update_job_lead
     from synthesis.pdf_factory import generate_and_upload_pdf
+    from synthesis.resume_tailor_impl import _tailor_hot, _tailor_warm
 
     lead = get_lead_by_id(job_id)
     if not lead:
         return
-        
+
     btn_loading = InlineKeyboardButton("⏳ Generating...", callback_data="ignore")
     btn_skip    = InlineKeyboardButton("🗑️ Skip", callback_data=f"skipask_{job_id}")
     await query.edit_message_text(
@@ -420,9 +419,9 @@ async def _on_create_resume(context, chat_id: int, job_id: str, query):
 
 
 async def _on_send_cold_email(context, chat_id: int, job_id: str):
-    from interface.email_dispatcher import send_cold_email
-    from intelligence.email_hunter import find_company_email
     from core.database_manager import get_profile, update_job_lead
+    from intelligence.email_hunter import find_company_email
+    from interface.email_dispatcher import send_cold_email
 
     lead = get_lead_by_id(job_id)
     if not lead:
@@ -501,8 +500,6 @@ async def _on_skip(context, chat_id: int, job_id: str, reason: str):
 
 
 # ── Triage Deck In-Memory Cache (Sub-millisecond navigation) ──────────────────
-import time
-
 _TRIAGE_CACHE: dict[str, dict] = {}  # chat_id -> {"timestamp": float, "user_id": str, "leads": list}
 _CACHE_TTL = 300.0  # 5 minutes cache TTL
 
@@ -543,7 +540,7 @@ def _build_triage_keyboard(lead: dict, idx: int, total: int) -> InlineKeyboardMa
     status = lead.get("status", "")
     resume_url = lead.get("resume_url", "")
     job_url = lead.get("url") or lead.get("job_url")
-    web_app_url = os.getenv("DASHBOARD_URL", "https://phantmos.hf.space") + "/radar"
+    web_app_url = os.getenv("DASHBOARD_URL", "https://unshakensoul17-phantmos.hf.space") + "/radar"
 
     keyboard = []
 
@@ -617,10 +614,15 @@ async def _on_triage_nav(context, chat_id: int, idx_str: str, query):
 
 
 async def _on_triage_tailor(context, chat_id: int, payload: str, query):
-    from core.database_manager import get_profile_by_chat_id, get_lead_by_id, update_job_lead, get_client
-    from synthesis.resume_tailor_impl import _tailor_hot, _tailor_warm
-    from synthesis.pdf_factory import generate_and_upload_pdf
+    from core.database_manager import (
+        get_client,
+        get_lead_by_id,
+        get_profile_by_chat_id,
+        update_job_lead,
+    )
     from delivery.card_formatter import format_triage_card
+    from synthesis.pdf_factory import generate_and_upload_pdf
+    from synthesis.resume_tailor_impl import _tailor_hot, _tailor_warm
 
     job_id, _, idx_str = payload.partition("_")
     idx = int(idx_str) if idx_str.isdigit() else 0
@@ -783,11 +785,11 @@ async def _on_triage_skip(context, chat_id: int, payload: str, query):
 
 
 async def _on_triage_email(context, chat_id: int, payload: str, query):
-    from core.database_manager import get_profile_by_chat_id, get_lead_by_id, update_job_lead
+    from core.database_manager import get_lead_by_id, get_profile_by_chat_id, update_job_lead
     from intelligence.email_hunter import find_company_email
 
     job_id, _, idx_str = payload.partition("_")
-    idx = int(idx_str) if idx_str.isdigit() else 0
+    int(idx_str) if idx_str.isdigit() else 0
 
     lead = get_lead_by_id(job_id)
     if not lead:
@@ -810,7 +812,7 @@ async def _on_triage_email(context, chat_id: int, payload: str, query):
         user_name = "Applicant"
         if profile:
             user_name = (profile.get("resume_data") or {}).get("cv", {}).get("name", "Applicant")
-        
+
         subject = f"Application: {title} — {user_name}"
         body = (
             f"Hi {company} Hiring Team,\n\n"
