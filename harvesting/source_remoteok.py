@@ -1,13 +1,10 @@
 """
-harvesting/source_remoteok.py — Ghost Protocol v2.0
+harvesting/source_remoteok.py — PhantmOS v2.0
 
 RemoteOK public API adapter.
 Endpoint: https://remoteok.com/api
 Free tier: unlimited.
 Best for: Dev / AI / ML remote roles.
-
-Note: RemoteOK returns a leading metadata object as the first element —
-we skip it with [1:].
 """
 import httpx
 from core.logger import get_logger
@@ -16,26 +13,27 @@ logger = get_logger(__name__)
 
 BASE_URL = "https://remoteok.com/api"
 
-TAGS = ["machine-learning", "python", "ai", "data-science", "nlp", "deep-learning"]
+DEFAULT_TAGS = ["machine-learning", "python", "ai", "data-science", "nlp", "deep-learning"]
 
 
-async def fetch_remoteok() -> list[dict]:
+async def fetch_remoteok(search_query: str = None) -> list[dict]:
     """
-    Fetch jobs from RemoteOK for each target tag.
+    Fetch jobs from RemoteOK for target tags or search query.
     Returns a normalised list of job dicts.
     """
     results: list[dict] = []
+    tags = [search_query.strip().lower().replace(" ", "-")] if search_query and search_query.strip() else DEFAULT_TAGS
 
     async with httpx.AsyncClient(
         timeout=20.0,
-        headers={"User-Agent": "GhostProtocol/2.0 (job-search-bot)"},
+        headers={"User-Agent": "Mozilla/5.0 (compatible; PhantmOS/2.0; +https://phantmos.ai)"},
     ) as client:
-        for tag in TAGS:
+        for tag in tags:
             try:
                 resp = await client.get(BASE_URL, params={"tag": tag})
                 resp.raise_for_status()
                 data = resp.json()
-                # First element is metadata — skip it
+                # First element is legal metadata in RemoteOK API — skip it
                 jobs = data[1:] if isinstance(data, list) and len(data) > 1 else []
                 for job in jobs:
                     if isinstance(job, dict):
@@ -48,7 +46,7 @@ async def fetch_remoteok() -> list[dict]:
 
 
 def _normalise(job: dict) -> dict:
-    """Map RemoteOK fields → Ghost Protocol standard schema."""
+    """Map RemoteOK fields → PhantmOS standard schema."""
     tags = job.get("tags") or []
     return {
         "title":           job.get("position", ""),
@@ -56,7 +54,7 @@ def _normalise(job: dict) -> dict:
         "job_url":         job.get("url", ""),
         "raw_description": job.get("description", ""),
         "source":          "remoteok",
-        "location":        "Remote",
+        "location":        job.get("location") or "Remote",
         "salary":          _salary_str(job),
         "tags":            ", ".join(tags) if isinstance(tags, list) else str(tags),
     }

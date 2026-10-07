@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ResumeStudioRouteImport } from './routes/resume-studio'
+import { Route as RadarRouteImport } from './routes/radar'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as JobDiscoveryRouteImport } from './routes/job-discovery'
 import { Route as DashboardRouteImport } from './routes/dashboard'
@@ -34,6 +35,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const ResumeStudioRoute = ResumeStudioRouteImport.update({
   id: '/resume-studio',
   path: '/resume-studio',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RadarRoute = RadarRouteImport.update({
+  id: '/radar',
+  path: '/radar',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -86,6 +92,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/job-discovery': typeof JobDiscoveryRoute
   '/privacy': typeof PrivacyRoute
+  '/radar': typeof RadarRoute
   '/resume-studio': typeof ResumeStudioRoute
   '/settings': typeof SettingsRoute
   '/terms': typeof TermsRoute
@@ -99,6 +106,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/job-discovery': typeof JobDiscoveryRoute
   '/privacy': typeof PrivacyRoute
+  '/radar': typeof RadarRoute
   '/resume-studio': typeof ResumeStudioRoute
   '/settings': typeof SettingsRoute
   '/terms': typeof TermsRoute
@@ -113,6 +121,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/job-discovery': typeof JobDiscoveryRoute
   '/privacy': typeof PrivacyRoute
+  '/radar': typeof RadarRoute
   '/resume-studio': typeof ResumeStudioRoute
   '/settings': typeof SettingsRoute
   '/terms': typeof TermsRoute
@@ -128,6 +137,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/job-discovery'
     | '/privacy'
+    | '/radar'
     | '/resume-studio'
     | '/settings'
     | '/terms'
@@ -141,6 +151,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/job-discovery'
     | '/privacy'
+    | '/radar'
     | '/resume-studio'
     | '/settings'
     | '/terms'
@@ -154,6 +165,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/job-discovery'
     | '/privacy'
+    | '/radar'
     | '/resume-studio'
     | '/settings'
     | '/terms'
@@ -168,6 +180,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   JobDiscoveryRoute: typeof JobDiscoveryRoute
   PrivacyRoute: typeof PrivacyRoute
+  RadarRoute: typeof RadarRoute
   ResumeStudioRoute: typeof ResumeStudioRoute
   SettingsRoute: typeof SettingsRoute
   TermsRoute: typeof TermsRoute
@@ -194,6 +207,13 @@ declare module '@tanstack/react-router' {
       path: '/resume-studio'
       fullPath: '/resume-studio'
       preLoaderRoute: typeof ResumeStudioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/radar': {
+      id: '/radar'
+      path: '/radar'
+      fullPath: '/radar'
+      preLoaderRoute: typeof RadarRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -264,6 +284,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   JobDiscoveryRoute: JobDiscoveryRoute,
   PrivacyRoute: PrivacyRoute,
+  RadarRoute: RadarRoute,
   ResumeStudioRoute: ResumeStudioRoute,
   SettingsRoute: SettingsRoute,
   TermsRoute: TermsRoute,

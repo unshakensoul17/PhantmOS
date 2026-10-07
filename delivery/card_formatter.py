@@ -22,6 +22,130 @@ BAND_EMOJI = {
 }
 
 
+def _clean_text(text: str) -> str:
+    """Sanitize dynamic user/scraped text for safe Telegram Markdown rendering."""
+    if not text:
+        return ""
+    return str(text).replace("*", "").replace("_", " ").replace("`", "'").strip()
+
+
+def format_radar_summary(leads: list[dict]) -> str:
+    """
+    Format a lightweight summary digest entry point for the Telegram Bot.
+    Invites the user into the Compact Mini App without chat clutter.
+    """
+    if not leads:
+        return (
+            "🎯 *PHANTMOS RADAR*\n\n"
+            "✨ *All caught up!*\n"
+            "No pending matches right now. Tap below to launch Radar and scan new opportunities."
+        )
+
+    total_count = len(leads)
+    hot_count = 0
+    good_count = 0
+    mod_count = 0
+
+    for lead in leads:
+        band = str(lead.get("score_band", "")).upper()
+        raw_score = lead.get("match_score", 0) or 0
+        score = (raw_score * 100) if raw_score <= 1.0 else raw_score
+
+        if band in ("HOT", "A") or score >= 88:
+            hot_count += 1
+        elif band in ("WARM", "B", "GOOD") or score >= 70:
+            good_count += 1
+        else:
+            mod_count += 1
+
+    top_lead = leads[0]
+    top_title = _clean_text(top_lead.get("title", "Software Engineer"))
+    top_company = _clean_text(top_lead.get("company", "Company"))
+    top_location = _clean_text(top_lead.get("location", "Remote"))
+    raw_top_score = top_lead.get("match_score", 0) or 0
+    top_score = (raw_top_score * 100) if raw_top_score <= 1.0 else raw_top_score
+
+    lines = [
+        "🎯 *PHANTMOS RADAR*",
+        "",
+        f"*{total_count} strong matches found.*",
+        "",
+        f"🔥 {hot_count} Hot",
+        f"🟢 {good_count} Good",
+        f"⚪ {mod_count} Moderate",
+        "",
+        "*Top Match:*",
+        f"💼 *{top_title}*",
+        f"🏢 {top_company}",
+        f"📍 {top_location}",
+        f"🔥 *{top_score:.0f}% Match*",
+    ]
+    return "\n".join(lines).strip()
+
+
+def format_triage_card(lead: dict, current_idx: int = 0, total_count: int = 1) -> str:
+    """
+    Format a clean, concise, clutter-free single-page Triage Deck card for Telegram.
+    Optimized for glanceability on mobile screens without scrolling.
+    """
+    band = lead.get("score_band", "WARM")
+    raw_score = lead.get("match_score", 0) or 0
+    score = (raw_score * 100) if raw_score <= 1.0 else raw_score
+    company = lead.get("company", "Unknown")
+    title = lead.get("title", "Unknown Role")
+    location = lead.get("location", "Remote")
+    salary = lead.get("salary", "")
+    resume_url = lead.get("resume_url", "")
+    status = lead.get("status", "Found")
+
+    notes_raw = lead.get("notes") or "{}"
+    try:
+        notes = json.loads(notes_raw) if isinstance(notes_raw, str) else notes_raw
+    except Exception:
+        notes = {}
+
+    rationale = notes.get("rationale", "")
+
+    breakdown_raw = lead.get("score_breakdown") or "{}"
+    try:
+        breakdown = json.loads(breakdown_raw) if isinstance(breakdown_raw, str) else breakdown_raw
+    except Exception:
+        breakdown = {}
+
+    emoji = BAND_EMOJI.get(band, "⚡")
+
+    safe_title = _clean_text(title)
+    safe_company = _clean_text(company)
+    safe_location = _clean_text(location)
+
+    if rationale:
+        angle_text = _clean_text(rationale[:160])
+    else:
+        angle_text = _clean_text(_build_why_bullets(breakdown, "").replace("• ", ""))
+        if not angle_text:
+            angle_text = "Strong technical match for required tech stack and experience level."
+
+    salary_part = f" · 💵 {salary}" if salary else ""
+    is_tailored = status == "Tailored" or (resume_url and str(resume_url).startswith("http"))
+    status_indicator = "✅ Tailored PDF Ready" if is_tailored else "⚡ Ready to Tailor"
+
+    lines = [
+        f"🎯 *PhantmOS Radar*  ·  `{current_idx + 1}/{total_count}`",
+        "",
+        f"💼 *{safe_title}*",
+        f"🏢 *{safe_company}* · 📍 {safe_location}{salary_part}",
+        f"{emoji} *{score:.0f}% Match ({band})*",
+        "",
+        f"💡 *Key Match:*",
+        f"_{angle_text}_",
+        "",
+        f"📄 *Status:* {status_indicator}",
+    ]
+
+    return "\n".join(lines).strip()
+
+
+
 def format_job_card(lead: dict) -> str:
     """
     Build the rich Telegram markdown message for a single job lead.
@@ -89,7 +213,7 @@ def format_job_card(lead: dict) -> str:
         f"✏️ *Tailoring Applied:*\n"
         f"{tailored_lines}\n"
         f"\n"
-        f"📄 {resume_link}   |   🔗 {jd_link}"
+        f"🔗 {jd_link}"
     )
 
     return card.strip()

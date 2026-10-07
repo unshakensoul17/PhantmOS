@@ -47,7 +47,7 @@ async def call_gemini(system_prompt: str, user_prompt: str, api_key: str = None,
         },
     }
 
-    async with httpx.AsyncClient(timeout=60.0) as client:
+    async with httpx.AsyncClient(timeout=60.0, trust_env=False) as client:
         resp = await client.post(url, json=payload)
 
         if resp.status_code == 429:

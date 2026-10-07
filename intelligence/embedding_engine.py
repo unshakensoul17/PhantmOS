@@ -64,7 +64,7 @@ async def _embed_jina(text: str) -> list[float]:
         raise EnvironmentError("JINA_API_KEY not set — falling back to local model.")
 
     async with _jina_semaphore:
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=30.0, trust_env=False) as client:
             payload = {
                 "input": [text[:8000]],   # Jina v2/v3 supports up to 8192 tokens
                 "model": JINA_MODEL,

@@ -23,25 +23,21 @@ async def fetch_remotive(limit_per_term: int = 20, search_query: str = None) -> 
     """
     results: list[dict] = []
 
-    if not search_query:
-        return []
-
     async with httpx.AsyncClient(timeout=20.0) as client:
-        terms_to_search = [search_query]
-        for term in terms_to_search:
-            try:
-                resp = await client.get(
-                    BASE_URL,
-                    params={"search": term, "limit": limit_per_term},
-                )
-                resp.raise_for_status()
-                data = resp.json()
-                jobs = data.get("jobs", [])
-                for job in jobs:
-                    results.append(_normalise(job))
-                logger.info(f"Remotive: fetched {len(jobs)} jobs for '{term}'")
-            except Exception as e:
-                logger.warning(f"Remotive: failed for term '{term}': {e}")
+        params = {"limit": limit_per_term}
+        if search_query and search_query.strip():
+            params["search"] = search_query.strip()
+
+        try:
+            resp = await client.get(BASE_URL, params=params)
+            resp.raise_for_status()
+            data = resp.json()
+            jobs = data.get("jobs", [])
+            for job in jobs:
+                results.append(_normalise(job))
+            logger.info(f"Remotive: fetched {len(jobs)} jobs for '{search_query or 'ALL'}'")
+        except Exception as e:
+            logger.warning(f"Remotive: failed for query '{search_query}': {e}")
 
     return results
 

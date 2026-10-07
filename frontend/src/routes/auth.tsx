@@ -40,11 +40,19 @@ function AuthComponent() {
 
   const handleGoogleLogin = async () => {
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: window.location.origin + '/auth' }
+        options: { 
+          redirectTo: window.location.origin + '/auth',
+          skipBrowserRedirect: true
+        }
       });
       if (error) throw error;
+      if (data?.url) {
+        // Hugging Face iframe sandbox blocks 'allow-top-navigation'
+        // We MUST open OAuth in a new tab to bypass Google's iframe block.
+        window.open(data.url, '_blank', 'noopener,noreferrer');
+      }
     } catch (err: any) {
       setError(err.message || 'Error initializing Google login');
     }
@@ -94,7 +102,20 @@ function AuthComponent() {
         setTimeout(() => navigate({ to: '/dashboard' }), 1000);
       }
     } catch (err: any) {
-      setError(err.message || 'An error occurred.');
+      let friendlyError = err.message || 'An error occurred.';
+      const rawMsg = friendlyError.toLowerCase();
+      
+      if (rawMsg.includes('rate limit')) {
+        friendlyError = 'Please wait a moment before requesting another code.';
+      } else if (rawMsg.includes('invalid login credentials') || rawMsg.includes('password')) {
+        friendlyError = 'Invalid credentials. If you registered via Google, please use "Continue with Google".';
+      } else if (rawMsg.includes('expired') || rawMsg.includes('invalid token') || rawMsg.includes('token has expired or is invalid')) {
+        friendlyError = 'The verification code is invalid or has expired. Please request a new one.';
+      } else if (rawMsg.includes('user not found')) {
+        friendlyError = 'No account found with this email.';
+      }
+      
+      setError(friendlyError);
     } finally {
       setLoading(false);
     }

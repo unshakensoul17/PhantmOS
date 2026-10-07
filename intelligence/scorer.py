@@ -273,23 +273,45 @@ async def run_scoring(profile: dict, manual_query: str = None) -> dict:
         # Only pick pipeline-table columns — never pass global_jobs fields into user_job_pipelines upsert
         PIPELINE_COLS = {"user_id", "job_id", "status", "match_score", "score_band", "score_breakdown", "notes", "resume_url", "resume_tailored"}
         
-        status = "Dismissed" if band == "REJECT" else "Evaluated"
-        
+        # BUG FIX 1: Keep status as "Found" for HOT/WARM so Stage 3's
+        # get_leads_by_band(.eq("status","Found")) can find them.
+        # Only REJECT leads get status="Dismissed".
+        status = "Dismissed" if band == "REJECT" else "Found"
+
+        # BUG FIX 2: Do NOT queue_delivery here. Delivery is queued by
+        # _mark_tailored in Stage 3, AFTER the resume is actually tailored.
+        # Queueing here caused 100+ stale queue entries with no resume attached.
         if band == "REJECT":
             counts["reject"] += 1
-        elif band in ["HOT", "WARM"]:
-            counts[band.lower()] += 1
-            from core.database_manager import queue_delivery
-            queue_delivery(job_id, user_id)
         else:
             counts[band.lower()] += 1
-        
+
+        # Store score breakdown and initial rationale into notes JSON
+        notes_dict = {}
+        if lead.get("notes"):
+            try:
+                notes_dict = json.loads(lead.get("notes")) if isinstance(lead.get("notes"), str) else lead.get("notes")
+            except Exception:
+                notes_dict = {}
+
+        breakdown_str = result.get("score_breakdown", "{}")
+        try:
+            breakdown_obj = json.loads(breakdown_str) if isinstance(breakdown_str, str) else breakdown_str
+        except Exception:
+            breakdown_obj = {}
+
+        notes_dict["score_breakdown"] = breakdown_obj
+        if not notes_dict.get("rationale") and result.get("match_score"):
+            score_pct = result.get("match_score", 0) * 100
+            notes_dict["rationale"] = f"{band} match ({score_pct:.0f}%): strong role and technical skill alignment."
+
         pipeline_row = {
             "user_id": user_id,
             "job_id": job_id,
             "status": status,
             "match_score": result.get("match_score", 0),
             "score_band": band,
+            "notes": json.dumps(notes_dict),
         }
         upsert_batch.append(pipeline_row)
         log_stage_success(job_id, "scoring")

@@ -7,7 +7,7 @@ Includes yesterday's pipeline stats, top leads, and system health indicators.
 from datetime import datetime, timedelta
 from typing import Optional
 
-from core.config import TELEGRAM_CHAT_ID, TELEGRAM_BOT_TOKEN
+from core.config import TELEGRAM_CHAT_ID, TELEGRAM_BOT_TOKEN, TELEGRAM_API_BASE_URL
 from core.database_manager import get_all_stats, get_client
 from core.logger import get_logger
 
@@ -166,16 +166,20 @@ async def _send_telegram(message: str, chat_id: str) -> bool:
 
     try:
         import httpx
-        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        url = f"{TELEGRAM_API_BASE_URL}/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
         payload = {
             "chat_id":    chat_id,
             "text":       message,
             "parse_mode": "Markdown",
         }
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            resp = await client.post(url, json=payload)
-            resp.raise_for_status()
-            return True
+        import requests
+        import asyncio
+        def _send():
+            return requests.post(url, json=payload, timeout=20.0, proxies={"http": None, "https": None})
+
+        resp = await asyncio.to_thread(_send)
+        resp.raise_for_status()
+        return True
     except Exception as e:
         logger.error(f"Daily Digest: Telegram send failed to {chat_id} — {e}")
         return False

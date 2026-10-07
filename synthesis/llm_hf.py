@@ -42,7 +42,7 @@ async def call_hf(system_prompt: str, user_prompt: str, api_key: str = None) -> 
         },
     }
 
-    async with httpx.AsyncClient(timeout=90.0) as client:
+    async with httpx.AsyncClient(timeout=90.0, trust_env=False) as client:
         resp = await client.post(
             HF_URL,
             headers={"Authorization": f"Bearer {key}"},

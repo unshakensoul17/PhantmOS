@@ -149,6 +149,8 @@ function generateRoleLeads(query: string, candidateLoc?: string) {
   ];
 }
 
+
+
 function JobDiscoveryPage() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");

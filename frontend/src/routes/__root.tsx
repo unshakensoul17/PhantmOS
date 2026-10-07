@@ -106,6 +106,7 @@ function RootShell({ children }: { children: ReactNode }) {
     <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
+        <script src="https://telegram.org/js/telegram-web-app.js" async></script>
       </head>
       <body suppressHydrationWarning>
         {children}

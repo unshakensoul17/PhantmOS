@@ -35,7 +35,7 @@ async def call_groq(system_prompt: str, user_prompt: str, api_key: str = None, m
         "max_tokens": 2000,
     }
 
-    async with httpx.AsyncClient(timeout=45.0) as client:
+    async with httpx.AsyncClient(timeout=45.0, trust_env=False) as client:
         resp = await client.post(
             GROQ_URL,
             headers={"Authorization": f"Bearer {key}"},

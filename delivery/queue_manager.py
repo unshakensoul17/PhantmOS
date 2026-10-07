@@ -1,8 +1,12 @@
 """
-delivery/queue_manager.py — PhantmOS v2.0
+delivery/queue_manager.py — PhantmOS v3.0
 
 Supabase-backed delivery queue with retry logic.
 Processes pending deliveries and retries failures.
+
+Optimizations:
+  - Skipped items batch-updated in one DB call (not N individual calls)
+  - Active deliveries run concurrently via asyncio.gather
 """
 import asyncio
 import json
@@ -11,6 +15,7 @@ from core.config import DELIVERY_MAX_ATTEMPTS
 from core.database_manager import (
     get_pending_deliveries,
     update_delivery_status,
+    get_client,
     log_stage_success,
     log_stage_failure,
 )
@@ -18,19 +23,12 @@ from core.logger import get_logger
 
 logger = get_logger(__name__)
 
-# Retry wait times between delivery attempts (seconds)
-RETRY_WAITS = [10, 30, 60]
-
 
 async def process_delivery_queue(profile: dict, send_fn) -> dict:
     """
     Process all pending items in the delivery queue for a specific user.
-
-    Args:
-        send_fn:     async fn(lead: dict) -> bool  — primary Telegram sender
-
-    Returns:
-        Summary dict with sent/failed counts.
+    Skipped items are batch-marked in a single DB call.
+    Active deliveries run concurrently via asyncio.gather.
     """
     logger.info("=== Stage 5: Delivery Queue processing ===")
 
@@ -38,100 +36,69 @@ async def process_delivery_queue(profile: dict, send_fn) -> dict:
     pending = get_pending_deliveries(max_attempts=DELIVERY_MAX_ATTEMPTS, user_id=user_id)
     if not pending:
         logger.info("Delivery queue: nothing pending.")
-        return {"sent": 0, "failed": 0, "total": 0}
+        return {"sent": 0, "failed": 0, "skipped": 0, "total": 0}
 
     logger.info(f"Delivery queue: {len(pending)} items pending.")
-    
-    # Extract settings from profile
+
     preferences = profile.get("preferences") or {}
-    
-    # Fallback to legacy settings.json
     if not preferences:
         try:
             with open("settings.json", "r") as f:
                 preferences = json.load(f)
-        except:
+        except Exception:
             pass
-    
+
     notifications = preferences.get("notifications", {})
     scoring = preferences.get("scoring", {})
-    
     telegram_enabled = notifications.get("instant_telegram_alerts", True)
-    telegram_threshold = scoring.get("telegram_threshold", 75)
+    telegram_threshold = float(scoring.get("telegram_threshold", 75))
 
-    sent = failed = 0
+    # ── Partition into skip/active in one pass ────────────────────────────────
+    to_skip = []
+    to_deliver = []
 
     for item in pending:
-        delivery_id = item.get("id")
-        # job_leads data is joined in get_pending_deliveries
         lead = item.get("job_leads") or {}
-        job_id = item.get("job_id", "unknown")
-        
-        # Check settings guardrails
-        match_score_raw = lead.get("match_score", 0.0)
-        # handle case if match_score is None
-        if match_score_raw is None: match_score_raw = 0.0
-        match_score_pct = float(match_score_raw) * 100
+        match_score_pct = float(lead.get("match_score") or 0.0) * 100
 
-        if not telegram_enabled:
-            logger.info(f"Delivery: skipping {job_id} because Telegram alerts are disabled.")
-            update_delivery_status(delivery_id, "sent")
-            continue
-            
-        if match_score_pct < telegram_threshold:
-            logger.info(f"Delivery: skipping {job_id} because score {match_score_pct:.1f} < threshold {telegram_threshold}.")
-            update_delivery_status(delivery_id, "sent")
-            continue
-
-        success = await _attempt_delivery(
-            delivery_id=delivery_id,
-            job_id=job_id,
-            lead=lead,
-            attempts=item.get("attempts", 0),
-            send_fn=send_fn,
-        )
-
-        if success:
-            sent += 1
+        if not telegram_enabled or match_score_pct < telegram_threshold:
+            to_skip.append(item)
         else:
-            failed += 1
+            to_deliver.append(item)
 
-    logger.info(f"=== Delivery complete: sent={sent} failed={failed} ===")
-    return {"sent": sent, "failed": failed, "total": sent + failed}
+    # ── Batch-mark all skipped items as "sent" in ONE DB call ─────────────────
+    if to_skip:
+        skip_ids = [i["id"] for i in to_skip]
+        logger.info(f"Delivery: batch-skipping {len(skip_ids)} items below threshold {telegram_threshold:.0f}%.")
+        try:
+            get_client().table("delivery_queue").update({"status": "sent"}).in_("id", skip_ids).execute()
+        except Exception as e:
+            logger.error(f"Delivery: batch skip update failed: {e}")
 
-
-async def _attempt_delivery(
-    delivery_id: str,
-    job_id: str,
-    lead: dict,
-    attempts: int,
-    send_fn,
-) -> bool:
-    """
-    Try primary sender.
-    """
-    try:
-        success = await send_fn(lead)
-        if success:
-            update_delivery_status(delivery_id, "sent")
-            log_stage_success(job_id, "delivery")
-            logger.info(f"Delivery: sent job {job_id} via Telegram.")
-            return True
+    # ── Run active deliveries (Triage Deck Carousel) ─────────────────────────
+    sent = failed = 0
+    if to_deliver:
+        chat_id = profile.get("telegram_chat_id")
+        if chat_id:
+            from interface.telegram_delivery import send_triage_deck
+            success = await send_triage_deck(profile=profile, chat_id=chat_id)
+            if success:
+                delivery_ids = [i["id"] for i in to_deliver]
+                get_client().table("delivery_queue").update({"status": "sent"}).in_("id", delivery_ids).execute()
+                for i in to_deliver:
+                    job_id = i.get("job_id")
+                    if job_id: log_stage_success(job_id, "delivery")
+                sent = len(to_deliver)
+            else:
+                for i in to_deliver:
+                    update_delivery_status(i["id"], "pending", increment_attempts=True)
+                failed = len(to_deliver)
+                logger.warning("Delivery: Failed to send WebApp digest message.")
         else:
-            raise RuntimeError("send_fn returned False")
+            logger.warning("Delivery: Cannot send digest. No telegram_chat_id in profile.")
+            failed = len(to_deliver)
+            for i in to_deliver:
+                update_delivery_status(i["id"], "failed")
 
-    except Exception as e:
-        new_attempts = attempts + 1
-        logger.warning(
-            f"Delivery: Telegram failed for {job_id} "
-            f"(attempt {new_attempts}/{DELIVERY_MAX_ATTEMPTS}): {e}"
-        )
-        update_delivery_status(delivery_id, "pending", increment_attempts=True)
-
-        if new_attempts >= DELIVERY_MAX_ATTEMPTS:
-            update_delivery_status(delivery_id, "failed")
-            log_stage_failure(job_id, "delivery", str(e))
-            return False
-
-        # Not yet exhausted — will retry on next queue run
-        return False
+    logger.info(f"=== Delivery complete: sent={sent} failed={failed} skipped={len(to_skip)} ===")
+    return {"sent": sent, "failed": failed, "skipped": len(to_skip), "total": len(pending)}

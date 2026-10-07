@@ -1,10 +1,10 @@
 """
-harvesting/source_arbeitnow.py — Ghost Protocol v2.0
+harvesting/source_arbeitnow.py — PhantmOS v2.0
 
 Arbeitnow public API adapter.
 Endpoint: https://www.arbeitnow.com/api/job-board-api
 Free tier: unlimited.
-Best for: EU + Remote roles.
+Best for: EU + Global Remote roles.
 """
 import httpx
 from core.logger import get_logger
@@ -13,7 +13,7 @@ logger = get_logger(__name__)
 
 BASE_URL = "https://www.arbeitnow.com/api/job-board-api"
 
-SEARCH_TERMS = [
+DEFAULT_SEARCH_TERMS = [
     "machine learning",
     "ai engineer",
     "data scientist",
@@ -22,15 +22,16 @@ SEARCH_TERMS = [
 ]
 
 
-async def fetch_arbeitnow() -> list[dict]:
+async def fetch_arbeitnow(search_query: str = None) -> list[dict]:
     """
-    Fetch remote jobs from Arbeitnow for each target search term.
+    Fetch remote jobs from Arbeitnow for search terms or specific search query.
     Returns normalised job dicts.
     """
     results: list[dict] = []
+    terms = [search_query.strip()] if search_query and search_query.strip() else DEFAULT_SEARCH_TERMS
 
     async with httpx.AsyncClient(timeout=20.0) as client:
-        for term in SEARCH_TERMS:
+        for term in terms:
             try:
                 resp = await client.get(
                     BASE_URL,
@@ -49,7 +50,7 @@ async def fetch_arbeitnow() -> list[dict]:
 
 
 def _normalise(job: dict) -> dict:
-    """Map Arbeitnow fields → Ghost Protocol standard schema."""
+    """Map Arbeitnow fields → PhantmOS standard schema."""
     tags = job.get("tags") or []
     return {
         "title":           job.get("title", ""),
@@ -59,5 +60,5 @@ def _normalise(job: dict) -> dict:
         "source":          "arbeitnow",
         "location":        job.get("location", "Remote"),
         "salary":          "",
-        "tags":            ", ".join(tags) if isinstance(tags, list) else "",
+        "tags":            ", ".join(tags) if isinstance(tags, list) else str(tags),
     }

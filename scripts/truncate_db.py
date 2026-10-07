@@ -12,6 +12,13 @@ Usage:
 
 import sys
 import os
+import socket
+
+# Force IPv4-only to bypass local broken IPv6 network routing/DNS hangs
+_orig_getaddrinfo = socket.getaddrinfo
+socket.getaddrinfo = lambda *args, **kwargs: [
+    r for r in _orig_getaddrinfo(*args, **kwargs) if r[0] == socket.AF_INET
+]
 
 # Load .env from project root
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -24,16 +31,11 @@ from core.database_manager import get_client
 # auth.users and user_profiles are deliberately excluded — accounts are preserved.
 TABLES = [
     # Leaf / most dependent first
-    "stage_logs",
-    "user_feedback",
-    "delivery_queue",
-    "auth_debug_logs",
     # Pipeline data
     "user_job_pipelines",
     # Shared job pool
     "global_jobs",
     # User content (resume data only, not the profile itself)
-    "user_resumes",
 ]
 
 PROTECTED = {"auth.users", "user_profiles"}

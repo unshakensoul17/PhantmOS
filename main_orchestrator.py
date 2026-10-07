@@ -196,13 +196,9 @@ async def process_pipeline(manual_query: str = None, target_user_id: str = None)
             logger.error(f"User {user_id} Stage 3 FAILED: {e}")
             user_summary["tailoring"] = {"error": str(e)}
 
-        # ── STAGE 4: Application Agent (PDFs) ─────────────────────────────────
-        try:
-            logger.info(f"User {user_id}: >>> STAGE 4: Application Agent (PDF)")
-            user_summary["pdf"] = await application_agent.generate_pdfs(profile)
-        except Exception as e:
-            logger.error(f"User {user_id} Stage 4 FAILED: {e}")
-            user_summary["pdf"] = {"error": str(e)}
+        # ── STAGE 4: Skipped — PDF is generated on-demand via Telegram ──────────
+        # PDF generation is now triggered when user clicks "Create Resume" in Telegram.
+        # This keeps the pipeline fast and avoids Typst race conditions on batch runs.
 
         # ── STAGE 5: Application Agent (Delivery Queue) ───────────────────────────
         try:

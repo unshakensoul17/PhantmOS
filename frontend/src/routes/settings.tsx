@@ -350,9 +350,19 @@ function SettingsPage() {
                     </div>
                     {user ? (
                       localSettings.telegram_connected ? (
-                        <span className="px-3 py-1 bg-zinc-900 text-white rounded-lg text-xs font-mono">
-                          Connected
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="px-3 py-1 bg-zinc-900 text-white rounded-lg text-xs font-mono">
+                            Connected
+                          </span>
+                          <a
+                            href={telegramLinkData?.link || `https://t.me/placeholder_bot?start=${user.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-1 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-lg text-xs font-medium transition"
+                          >
+                            Reconnect
+                          </a>
+                        </div>
                       ) : (
                         <a
                           href={telegramLinkData?.link || `https://t.me/placeholder_bot?start=${user.id}`}

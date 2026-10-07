@@ -71,7 +71,12 @@ class ApplicationAgent:
             if url:
                 update_job_lead(job_id, {"resume_url": url}, user_id=user_id)
                 return True
-            return False
+            else:
+                # If PDF fails (e.g., validation error), revert to 'Found' and clear the tailored JSON.
+                # This ensures the pipeline isn't stuck forever and will use the newly uploaded master resume next run.
+                notes.pop("updated_resume_json", None)
+                update_job_lead(job_id, {"status": "Found", "notes": json.dumps(notes)}, user_id=user_id)
+                return False
 
         # BUG-08 fix: inspect every result — exceptions are returned as values,
         # not raised, so we must check isinstance to count them as failures.
