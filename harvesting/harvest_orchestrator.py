@@ -7,20 +7,21 @@ new leads with status="Found".
 
 Replaces the old SerpApi-based harvesting_engine.py entirely.
 """
+
 import asyncio
 import uuid
 from datetime import datetime
 
-from core.database_manager import upsert_job_lead, log_stage_success, log_stage_failure
+from core.database_manager import log_stage_failure
 from core.logger import get_logger
-
-from intelligence.deduplicator import filter_new_jobs
+from harvesting.source_arbeitnow import fetch_arbeitnow
+from harvesting.source_ats import fetch_all_ats_jobs
+from harvesting.source_himalayas import fetch_himalayas
+from harvesting.source_hn import fetch_hn_hiring
+from harvesting.source_remoteok import fetch_remoteok
 from harvesting.source_remotive import fetch_remotive
 from harvesting.source_secret import fetch_secret
-from harvesting.source_himalayas import fetch_himalayas
-from harvesting.source_arbeitnow import fetch_arbeitnow
-from harvesting.source_remoteok import fetch_remoteok
-from harvesting.source_hn import fetch_hn_hiring
+from harvesting.text_cleaner import clean_job_description
 
 logger = get_logger(__name__)
 
@@ -28,8 +29,9 @@ logger = get_logger(__name__)
 async def run_harvest(include_hn: bool = False, search_query: str = None) -> list[dict]:
     """
     Execute the full Stage 1 pipeline:
-      1. Fetch all sources in parallel
-      2. Merge and keyword-filter
+      1. Fetch all sources + direct public ATS feeds in parallel
+      2. Clean descriptions & strip legal boilerplate
+      3. Merge and keyword-filter
 
     Args:
         include_hn: If True, also scrape HN Who's Hiring (run monthly, on 1st).
@@ -42,11 +44,12 @@ async def run_harvest(include_hn: bool = False, search_query: str = None) -> lis
 
     # ── 1. Fetch all sources in parallel ─────────────────────────────────────
     fetch_tasks = [
-        _safe_fetch("Remotive",  lambda: fetch_remotive(search_query=search_query)),
+        _safe_fetch("DirectATS", lambda: fetch_all_ats_jobs(search_query=search_query)),
+        _safe_fetch("Remotive", lambda: fetch_remotive(search_query=search_query)),
         _safe_fetch("SecretAPI", lambda: fetch_secret(search_query=search_query)),
         _safe_fetch("Himalayas", lambda: fetch_himalayas(search_query=search_query)),
         _safe_fetch("Arbeitnow", lambda: fetch_arbeitnow(search_query=search_query)),
-        _safe_fetch("RemoteOK",  lambda: fetch_remoteok(search_query=search_query)),
+        _safe_fetch("RemoteOK", lambda: fetch_remoteok(search_query=search_query)),
     ]
     if include_hn or _is_first_of_month():
         fetch_tasks.append(_safe_fetch("HN", lambda: fetch_hn_hiring()))
@@ -60,21 +63,28 @@ async def run_harvest(include_hn: bool = False, search_query: str = None) -> lis
 
     logger.info(f"Harvesting: {len(raw_jobs)} total raw jobs from all sources.")
 
-    # ── 2. Remove jobs with empty title or company ────────────────────────────
-    raw_jobs = [j for j in raw_jobs if j.get("title") and j.get("company")]
+    # ── 2. Clean job descriptions & remove invalid rows ──────────────────────
+    valid_jobs = []
+    for j in raw_jobs:
+        if j.get("title") and j.get("company"):
+            desc = j.get("description") or j.get("raw_description") or ""
+            j["description"] = clean_job_description(desc)
+            valid_jobs.append(j)
+    raw_jobs = valid_jobs
 
     # ── 3. Relevance pre-filter (BM25) ────────────────────────────────────────
     from intelligence.keyword_filter import filter_jobs_by_relevance
+
     filtered: list[dict] = filter_jobs_by_relevance(raw_jobs, search_query)
     logger.info(
-        f"Retrieval pre-filter: {len(raw_jobs) - len(filtered)} rejected, "
-        f"{len(filtered)} passed."
+        f"Retrieval pre-filter: {len(raw_jobs) - len(filtered)} rejected, {len(filtered)} passed."
     )
 
     return filtered
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 async def _safe_fetch(source_name: str, fetch_fn) -> list[dict]:
     """
@@ -88,9 +98,7 @@ async def _safe_fetch(source_name: str, fetch_fn) -> list[dict]:
             return results
         except Exception as e:
             last_error = str(e)
-            logger.warning(
-                f"{source_name}: attempt {attempt}/2 failed — {last_error}"
-            )
+            logger.warning(f"{source_name}: attempt {attempt}/2 failed — {last_error}")
             if attempt < 2:
                 await asyncio.sleep(5)
     logger.error(f"{source_name}: all attempts failed, skipping source.")
@@ -107,6 +115,7 @@ def build_lead(job: dict) -> dict:
         dedup_hash = job.get("dedup_hash") or job_uuid
     else:
         from intelligence.deduplicator import make_dedup_hash
+
         dedup_hash = job.get("dedup_hash") or make_dedup_hash(
             job.get("company", ""), job.get("title", "")
         )
@@ -115,23 +124,24 @@ def build_lead(job: dict) -> dict:
         except ValueError:
             # MD5 hex is always 32 chars and valid hex, but guard anyway
             import hashlib
+
             job_uuid = str(uuid.UUID(hashlib.md5(dedup_hash.encode()).hexdigest()))
 
     return {
-        "job_id":          job_uuid,
-        "title":           job.get("title", "")[:300],
-        "company":         job.get("company", "")[:300],
-        "job_url":         job.get("job_url") or job.get("url") or f"https://unknown.local/{job_uuid}",
+        "job_id": job_uuid,
+        "title": job.get("title", "")[:300],
+        "company": job.get("company", "")[:300],
+        "job_url": job.get("job_url") or job.get("url") or f"https://unknown.local/{job_uuid}",
         "raw_description": job.get("raw_description") or job.get("description", ""),
-        "source":          job.get("source", "unknown"),
+        "source": job.get("source", "unknown"),
         "source_platform": job.get("source", "unknown"),
-        "dedup_hash":      dedup_hash,
-        "status":          "Found",
-        "match_score":     0.0,
-        "score_band":      None,
-        "genuity_flag":    True,
-        "notes":           None,
-        "resume_url":      None,
+        "dedup_hash": dedup_hash,
+        "status": "Found",
+        "match_score": 0.0,
+        "score_band": None,
+        "genuity_flag": True,
+        "notes": None,
+        "resume_url": None,
     }
 
 
@@ -141,8 +151,8 @@ def _is_first_of_month() -> bool:
 
 def _summary(raw: int, filtered: int, saved: int) -> dict:
     return {
-        "raw_fetched":       raw,
+        "raw_fetched": raw,
         "after_keyword_filter": filtered,
-        "new_saved":         saved,
+        "new_saved": saved,
         "duplicates_skipped": filtered - saved,
     }

@@ -1,14 +1,16 @@
-import os
 import asyncio
+import os
 import smtplib
 from email.message import EmailMessage
-from dotenv import load_dotenv
+
 import httpx
+from dotenv import load_dotenv
 
 load_dotenv()
 
 GMAIL_USER = os.getenv("GMAIL_USER")
 GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
+
 
 async def send_cold_email(
     target_email: str,
@@ -32,9 +34,9 @@ async def send_cold_email(
 
     try:
         msg = EmailMessage()
-        msg['Subject'] = subject
-        msg['From'] = user
-        msg['To'] = target_email
+        msg["Subject"] = subject
+        msg["From"] = user
+        msg["To"] = target_email
         msg.set_content(body_text)
 
         # Attach PDF if provided
@@ -53,21 +55,21 @@ async def send_cold_email(
                 except Exception as e:
                     print(f"[Email Dispatcher] Failed to download PDF from URL: {e}")
             elif os.path.exists(attachment_path):
-                with open(attachment_path, 'rb') as fp:
+                with open(attachment_path, "rb") as fp:
                     attachment_data = fp.read()
                 filename = os.path.basename(attachment_path)
 
             if attachment_data:
                 msg.add_attachment(
                     attachment_data,
-                    maintype='application',
-                    subtype='pdf',
-                    filename=filename or "Resume.pdf"
+                    maintype="application",
+                    subtype="pdf",
+                    filename=filename or "Resume.pdf",
                 )
 
         # BUG-11 fix: run blocking SMTP in a thread so the event loop is not blocked
         def _smtp_send():
-            with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
                 server.login(user, password)
                 server.send_message(msg)
 

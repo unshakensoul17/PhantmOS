@@ -3,12 +3,12 @@ core/logger.py — PhantmOS v2.0
 Centralised structured logger. All modules get a named child logger
 from get_logger() instead of using bare print() statements.
 """
+
 import logging
 import sys
-from typing import Optional
 
 
-def get_logger(name: str, level: Optional[int] = None) -> logging.Logger:
+def get_logger(name: str, level: int | None = None) -> logging.Logger:
     """
     Return a named logger with a consistent format.
     Call once per module:  logger = get_logger(__name__)

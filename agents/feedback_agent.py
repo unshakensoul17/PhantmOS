@@ -26,12 +26,15 @@ Public Methods:
 Dependencies:
     delivery.feedback_processor, core.database_manager
 """
+
 from core.logger import get_logger
+from delivery.feedback_processor import (
+    get_skip_reasons as _get_skip_reasons,
+)
 from delivery.feedback_processor import (
     handle_apply,
     handle_review,
     handle_skip,
-    get_skip_reasons as _get_skip_reasons,
 )
 
 logger = get_logger(__name__)

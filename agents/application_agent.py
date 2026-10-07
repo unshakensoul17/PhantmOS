@@ -26,14 +26,15 @@ Dependencies:
     synthesis.pdf_factory, delivery.queue_manager, interface.telegram_delivery,
     interface.email_dispatcher
 """
+
 import asyncio
 import json
 
 from core.database_manager import get_leads_by_status, update_job_lead
 from core.logger import get_logger
-from synthesis.pdf_factory import generate_and_upload_pdf
 from delivery.queue_manager import process_delivery_queue
 from interface.telegram_delivery import send_job_card
+from synthesis.pdf_factory import generate_and_upload_pdf
 
 logger = get_logger(__name__)
 
@@ -45,11 +46,9 @@ class ApplicationAgent:
         """Generate PDFs for Tailored leads missing a resume_url."""
         user_id = profile.get("id")
         leads = get_leads_by_status("Tailored", limit=50, user_id=user_id)
-        needs_pdf = [l for l in leads if not l.get("resume_url")]
+        needs_pdf = [lead for lead in leads if not lead.get("resume_url")]
 
-        logger.info(
-            f"ApplicationAgent: {len(needs_pdf)} leads need PDF for user {user_id}"
-        )
+        logger.info(f"ApplicationAgent: {len(needs_pdf)} leads need PDF for user {user_id}")
         generated = failed = 0
 
         async def _gen(lead: dict) -> bool:
@@ -62,9 +61,7 @@ class ApplicationAgent:
             except Exception:
                 notes = {}
 
-            resume_data = notes.get("updated_resume_json") or profile.get(
-                "resume_data", {}
-            )
+            resume_data = notes.get("updated_resume_json") or profile.get("resume_data", {})
             url = await generate_and_upload_pdf(
                 job_id=job_id, resume_data=resume_data, company_name=company
             )
@@ -75,12 +72,14 @@ class ApplicationAgent:
                 # If PDF fails (e.g., validation error), revert to 'Found' and clear the tailored JSON.
                 # This ensures the pipeline isn't stuck forever and will use the newly uploaded master resume next run.
                 notes.pop("updated_resume_json", None)
-                update_job_lead(job_id, {"status": "Found", "notes": json.dumps(notes)}, user_id=user_id)
+                update_job_lead(
+                    job_id, {"status": "Found", "notes": json.dumps(notes)}, user_id=user_id
+                )
                 return False
 
         # BUG-08 fix: inspect every result — exceptions are returned as values,
         # not raised, so we must check isinstance to count them as failures.
-        results = await asyncio.gather(*[_gen(l) for l in needs_pdf], return_exceptions=True)
+        results = await asyncio.gather(*[_gen(lead) for lead in needs_pdf], return_exceptions=True)
         for r in results:
             if isinstance(r, BaseException):
                 logger.error(f"ApplicationAgent: PDF task raised exception: {r}")
@@ -97,10 +96,7 @@ class ApplicationAgent:
 
     async def process_deliveries(self, profile: dict) -> dict:
         """Process the global delivery queue."""
-        return await process_delivery_queue(
-            profile=profile,
-            send_fn=send_job_card
-        )
+        return await process_delivery_queue(profile=profile, send_fn=send_job_card)
 
     async def run(self, profile: dict) -> dict:
         """Full outbound pipeline: generate PDFs then process delivery queue."""

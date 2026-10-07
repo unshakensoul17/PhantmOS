@@ -4,8 +4,8 @@ synthesis/prompt_builder.py — PhantmOS v2.0
 Strict prompt templates for HOT (full tailor) and WARM (light tailor).
 The LLM is given no wiggle room — output schema is enforced.
 """
-import json
 
+import json
 
 SYSTEM_PROMPT = """You are a precise resume editor. You ONLY modify what is necessary.
 Return ONLY valid JSON. No explanation. No preamble. No markdown code fences.

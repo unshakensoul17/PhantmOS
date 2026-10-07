@@ -1,163 +1,127 @@
 """
-intelligence/embedding_engine.py — PhantmOS v2.0
+intelligence/embedding_engine.py — PhantmOS v3.0
 
-Embedding layer with primary Jina AI API + local fallback.
-
-Priority:
-  1. Jina AI API  (1M tokens/month free — zero RAM cost)
-  2. paraphrase-MiniLM-L3-v2 via sentence-transformers  (~50MB, CPU-only)
-
-Master resume embedding is cached in Supabase so it is computed ONCE
-and reused across all future scoring runs.
+100% Local, $0 Cost Embedding Layer via FastEmbed & ONNX:
+  - Model: BAAI/bge-small-en-v1.5 (33M params, 384d, INT8 ONNX, #1 MTEB lightweight CPU tier)
+  - Zero PyTorch / Zero CUDA / Zero External API (No Jina API keys, No network rate limits)
+  - Thread-safe lazy singleton bound to 2 CPU execution threads
+  - In-memory fast cache + Supabase persistent embedding cache
 """
-import asyncio
-import numpy as np
-import httpx
-import hashlib
-from functools import lru_cache
-from typing import Optional
 
-from core.config import (
-    JINA_API_KEY,
-    JINA_EMBED_URL,
-    JINA_MODEL,
-    LOCAL_EMBED_MODEL,
-)
+import asyncio
+import hashlib
+import threading
+
+import numpy as np
+
+from core.config import LOCAL_EMBED_MODEL
 from core.database_manager import get_cached_embedding, store_embedding
 from core.logger import get_logger
 
 logger = get_logger(__name__)
 
-# ── Local model (lazy-loaded only if Jina fails) ──────────────────────────────
-import threading
-
+# ── Local FastEmbed Model Singleton ─────────────────────────────────────────
 _local_model = None
 _local_model_lock = threading.Lock()
 
 
 def _get_local_model():
-    """Load the lightweight local model exactly once (lazy singleton)."""
+    """Load the lightweight FastEmbed ONNX model exactly once (lazy singleton)."""
     global _local_model
     if _local_model is None:
         with _local_model_lock:
             if _local_model is None:
-                logger.info(
-                    f"Loading local fallback embedding model: {LOCAL_EMBED_MODEL}"
-                )
+                logger.info(f"Loading local FastEmbed ONNX model: {LOCAL_EMBED_MODEL}...")
                 try:
-                    from sentence_transformers import SentenceTransformer
-                    _local_model = SentenceTransformer(LOCAL_EMBED_MODEL)
-                    logger.info("Local embedding model loaded.")
+                    from fastembed import TextEmbedding
+
+                    # Bound threads to 2 to prevent container CPU oversubscription
+                    _local_model = TextEmbedding(model_name=LOCAL_EMBED_MODEL, threads=2)
+                    logger.info(f"Local FastEmbed model ({LOCAL_EMBED_MODEL}) ready on ONNX.")
                 except Exception as e:
-                    logger.error(f"Failed to load local embedding model: {e}")
+                    logger.error(f"Failed to load FastEmbed model: {e}")
                     raise
     return _local_model
 
 
-# ── Jina AI (primary) ─────────────────────────────────────────────────────────
-
-_jina_semaphore = asyncio.Semaphore(5)
-
-async def _embed_jina(text: str) -> list[float]:
-    """Call Jina AI embeddings API. Raises on failure."""
-    if not JINA_API_KEY:
-        raise EnvironmentError("JINA_API_KEY not set — falling back to local model.")
-
-    async with _jina_semaphore:
-        async with httpx.AsyncClient(timeout=30.0, trust_env=False) as client:
-            payload = {
-                "input": [text[:8000]],   # Jina v2/v3 supports up to 8192 tokens
-                "model": JINA_MODEL,
-                "dimensions": 384,
-            }
-            resp = await client.post(
-                JINA_EMBED_URL,
-                headers={
-                    "Authorization": f"Bearer {JINA_API_KEY}",
-                    "Content-Type":  "application/json",
-                },
-                json=payload,
-            )
-            # Retry on 429 Rate Limit
-            if resp.status_code == 429:
-                await asyncio.sleep(2.0)
-                resp = await client.post(
-                    JINA_EMBED_URL,
-                    headers={
-                        "Authorization": f"Bearer {JINA_API_KEY}",
-                        "Content-Type":  "application/json",
-                    },
-                    json=payload,
-                )
-            resp.raise_for_status()
-            return resp.json()["data"][0]["embedding"]
+# ── In-Memory Fast Cache (Top 1,000 recent embeddings) ──────────────────────
+_mem_cache: dict[str, list[float]] = {}
+_mem_cache_lock = threading.Lock()
 
 
-# ── Local fallback (sync → run in executor) ───────────────────────────────────
+def _get_from_mem_cache(key: str) -> list[float] | None:
+    with _mem_cache_lock:
+        return _mem_cache.get(key)
+
+
+def _put_in_mem_cache(key: str, vec: list[float]) -> None:
+    with _mem_cache_lock:
+        if len(_mem_cache) > 1000:
+            keys_to_remove = list(_mem_cache.keys())[:200]
+            for k in keys_to_remove:
+                _mem_cache.pop(k, None)
+        _mem_cache[key] = vec
+
+
+# ── Local synchronous embedding ─────────────────────────────────────────────
 
 def _embed_local_sync(text: str) -> list[float]:
-    """Synchronous local model embedding."""
+    """Synchronous FastEmbed model encoding."""
     model = _get_local_model()
-    vec = model.encode([text[:4096]], normalize_embeddings=True)[0]
-    return vec.tolist()
+    # Truncate text to ~2000 chars for high-speed CPU encoding
+    generator = model.embed([text[:2048]])
+    vec = list(generator)[0]
+    return vec.tolist() if hasattr(vec, "tolist") else list(vec)
 
-
-async def _embed_local(text: str) -> list[float]:
-    """Run the synchronous local embed in a thread so we don't block the event loop."""
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, _embed_local_sync, text)
-
-
-# ── Public embed interface ────────────────────────────────────────────────────
 
 async def embed_text_async(text: str) -> list[float]:
     """
-    Embed text using Jina AI (primary) with automatic fallback to local model.
-    Always returns a list[float] or raises.
+    Embed text asynchronously using local FastEmbed ONNX model.
+    Runs encoding in a background thread to keep FastAPI / event loops non-blocking.
     """
     if not text or not text.strip():
         raise ValueError("Cannot embed empty text.")
 
-    # Try Jina first
-    try:
-        vec = await _embed_jina(text)
-        return vec
-    except Exception as e:
-        logger.warning(f"Jina AI embedding failed ({e}). Falling back to local model.")
+    text_clean = text.strip()
+    cache_key = hashlib.md5(text_clean.encode("utf-8")).hexdigest()
 
-    # Fallback: local model
-    try:
-        vec = await _embed_local(text)
-        return vec
-    except Exception as e:
-        logger.error(f"Local embedding model also failed: {e}")
-        raise
+    # 1. Check in-memory fast cache
+    mem_cached = _get_from_mem_cache(cache_key)
+    if mem_cached is not None:
+        return mem_cached
+
+    # 2. Compute embedding via local model in thread executor
+    loop = asyncio.get_event_loop()
+    vec = await loop.run_in_executor(None, _embed_local_sync, text_clean)
+
+    # 3. Store in in-memory cache
+    _put_in_mem_cache(cache_key, vec)
+    return vec
 
 
 def embed_text(text: str) -> list[float]:
     """
-    Synchronous convenience wrapper (used by legacy callers).
-    Runs the async embed in a new event loop if none is running.
+    Synchronous convenience wrapper.
     """
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # We're inside an async context — use thread executor
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as pool:
-                future = pool.submit(asyncio.run, embed_text_async(text))
-                return future.result()
-        else:
-            return loop.run_until_complete(embed_text_async(text))
-    except Exception:
-        # Absolute last resort: pure local sync
-        return _embed_local_sync(text)
+    if not text or not text.strip():
+        raise ValueError("Cannot embed empty text.")
+
+    text_clean = text.strip()
+    cache_key = hashlib.md5(text_clean.encode("utf-8")).hexdigest()
+
+    mem_cached = _get_from_mem_cache(cache_key)
+    if mem_cached is not None:
+        return mem_cached
+
+    vec = _embed_local_sync(text_clean)
+    _put_in_mem_cache(cache_key, vec)
+    return vec
 
 
-# ── Cosine similarity ─────────────────────────────────────────────────────────
+# ── Cosine similarity ───────────────────────────────────────────────────────
 
 def cosine_similarity(vec1: list[float], vec2: list[float]) -> float:
-    """Compute cosine similarity between two embedding vectors."""
+    """Compute cosine similarity between two normalized embedding vectors."""
     v1 = np.array(vec1, dtype=np.float32)
     v2 = np.array(vec2, dtype=np.float32)
     norm1 = np.linalg.norm(v1)
@@ -167,15 +131,13 @@ def cosine_similarity(vec1: list[float], vec2: list[float]) -> float:
     return float(np.dot(v1, v2) / (norm1 * norm2))
 
 
-# ── Master resume embedding (cached in Supabase) ──────────────────────────────
-
-MASTER_RESUME_CACHE_KEY = "master_resume_v2"
+# ── Master resume embedding (cached in Supabase) ────────────────────────────
 
 async def get_master_embedding(resume_text: str, user_id: str) -> list[float]:
     """
     Return the master resume embedding for a specific user.
-    - First call: embed → store in Supabase → return
-    - Subsequent calls: load from Supabase (no API call)
+    - First call: embed locally → store in Supabase → return
+    - Subsequent calls: load from Supabase / memory cache
     """
     cache_key = f"master_resume_{user_id}"
     cached = get_cached_embedding(cache_key)
@@ -183,7 +145,7 @@ async def get_master_embedding(resume_text: str, user_id: str) -> list[float]:
         logger.info(f"Master resume embedding loaded from cache for user {user_id}.")
         return cached
 
-    logger.info(f"Computing master resume embedding (first time) for user {user_id}…")
+    logger.info(f"Computing local master resume embedding (first time) for user {user_id}…")
     embedding = await embed_text_async(resume_text)
     store_embedding(cache_key, embedding)
     logger.info(f"Master resume embedding stored in cache for user {user_id}.")
@@ -192,32 +154,39 @@ async def get_master_embedding(resume_text: str, user_id: str) -> list[float]:
 
 def invalidate_master_cache(user_id: str) -> None:
     """
-    Call this when the master resume JSON is updated so the
-    embedding is recomputed on the next pipeline run.
+    Invalidate master resume embedding when user updates profile.
     """
     from core.database_manager import get_client
+
     cache_key = f"master_resume_{user_id}"
     try:
-        get_client().table("embedding_cache").delete().eq(
-            "key", cache_key
-        ).execute()
+        get_client().table("embedding_cache").delete().eq("key", cache_key).execute()
+        with _mem_cache_lock:
+            _mem_cache.clear()
         logger.info(f"Master resume embedding cache invalidated for user {user_id}.")
     except Exception as e:
         logger.error(f"Failed to invalidate embedding cache: {e}")
 
+
 async def get_job_embedding(desc: str) -> list[float]:
     """
-    Return the job description embedding. Uses MD5 hash for global caching
-    across all users to save API credits.
+    Return the job description embedding with global persistent caching.
     """
-    desc_hash = hashlib.md5(desc.encode('utf-8')).hexdigest()
+    desc_hash = hashlib.md5(desc.encode("utf-8")).hexdigest()
     cache_key = f"job_desc_{desc_hash}"
-    
+
+    # In-memory check first
+    mem = _get_from_mem_cache(cache_key)
+    if mem:
+        return mem
+
+    # Persistent DB cache check
     cached = get_cached_embedding(cache_key)
     if cached:
+        _put_in_mem_cache(cache_key, cached)
         return cached
-        
+
     embedding = await embed_text_async(desc)
     store_embedding(cache_key, embedding)
+    _put_in_mem_cache(cache_key, embedding)
     return embedding
-

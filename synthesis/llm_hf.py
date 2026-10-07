@@ -7,8 +7,10 @@ Model: mistralai/Mistral-7B-Instruct-v0.3 (free tier).
 Used as the final LLM fallback before sending the original resume.
 Compatible with HF Spaces runtime (no Ollama needed).
 """
+
 import json
 import re
+
 import httpx
 
 from core.config import HF_API_KEY, HF_MODEL
@@ -26,12 +28,10 @@ async def call_hf(system_prompt: str, user_prompt: str, api_key: str = None) -> 
     """
     key = api_key or HF_API_KEY
     if not key:
-        raise EnvironmentError("HF_API_KEY not configured.")
+        raise OSError("HF_API_KEY not configured.")
 
     # Mistral uses [INST] formatting
-    prompt = (
-        f"<s>[INST] {system_prompt}\n\n{user_prompt} [/INST]"
-    )
+    prompt = f"<s>[INST] {system_prompt}\n\n{user_prompt} [/INST]"
 
     payload = {
         "inputs": prompt,
@@ -57,10 +57,7 @@ async def call_hf(system_prompt: str, user_prompt: str, api_key: str = None) -> 
 
         raw = resp.json()
         # HF returns a list of generated text dicts
-        if isinstance(raw, list) and raw:
-            text = raw[0].get("generated_text", "")
-        else:
-            text = str(raw)
+        text = raw[0].get("generated_text", "") if isinstance(raw, list) and raw else str(raw)
 
         logger.info("HuggingFace: response received.")
         return _extract_json(text)

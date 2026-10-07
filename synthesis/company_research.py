@@ -6,17 +6,21 @@ Module for generating AI-driven company intelligence including:
 2. Stability & Layoff Risk Scoring
 3. Automated Interview Playbooks
 """
+
 import json
-from core.logger import get_logger
-from synthesis.llm_groq import call_groq
 import warnings
 
+from core.logger import get_logger
+from synthesis.llm_groq import call_groq
+
 logger = get_logger(__name__)
+
 
 def _get_realtime_news(company_name: str) -> str:
     """Fetch real-time news headlines to inject into the LLM prompt to overcome its 2-year knowledge lag."""
     try:
         from duckduckgo_search import DDGS
+
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             with DDGS() as ddgs:
@@ -27,10 +31,14 @@ def _get_realtime_news(company_name: str) -> str:
                         date = r.get("date", "")[:10]  # Just YYYY-MM-DD
                         title = r.get("title", "")
                         news_lines.append(f"- [{date}] {title}")
-                    return "Here is the REAL-TIME news for this company (Use this to fill 'news_timeline' and assess 'stability'):\n" + "\n".join(news_lines)
+                    return (
+                        "Here is the REAL-TIME news for this company (Use this to fill 'news_timeline' and assess 'stability'):\n"
+                        + "\n".join(news_lines)
+                    )
     except Exception as e:
         logger.warning(f"OSINT news scrape failed for {company_name}: {e}")
     return "Real-time news unavailable. Rely on your pre-trained knowledge."
+
 
 async def generate_company_intelligence(company_name: str) -> dict:
     """
@@ -55,6 +63,7 @@ The output MUST be a JSON object with this exact schema:
 }
 """
     import asyncio
+
     realtime_context = await asyncio.to_thread(_get_realtime_news, company_name)
     user_prompt = f"Analyze the tech company: {company_name}\n\n{realtime_context}"
 
@@ -77,17 +86,13 @@ The output MUST be a JSON object with this exact schema:
             "stack": ["React", "Python", "Docker", "AWS"],
             "news_timeline": ["Actively hiring engineering roles."],
             "insight": f"Data not available for {company_name}. Assuming baseline startup risk.",
-            "stability": {
-                "trend": "flat",
-                "risk_score": 50,
-                "risk_label": "Unknown Risk"
-            }
+            "stability": {"trend": "flat", "risk_score": 50, "risk_label": "Unknown Risk"},
         }
 
 
 async def generate_interview_playbook(company_name: str, role: str = "Software Engineer") -> dict:
     """
-    Generate an actionable interview playbook containing cultural values, 
+    Generate an actionable interview playbook containing cultural values,
     historical technical questions, and recent product launches.
     """
     system_prompt = """You are a FAANG-level career coach and technical interviewer.
@@ -128,6 +133,8 @@ Output MUST be a strict JSON object with this schema:
             "company": company_name,
             "role": role,
             "cultural_values": ["Focus on impact and ownership."],
-            "technical_questions": [{"stage": "Technical", "question": "Standard algorithmic questions."}],
-            "product_launches": ["Core product updates."]
+            "technical_questions": [
+                {"stage": "Technical", "question": "Standard algorithmic questions."}
+            ],
+            "product_launches": ["Core product updates."],
         }

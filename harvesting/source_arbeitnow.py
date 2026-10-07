@@ -6,7 +6,9 @@ Endpoint: https://www.arbeitnow.com/api/job-board-api
 Free tier: unlimited.
 Best for: EU + Global Remote roles.
 """
+
 import httpx
+
 from core.logger import get_logger
 
 logger = get_logger(__name__)
@@ -28,7 +30,9 @@ async def fetch_arbeitnow(search_query: str = None) -> list[dict]:
     Returns normalised job dicts.
     """
     results: list[dict] = []
-    terms = [search_query.strip()] if search_query and search_query.strip() else DEFAULT_SEARCH_TERMS
+    terms = (
+        [search_query.strip()] if search_query and search_query.strip() else DEFAULT_SEARCH_TERMS
+    )
 
     async with httpx.AsyncClient(timeout=20.0) as client:
         for term in terms:
@@ -53,12 +57,12 @@ def _normalise(job: dict) -> dict:
     """Map Arbeitnow fields → PhantmOS standard schema."""
     tags = job.get("tags") or []
     return {
-        "title":           job.get("title", ""),
-        "company":         job.get("company_name", ""),
-        "job_url":         job.get("url", ""),
+        "title": job.get("title", ""),
+        "company": job.get("company_name", ""),
+        "job_url": job.get("url", ""),
         "raw_description": job.get("description", ""),
-        "source":          "arbeitnow",
-        "location":        job.get("location", "Remote"),
-        "salary":          "",
-        "tags":            ", ".join(tags) if isinstance(tags, list) else str(tags),
+        "source": "arbeitnow",
+        "location": job.get("location", "Remote"),
+        "salary": "",
+        "tags": ", ".join(tags) if isinstance(tags, list) else str(tags),
     }

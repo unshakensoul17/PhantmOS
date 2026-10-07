@@ -25,6 +25,7 @@ Public Methods:
 Dependencies:
     intelligence.scorer, intelligence.embedding_engine, core.database_manager
 """
+
 from core.logger import get_logger
 from intelligence.scorer import run_scoring
 
@@ -45,6 +46,7 @@ class RankingAgent:
             return await run_scoring(profile, manual_query=manual_query)
         except Exception as e:
             import traceback
+
             logger.error(f"RankingAgent: scoring failed — {e}")
             logger.error(traceback.format_exc())
             return {"hot": 0, "warm": 0, "cold": 0, "reject": 0, "total": 0}

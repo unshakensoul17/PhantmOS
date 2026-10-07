@@ -10,13 +10,15 @@ Format matches the v2 spec exactly:
   PDF link + Cold email preview button
   Auto-Apply | Review | Skip buttons
 """
+
 import json
+
 from core.logger import get_logger
 
 logger = get_logger(__name__)
 
 BAND_EMOJI = {
-    "HOT":  "🔥",
+    "HOT": "🔥",
     "WARM": "🌤️",
     "COLD": "❄️",
 }
@@ -136,7 +138,7 @@ def format_triage_card(lead: dict, current_idx: int = 0, total_count: int = 1) -
         f"🏢 *{safe_company}* · 📍 {safe_location}{salary_part}",
         f"{emoji} *{score:.0f}% Match ({band})*",
         "",
-        f"💡 *Key Match:*",
+        "💡 *Key Match:*",
         f"_{angle_text}_",
         "",
         f"📄 *Status:* {status_indicator}",
@@ -145,31 +147,30 @@ def format_triage_card(lead: dict, current_idx: int = 0, total_count: int = 1) -
     return "\n".join(lines).strip()
 
 
-
 def format_job_card(lead: dict) -> str:
     """
     Build the rich Telegram markdown message for a single job lead.
     Returns a Markdown-formatted string safe for Telegram MarkdownV2.
     """
-    band        = lead.get("score_band", "WARM")
-    score       = lead.get("match_score", 0) * 100
-    company     = lead.get("company", "Unknown")
-    title       = lead.get("title", "Unknown Role")
-    location    = lead.get("location", "Remote")
-    job_url     = lead.get("job_url", "")
-    resume_url  = lead.get("resume_url", "")
-    source      = lead.get("source", "")
+    band = lead.get("score_band", "WARM")
+    score = lead.get("match_score", 0) * 100
+    company = lead.get("company", "Unknown")
+    title = lead.get("title", "Unknown Role")
+    location = lead.get("location", "Remote")
+    job_url = lead.get("job_url", "")
+    resume_url = lead.get("resume_url", "")
+    lead.get("source", "")
 
     # Parse notes
-    notes_raw   = lead.get("notes") or "{}"
+    notes_raw = lead.get("notes") or "{}"
     try:
         notes = json.loads(notes_raw)
     except Exception:
         notes = {}
 
-    cold_email  = notes.get("cold_email", "")
-    changes     = notes.get("changes_made", [])
-    rationale   = notes.get("rationale", "")
+    notes.get("cold_email", "")
+    changes = notes.get("changes_made", [])
+    rationale = notes.get("rationale", "")
 
     # Parse score breakdown for "why you match"
     breakdown_raw = lead.get("score_breakdown") or "{}"
@@ -178,10 +179,10 @@ def format_job_card(lead: dict) -> str:
     except Exception:
         breakdown = {}
 
-    emoji = BAND_EMOJI.get(band, "📋")
+    BAND_EMOJI.get(band, "📋")
 
     # ── Why you match bullets ─────────────────────────────────────────────────
-    why_bullets = _build_why_bullets(breakdown, rationale)
+    _build_why_bullets(breakdown, rationale)
 
     # ── What was tailored ──────────────────────────────────────────────────────
     tailored_lines = ""
@@ -193,15 +194,12 @@ def format_job_card(lead: dict) -> str:
         tailored_lines = "• Original resume sent (best match as-is)"
 
     # ── PDF / resume line ──────────────────────────────────────────────────────
-    resume_link = f"[View PDF]({resume_url})" if (resume_url and resume_url.startswith("http")) else "Generating PDF..."
+    f"[View PDF]({resume_url})" if (
+        resume_url and resume_url.startswith("http")
+    ) else "Generating PDF..."
     jd_link = f"[View JD]({job_url})" if job_url else "No Link"
 
-    # We want rationale as the hook. If missing, fallback to one bullet from breakdown.
-    if rationale:
-        hook_text = _escape(rationale)
-    else:
-        # fallback to breakdown bullets
-        hook_text = _build_why_bullets(breakdown, rationale)
+    hook_text = _escape(rationale) if rationale else _build_why_bullets(breakdown, rationale)
 
     card = (
         f"🚀 *{_escape(title)}* @ *{_escape(company)}*\n"
@@ -235,8 +233,8 @@ def format_cold_email_preview(lead: dict) -> str:
 def format_review_card(lead: dict) -> str:
     """Detailed review card showing JD excerpt + tailoring summary."""
     company = lead.get("company", "")
-    title   = lead.get("title", "")
-    desc    = (lead.get("raw_description") or "")[:600]
+    title = lead.get("title", "")
+    desc = (lead.get("raw_description") or "")[:600]
 
     notes_raw = lead.get("notes") or "{}"
     try:
@@ -244,7 +242,7 @@ def format_review_card(lead: dict) -> str:
     except Exception:
         notes = {}
 
-    changes  = notes.get("changes_made", [])
+    changes = notes.get("changes_made", [])
     provider = notes.get("llm_provider", "unknown")
 
     changes_text = "\n".join(f"• {c}" for c in changes) if changes else "• No changes made"
@@ -258,12 +256,13 @@ def format_review_card(lead: dict) -> str:
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def _build_why_bullets(breakdown: dict, rationale: str) -> str:
     """Generate 3 contextual 'why you match' bullet points."""
     bullets = []
 
-    sem   = breakdown.get("semantic", 0)
-    kw    = breakdown.get("keyword", 0)
+    sem = breakdown.get("semantic", 0)
+    kw = breakdown.get("keyword", 0)
     title = breakdown.get("title", 0)
 
     if sem >= 0.75:
@@ -272,7 +271,9 @@ def _build_why_bullets(breakdown: dict, rationale: str) -> str:
         bullets.append("• Moderate semantic alignment with the job description")
 
     if kw >= 0.6:
-        bullets.append("• Strong keyword match — Python, PyTorch, ML terms confirmed in your resume")
+        bullets.append(
+            "• Strong keyword match — Python, PyTorch, ML terms confirmed in your resume"
+        )
     elif kw >= 0.3:
         bullets.append("• Partial keyword overlap with required tech stack")
 
@@ -294,8 +295,26 @@ def _escape(text: str) -> str:
         return ""
     text = str(text)
     # For Markdown mode (not V2), fewer escapes needed
-    special = ["_", "*", "[", "]", "(", ")", "~", "`", ">", "#",
-               "+", "-", "=", "|", "{", "}", ".", "!"]
+    special = [
+        "_",
+        "*",
+        "[",
+        "]",
+        "(",
+        ")",
+        "~",
+        "`",
+        ">",
+        "#",
+        "+",
+        "-",
+        "=",
+        "|",
+        "{",
+        "}",
+        ".",
+        "!",
+    ]
     for ch in special:
         text = text.replace(ch, f"\\{ch}")
     return text

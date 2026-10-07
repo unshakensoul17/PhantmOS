@@ -24,10 +24,11 @@ Public Methods:
 Dependencies:
     synthesis.context_researcher, core.database_manager
 """
-from core.database_manager import get_company_context, store_company_context
+
 from core.config import COMPANY_CONTEXT_MAX_AGE_DAYS
+from core.database_manager import get_company_context, store_company_context
 from core.logger import get_logger
-from synthesis.context_researcher import get_cached_company_context, _scrape_ddg
+from synthesis.context_researcher import _scrape_ddg, get_cached_company_context
 
 logger = get_logger(__name__)
 
@@ -53,6 +54,7 @@ class ResearchAgent:
     async def refresh_context(self, company_name: str) -> str:
         """Force a fresh scrape and update the cache."""
         import asyncio
+
         context = await asyncio.to_thread(_scrape_ddg, company_name)
         store_company_context(company_name, context)
         logger.info(f"ResearchAgent: refreshed context for '{company_name}'")

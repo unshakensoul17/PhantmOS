@@ -13,42 +13,42 @@ Stage isolation:        One job failing NEVER stops the rest of the pipeline.
 
 The orchestrator ONLY coordinates agents. It contains ZERO business logic.
 """
+
 import asyncio
 import json
-import random
 from datetime import datetime
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from dotenv import load_dotenv
 
-from core.config import DEFAULT_TIMEZONE, DIGEST_HOUR, DIGEST_MINUTE
-from core.database_manager import get_client, get_leads_by_status
-from core.logger import get_logger
-from core.encryption import decrypt_key
-
 from agents import (
+    AnalyticsAgent,
+    ApplicationAgent,
     DiscoveryAgent,
     RankingAgent,
     ResumeAgent,
-    ApplicationAgent,
-    AnalyticsAgent,
 )
+from core.config import DEFAULT_TIMEZONE, DIGEST_HOUR, DIGEST_MINUTE
+from core.database_manager import get_client
+from core.encryption import decrypt_key
+from core.logger import get_logger
 from global_harvester import run_global_harvest
 
 load_dotenv()
 logger = get_logger(__name__)
 
 # ── Instantiate agents (lightweight — no state, no heavy init) ────────────────
-discovery_agent   = DiscoveryAgent()
-ranking_agent     = RankingAgent()
-resume_agent      = ResumeAgent()
+discovery_agent = DiscoveryAgent()
+ranking_agent = RankingAgent()
+resume_agent = ResumeAgent()
 application_agent = ApplicationAgent()
-analytics_agent   = AnalyticsAgent()
+analytics_agent = AnalyticsAgent()
 
 
 # ─────────────────────────────────────────────────────────
 #  MAIN PIPELINE
 # ─────────────────────────────────────────────────────────
+
 
 async def process_pipeline(manual_query: str = None, target_user_id: str = None) -> dict:
     """
@@ -82,37 +82,39 @@ async def process_pipeline(manual_query: str = None, target_user_id: str = None)
     for profile in profiles:
         user_id = profile.get("id")
         email = profile.get("email", "unknown")
-        
+
         # Scheduler check
         if not manual_query and not target_user_id:
             import time
+
             prefs = profile.get("preferences") or {}
             sched_prefs = prefs.get("scheduler") or {}
             try:
                 freq = float(sched_prefs.get("frequency_hours", 4))
             except (ValueError, TypeError):
                 freq = 4.0
-                
+
             try:
                 last_run = float(sched_prefs.get("last_run_timestamp", 0))
             except (ValueError, TypeError):
                 last_run = 0.0
-                
+
             now = time.time()
-            
+
             pause_weekends = sched_prefs.get("pause_weekends", False)
             if pause_weekends and datetime.now().weekday() >= 5:
                 continue
-                
+
             if now - last_run < (freq * 3600):
                 continue
-                
+
             # Update last run timestamp
             sched_prefs["last_run_timestamp"] = now
             prefs["scheduler"] = sched_prefs
             from core.database_manager import update_profile
+
             update_profile({"preferences": prefs}, user_id=user_id)
-            
+
         logger.info(f"\n>>> Processing pipeline for user: {email} ({user_id})")
 
         user_summary = {}
@@ -124,10 +126,11 @@ async def process_pipeline(manual_query: str = None, target_user_id: str = None)
 
         if credits <= 0 and not has_byok:
             logger.warning(f"User {user_id} has no credits and no BYOK — skipping LLM pipeline.")
-            
+
             # BUG-13 fix: Alert the user via Telegram that they are out of credits
             try:
                 from interface.telegram_delivery import bot
+
                 chat_id = profile.get("telegram_chat_id")
                 if bot and chat_id:
                     msg = "⚠️ *Pipeline Paused: Out of Credits*\n\nYou have 0 credits remaining and no personal API keys configured. Please upgrade your plan or add your API keys in the dashboard to resume job discovery."
@@ -141,6 +144,7 @@ async def process_pipeline(manual_query: str = None, target_user_id: str = None)
 
         if not has_byok:
             from core.database_manager import deduct_credit
+
             if not deduct_credit(user_id):
                 logger.warning(f"User {user_id} credit deduction failed — skipping.")
                 user_summary["status"] = "skipped_credit_deduction_failed"
@@ -151,7 +155,7 @@ async def process_pipeline(manual_query: str = None, target_user_id: str = None)
         # ── STAGE 1: Local Discovery Agent ──────────────────────────────────────────
         try:
             logger.info(f"User {user_id}: >>> STAGE 1: Local Discovery Agent")
-            
+
             # Use manual query if provided, otherwise fallback to profile's target role
             query = manual_query
             if not query:
@@ -162,15 +166,19 @@ async def process_pipeline(manual_query: str = None, target_user_id: str = None)
                     query = target_roles[0]
                 elif resume_role:
                     query = resume_role
-                    
+
             if not query:
-                logger.warning(f"User {user_id} has no target roles or resume role. Skipping harvest.")
-                user_summary["harvest"] = {"skipped": "No search query available (please set target roles in UI)."}
+                logger.warning(
+                    f"User {user_id} has no target roles or resume role. Skipping harvest."
+                )
+                user_summary["harvest"] = {
+                    "skipped": "No search query available (please set target roles in UI)."
+                }
                 summary["details"][user_id] = user_summary
                 continue
-                    
+
             raw_jobs = await discovery_agent.run_for_user(search_query=query, user_id=user_id)
-            
+
             logger.info(f"User {user_id}: >>> STAGE 1.5: Saving & Deduplicating")
             saved = discovery_agent.save_leads(raw_jobs, user_id)
             user_summary["harvest"] = {"new_saved": saved, "raw_fetched": len(raw_jobs)}
@@ -207,7 +215,7 @@ async def process_pipeline(manual_query: str = None, target_user_id: str = None)
         except Exception as e:
             logger.error(f"User {user_id} Stage 5 FAILED: {e}")
             user_summary["delivery"] = {"error": str(e)}
-            
+
         summary["details"][user_id] = user_summary
 
     # ── Record pipeline run ───────────────────────────────────────────────────
@@ -221,6 +229,7 @@ async def process_pipeline(manual_query: str = None, target_user_id: str = None)
 # ─────────────────────────────────────────────────────────
 #  HELPERS
 # ─────────────────────────────────────────────────────────
+
 
 def _resolve_api_keys(profile: dict) -> dict:
     """Extract and decrypt BYOK keys from user profile."""
@@ -245,9 +254,10 @@ def _resolve_api_keys(profile: dict) -> dict:
 #  SCHEDULER
 # ─────────────────────────────────────────────────────────
 
+
 async def _scheduled_pipeline():
     """Wrapper to run the pipeline."""
-    # Delay is removed since the cron is now running frequently, 
+    # Delay is removed since the cron is now running frequently,
     # and stagger is naturally handled if we process sequentially.
     await process_pipeline()
 
@@ -266,25 +276,31 @@ async def main():
     """Initialise and start APScheduler in a pure asyncio loop."""
     scheduler = AsyncIOScheduler(timezone=DEFAULT_TIMEZONE)
 
-    # Run the pipeline every hour. The process_pipeline function will 
+    # Run the pipeline every hour. The process_pipeline function will
     # internally skip users whose frequency_hours haven't elapsed.
     scheduler.add_job(
-        _scheduled_pipeline, "interval",
+        _scheduled_pipeline,
+        "interval",
         hours=1,
         id="hourly_pipeline",
     )
     logger.info("Scheduled pipeline check to run every 1 hour.")
 
     scheduler.add_job(
-        _scheduled_digest, "cron",
-        hour=DIGEST_HOUR, minute=DIGEST_MINUTE,
+        _scheduled_digest,
+        "cron",
+        hour=DIGEST_HOUR,
+        minute=DIGEST_MINUTE,
         id="daily_digest",
     )
-    logger.info(f"Scheduled daily digest at {DIGEST_HOUR:02d}:{DIGEST_MINUTE:02d} {DEFAULT_TIMEZONE}")
+    logger.info(
+        f"Scheduled daily digest at {DIGEST_HOUR:02d}:{DIGEST_MINUTE:02d} {DEFAULT_TIMEZONE}"
+    )
 
     # BUG-12 fix: schedule global harvester
     scheduler.add_job(
-        _scheduled_global_harvest, "interval",
+        _scheduled_global_harvest,
+        "interval",
         hours=4,
         id="global_harvest",
     )

@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase } from "./supabase";
 
 let globalAuthToken: string | null = null;
 
@@ -8,7 +8,7 @@ export const setGlobalAuthToken = (token: string | null) => {
 
 export const apiFetch = async (url: string, options: RequestInit = {}) => {
   const headers = new Headers(options.headers || {});
-  
+
   let token = globalAuthToken;
   if (!token) {
     try {
@@ -21,11 +21,11 @@ export const apiFetch = async (url: string, options: RequestInit = {}) => {
       // Ignore session fetch errors on unauthenticated requests
     }
   }
-  
+
   if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
+    headers.set("Authorization", `Bearer ${token}`);
   }
-  
+
   return fetch(url, {
     ...options,
     headers,

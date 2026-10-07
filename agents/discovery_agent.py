@@ -20,9 +20,10 @@ Dependencies:
     harvesting.harvest_orchestrator, intelligence.keyword_filter,
     intelligence.deduplicator, core.database_manager
 """
-from core.database_manager import get_client, bulk_upsert_job_leads
+
+from core.database_manager import bulk_upsert_job_leads, get_client
 from core.logger import get_logger
-from harvesting.harvest_orchestrator import run_harvest, build_lead
+from harvesting.harvest_orchestrator import build_lead, run_harvest
 from intelligence.deduplicator import filter_new_jobs
 
 logger = get_logger(__name__)
@@ -36,7 +37,9 @@ class DiscoveryAgent:
         Harvest jobs from all sources, apply keyword filter, return normalized list.
         Does NOT persist to DB — call save_leads() per user for that.
         """
-        logger.info(f"DiscoveryAgent: starting harvest{f' for query {search_query}' if search_query else ''}")
+        logger.info(
+            f"DiscoveryAgent: starting harvest{f' for query {search_query}' if search_query else ''}"
+        )
         try:
             jobs = await run_harvest(search_query=search_query)
             logger.info(f"DiscoveryAgent: {len(jobs)} jobs after filtering")
@@ -57,10 +60,14 @@ class DiscoveryAgent:
         """
         logger.info(f"DiscoveryAgent: searching local DB for '{search_query}' (user {user_id})...")
         try:
-            resp = get_client().rpc(
-                "search_global_jobs_for_user",
-                {"p_user_id": user_id, "p_query": search_query or "", "p_limit": 20}
-            ).execute()
+            resp = (
+                get_client()
+                .rpc(
+                    "search_global_jobs_for_user",
+                    {"p_user_id": user_id, "p_query": search_query or "", "p_limit": 20},
+                )
+                .execute()
+            )
 
             local_jobs = resp.data or []
             logger.info(f"DiscoveryAgent: found {len(local_jobs)} matching jobs locally.")
@@ -71,7 +78,9 @@ class DiscoveryAgent:
                 return local_jobs
 
             # Insufficient local matches — fetch fresh raw jobs from external APIs
-            logger.info(f"DiscoveryAgent: insufficient local jobs. Falling back to external APIs for '{search_query}'...")
+            logger.info(
+                f"DiscoveryAgent: insufficient local jobs. Falling back to external APIs for '{search_query}'..."
+            )
             api_jobs = await self.run(search_query=search_query)
             # Return ONLY the raw API jobs; save_leads will build+dedup them
             # Local jobs already exist in global_jobs and need no reprocessing
@@ -108,6 +117,6 @@ class DiscoveryAgent:
         except Exception as e:
             logger.error(f"DiscoveryAgent: bulk upsert failed - {e}")
             saved = 0
-            
+
         logger.info(f"DiscoveryAgent: saved {saved} leads for user {user_id}")
         return saved

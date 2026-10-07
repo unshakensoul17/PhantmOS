@@ -25,8 +25,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    let realtimeChannel: any = null;
-
     const initAuth = async () => {
       // 1. Check existing Supabase session first
       try {
@@ -96,9 +94,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     return () => {
       subscription.unsubscribe();
-      if (realtimeChannel) {
-        supabase.removeChannel(realtimeChannel);
-      }
     };
   }, [queryClient]);
 

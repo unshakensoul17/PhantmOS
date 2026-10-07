@@ -8,16 +8,15 @@ Optimizations:
   - Skipped items batch-updated in one DB call (not N individual calls)
   - Active deliveries run concurrently via asyncio.gather
 """
-import asyncio
+
 import json
 
 from core.config import DELIVERY_MAX_ATTEMPTS
 from core.database_manager import (
-    get_pending_deliveries,
-    update_delivery_status,
     get_client,
+    get_pending_deliveries,
     log_stage_success,
-    log_stage_failure,
+    update_delivery_status,
 )
 from core.logger import get_logger
 
@@ -43,7 +42,7 @@ async def process_delivery_queue(profile: dict, send_fn) -> dict:
     preferences = profile.get("preferences") or {}
     if not preferences:
         try:
-            with open("settings.json", "r") as f:
+            with open("settings.json") as f:
                 preferences = json.load(f)
         except Exception:
             pass
@@ -69,9 +68,13 @@ async def process_delivery_queue(profile: dict, send_fn) -> dict:
     # ── Batch-mark all skipped items as "sent" in ONE DB call ─────────────────
     if to_skip:
         skip_ids = [i["id"] for i in to_skip]
-        logger.info(f"Delivery: batch-skipping {len(skip_ids)} items below threshold {telegram_threshold:.0f}%.")
+        logger.info(
+            f"Delivery: batch-skipping {len(skip_ids)} items below threshold {telegram_threshold:.0f}%."
+        )
         try:
-            get_client().table("delivery_queue").update({"status": "sent"}).in_("id", skip_ids).execute()
+            get_client().table("delivery_queue").update({"status": "sent"}).in_(
+                "id", skip_ids
+            ).execute()
         except Exception as e:
             logger.error(f"Delivery: batch skip update failed: {e}")
 
@@ -81,13 +84,17 @@ async def process_delivery_queue(profile: dict, send_fn) -> dict:
         chat_id = profile.get("telegram_chat_id")
         if chat_id:
             from interface.telegram_delivery import send_triage_deck
+
             success = await send_triage_deck(profile=profile, chat_id=chat_id)
             if success:
                 delivery_ids = [i["id"] for i in to_deliver]
-                get_client().table("delivery_queue").update({"status": "sent"}).in_("id", delivery_ids).execute()
+                get_client().table("delivery_queue").update({"status": "sent"}).in_(
+                    "id", delivery_ids
+                ).execute()
                 for i in to_deliver:
                     job_id = i.get("job_id")
-                    if job_id: log_stage_success(job_id, "delivery")
+                    if job_id:
+                        log_stage_success(job_id, "delivery")
                 sent = len(to_deliver)
             else:
                 for i in to_deliver:

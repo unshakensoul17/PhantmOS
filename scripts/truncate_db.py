@@ -10,9 +10,9 @@ Usage:
     python scripts/truncate_db.py --confirm    # actually truncates
 """
 
-import sys
 import os
 import socket
+import sys
 
 # Force IPv4-only to bypass local broken IPv6 network routing/DNS hangs
 _orig_getaddrinfo = socket.getaddrinfo
@@ -23,6 +23,7 @@ socket.getaddrinfo = lambda *args, **kwargs: [
 # Load .env from project root
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from dotenv import load_dotenv
+
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"), override=True)
 
 from core.database_manager import get_client
@@ -30,12 +31,15 @@ from core.database_manager import get_client
 # Tables to truncate in dependency order (children first, parents last).
 # auth.users and user_profiles are deliberately excluded — accounts are preserved.
 TABLES = [
-    # Leaf / most dependent first
-    # Pipeline data
+    # Leaf / dependent tables first
+    "delivery_queue",
+    "user_feedback",
+    "stage_logs",
+    "auth_debug_logs",
+    "embedding_cache",
     "user_job_pipelines",
     # Shared job pool
     "global_jobs",
-    # User content (resume data only, not the profile itself)
 ]
 
 PROTECTED = {"auth.users", "user_profiles"}
@@ -46,6 +50,7 @@ DRY_RUN_NOTE = """
 │  Run with --confirm to actually truncate the tables above.      │
 └─────────────────────────────────────────────────────────────────┘
 """
+
 
 def main():
     confirm = "--confirm" in sys.argv
@@ -70,13 +75,14 @@ def main():
     # Per-table config: (pk_column, sentinel_value_to_exclude)
     # Supabase delete requires a filter — we use neq on the PK with an impossible value.
     TABLE_CONFIG = {
-        "stage_logs":         ("id",           -1),
-        "user_feedback":      ("id",           -1),
-        "delivery_queue":     ("id",           -1),
-        "auth_debug_logs":    ("id",           -1),           # integer PK
-        "user_job_pipelines": ("id",           "00000000-0000-0000-0000-000000000000"),
-        "global_jobs":        ("job_id",       "____never____"),
-        "user_resumes":       ("user_id",      "00000000-0000-0000-0000-000000000000"),
+        "stage_logs": ("id", "00000000-0000-0000-0000-000000000000"),
+        "user_feedback": ("id", "00000000-0000-0000-0000-000000000000"),
+        "delivery_queue": ("id", "00000000-0000-0000-0000-000000000000"),
+        "auth_debug_logs": ("id", -1),  # integer PK
+        "embedding_cache": ("key", "____never____"),
+        "user_job_pipelines": ("id", "00000000-0000-0000-0000-000000000000"),
+        "global_jobs": ("job_id", "____never____"),
+        "user_resumes": ("user_id", "00000000-0000-0000-0000-000000000000"),
     }
 
     for table in TABLES:

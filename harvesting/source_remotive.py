@@ -6,14 +6,14 @@ Endpoint: https://remotive.com/api/remote-jobs
 Free tier: unlimited requests.
 Best for: Remote tech / AI / ML roles.
 """
+
 import httpx
+
 from core.logger import get_logger
 
 logger = get_logger(__name__)
 
 BASE_URL = "https://remotive.com/api/remote-jobs"
-
-
 
 
 async def fetch_remotive(limit_per_term: int = 20, search_query: str = None) -> list[dict]:
@@ -45,12 +45,12 @@ async def fetch_remotive(limit_per_term: int = 20, search_query: str = None) -> 
 def _normalise(job: dict) -> dict:
     """Map Remotive fields → PhantmOS standard schema."""
     return {
-        "title":           job.get("title", ""),
-        "company":         job.get("company_name", ""),
-        "job_url":         job.get("url", ""),
+        "title": job.get("title", ""),
+        "company": job.get("company_name", ""),
+        "job_url": job.get("url", ""),
         "raw_description": job.get("description", ""),
-        "source":          "remotive",
-        "location":        job.get("candidate_required_location", "Remote"),
-        "salary":          job.get("salary", ""),
-        "tags":            ", ".join(job.get("tags", [])),
+        "source": "remotive",
+        "location": job.get("candidate_required_location", "Remote"),
+        "salary": job.get("salary", ""),
+        "tags": ", ".join(job.get("tags", [])),
     }

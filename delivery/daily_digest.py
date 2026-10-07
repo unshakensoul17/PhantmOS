@@ -4,10 +4,10 @@ delivery/daily_digest.py — PhantmOS v2.0
 Formats and sends the 9AM daily summary message to Telegram.
 Includes yesterday's pipeline stats, top leads, and system health indicators.
 """
-from datetime import datetime, timedelta
-from typing import Optional
 
-from core.config import TELEGRAM_CHAT_ID, TELEGRAM_BOT_TOKEN, TELEGRAM_API_BASE_URL
+from datetime import datetime
+
+from core.config import TELEGRAM_API_BASE_URL, TELEGRAM_BOT_TOKEN
 from core.database_manager import get_all_stats, get_client
 from core.logger import get_logger
 
@@ -63,6 +63,7 @@ async def send_daily_digest() -> bool:
 
 # ── Message builder ───────────────────────────────────────────────────────────
 
+
 def _format_digest(stats: dict, top_leads: list[dict], health: dict) -> str:
     now = datetime.now()
     date_str = now.strftime("%B %d, %Y")
@@ -71,12 +72,11 @@ def _format_digest(stats: dict, top_leads: list[dict], health: dict) -> str:
     if top_leads:
         top_lines = ""
         for i, lead in enumerate(top_leads[:3], 1):
-            score  = (lead.get("match_score") or 0) * 100
-            band   = lead.get("score_band", "")
-            emoji  = "🔥" if band == "HOT" else "🌤️"
+            score = (lead.get("match_score") or 0) * 100
+            band = lead.get("score_band", "")
+            emoji = "🔥" if band == "HOT" else "🌤️"
             top_lines += (
-                f"   {i}. {lead.get('company')} — "
-                f"{lead.get('title')} ({score:.0f}%) {emoji}\n"
+                f"   {i}. {lead.get('company')} — {lead.get('title')} ({score:.0f}%) {emoji}\n"
             )
     else:
         top_lines = "   No HOT leads today.\n"
@@ -117,7 +117,8 @@ def _format_digest(stats: dict, top_leads: list[dict], health: dict) -> str:
 
 # ── Data fetchers ─────────────────────────────────────────────────────────────
 
-def _get_todays_top_leads(user_id: Optional[str] = None) -> list[dict]:
+
+def _get_todays_top_leads(user_id: str | None = None) -> list[dict]:
     """Fetch today's top HOT/WARM leads ordered by match score."""
     try:
         today = datetime.utcnow().date().isoformat()
@@ -131,9 +132,9 @@ def _get_todays_top_leads(user_id: Optional[str] = None) -> list[dict]:
         if user_id:
             q = q.eq("user_id", user_id)
         resp = q.order("match_score", desc=True).limit(3).execute()
-        
+
         leads = []
-        for row in (resp.data or []):
+        for row in resp.data or []:
             global_job = row.pop("global_jobs", {})
             leads.append({**global_job, **row})
         return leads
@@ -158,6 +159,7 @@ def _get_system_health() -> dict:
 
 # ── Telegram sender ───────────────────────────────────────────────────────────
 
+
 async def _send_telegram(message: str, chat_id: str) -> bool:
     """Send the digest message directly via Telegram Bot API."""
     if not TELEGRAM_BOT_TOKEN or not chat_id:
@@ -165,17 +167,20 @@ async def _send_telegram(message: str, chat_id: str) -> bool:
         return False
 
     try:
-        import httpx
         url = f"{TELEGRAM_API_BASE_URL}/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
         payload = {
-            "chat_id":    chat_id,
-            "text":       message,
+            "chat_id": chat_id,
+            "text": message,
             "parse_mode": "Markdown",
         }
-        import requests
         import asyncio
+
+        import requests
+
         def _send():
-            return requests.post(url, json=payload, timeout=20.0, proxies={"http": None, "https": None})
+            return requests.post(
+                url, json=payload, timeout=20.0, proxies={"http": None, "https": None}
+            )
 
         resp = await asyncio.to_thread(_send)
         resp.raise_for_status()

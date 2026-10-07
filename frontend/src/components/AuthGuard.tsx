@@ -1,7 +1,7 @@
-import React from 'react';
-import { useAuth } from '../hooks/useAuth';
-import { useNavigate } from '@tanstack/react-router';
-import { Loader2 } from 'lucide-react';
+import React from "react";
+import { useAuth } from "../hooks/useAuth";
+import { useNavigate } from "@tanstack/react-router";
+import { Loader2 } from "lucide-react";
 
 export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -9,7 +9,7 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
 
   React.useEffect(() => {
     if (!loading && !user) {
-      navigate({ to: '/auth', search: (prev: any) => prev });
+      navigate({ to: "/auth", search: (prev: any) => prev });
     }
   }, [user, loading, navigate]);
 

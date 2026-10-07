@@ -212,9 +212,11 @@ function JobDiscoveryPage() {
           ) : (
             <div className="space-y-3">
               {leads?.map((job: any, index: number) => {
-                const s = scoreStyle(job.score_total || 0);
+                const rawScore = job.score_total ?? job.score ?? (typeof job.match_score === "number" ? (job.match_score <= 1.0 ? job.match_score * 100 : job.match_score) : 0);
+                const score = Math.round(Number(rawScore) || 0);
+                const s = scoreStyle(score);
                 const circ = 2 * Math.PI * 20;
-                const dash = ((job.score_total || 0) / 100) * circ;
+                const dash = (score / 100) * circ;
                 const locBadge = getLocationBadge(job.location);
                 const LocIcon = locBadge.icon;
 
@@ -249,7 +251,7 @@ function JobDiscoveryPage() {
                       <div
                         className={`absolute inset-0 grid place-items-center font-mono font-bold text-sm ${s.color}`}
                       >
-                        {job.score_total || 0}
+                        {score}%
                       </div>
                     </div>
 

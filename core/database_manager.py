@@ -259,6 +259,30 @@ def _flatten_lead(row: dict) -> dict:
     flat["job_url"] = flat.get("url")
     flat["source_platform"] = flat.get("source")
 
+    # Ensure match_score, score_total, and score are always set and calibrated as 0-100 integers
+    raw_score = flat.get("match_score")
+    score_val = 0
+    if raw_score is not None:
+        try:
+            score_f = float(raw_score)
+            score_val = int(round(score_f * 100)) if 0.0 < score_f <= 1.0 else int(round(score_f))
+        except (ValueError, TypeError):
+            score_val = 0
+
+    flat["score_total"] = score_val
+    flat["score"] = score_val
+
+    # Ensure score_band is populated
+    if not flat.get("score_band"):
+        if score_val >= 85:
+            flat["score_band"] = "HOT"
+        elif score_val >= 60:
+            flat["score_band"] = "WARM"
+        elif score_val >= 40:
+            flat["score_band"] = "COLD"
+        else:
+            flat["score_band"] = "REJECT"
+
     notes_raw = flat.get("notes")
     if notes_raw and isinstance(notes_raw, str):
         try:

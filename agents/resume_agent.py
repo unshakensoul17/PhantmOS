@@ -25,6 +25,7 @@ Dependencies:
     synthesis.resume_tailor, synthesis.llm_waterfall, synthesis.prompt_builder,
     synthesis.output_validator, core.database_manager
 """
+
 from core.logger import get_logger
 from synthesis.resume_tailor import run_tailoring
 

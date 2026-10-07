@@ -2,7 +2,9 @@
 harvesting/source_himalayas.py — PhantmOS v3.0
 Himalayas.app Remote Jobs API adapter.
 """
+
 import httpx
+
 from core.logger import get_logger
 
 logger = get_logger(__name__)
@@ -29,10 +31,11 @@ async def fetch_himalayas(limit_per_term: int = 20, search_query: str = None) ->
             logger.warning(f"Himalayas: failed for query '{search_query}': {e}")
     return results
 
+
 def _normalise(job: dict) -> dict:
     """Map Himalayas fields to standard schema."""
     company_name = job.get("companyName", "")
-    
+
     # Extract salary if present
     min_sal = job.get("minSalary")
     max_sal = job.get("maxSalary")
@@ -42,20 +45,22 @@ def _normalise(job: dict) -> dict:
         sal_str = f"{min_sal} - {max_sal} {currency}"
     elif min_sal:
         sal_str = f"{min_sal}+ {currency}"
-        
+
     # Extract location restrictions if present
     loc_restrictions = job.get("locationRestrictions") or []
-    location = ", ".join(loc_restrictions) if isinstance(loc_restrictions, list) else str(loc_restrictions)
+    location = (
+        ", ".join(loc_restrictions) if isinstance(loc_restrictions, list) else str(loc_restrictions)
+    )
     if not location:
         location = "Remote"
 
     return {
-        "title":           job.get("title", ""),
-        "company":         company_name,
-        "job_url":         job.get("applicationLink", ""),
+        "title": job.get("title", ""),
+        "company": company_name,
+        "job_url": job.get("applicationLink", ""),
         "raw_description": job.get("description", ""),
-        "source":          "himalayas",
-        "location":        location,
-        "salary":          sal_str,
-        "tags":            "",
+        "source": "himalayas",
+        "location": location,
+        "salary": sal_str,
+        "tags": "",
     }

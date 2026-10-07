@@ -25,6 +25,7 @@ Public Methods:
 Dependencies:
     core.database_manager, delivery.daily_digest, core.logger
 """
+
 from core.database_manager import get_all_stats, log_stage_success
 from core.logger import get_logger
 from delivery.daily_digest import send_daily_digest
@@ -47,7 +48,5 @@ class AnalyticsAgent:
     def record(self, summary: dict) -> None:
         """Log a completed pipeline run summary."""
         users = summary.get("users_processed", 0)
-        log_stage_success(
-            None, "full_pipeline", f"Processed {users} users. Summary: {summary}"
-        )
+        log_stage_success(None, "full_pipeline", f"Processed {users} users. Summary: {summary}")
         logger.info(f"AnalyticsAgent: pipeline run recorded ({users} users)")

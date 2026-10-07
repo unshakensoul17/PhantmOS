@@ -11,15 +11,15 @@ This dramatically reduces pipeline runtime and API costs.
 On-demand tailoring lives in:
   interface/telegram_delivery.py → _on_create_resume()
 """
+
 import json
+
 from core.database_manager import (
     get_leads_by_band,
-    update_job_lead,
-    queue_delivery,
     log_stage_success,
+    queue_delivery,
 )
 from core.logger import get_logger
-from synthesis.resume_tailor_impl import _tailor_hot, _tailor_warm
 
 logger = get_logger(__name__)
 
@@ -45,9 +45,9 @@ async def run_tailoring(profile: dict, api_keys: dict = None) -> dict:
             # and gets picked up by Stage 5 delivery queue
             notes_raw = lead.get("notes") or "{}"
             try:
-                notes = json.loads(notes_raw)
+                json.loads(notes_raw)
             except Exception:
-                notes = {}
+                pass
 
             # Queue for delivery. Leave status untouched (e.g. 'New') so Telegram displays the 'Create Resume' button.
             queue_delivery(job_id, user_id)

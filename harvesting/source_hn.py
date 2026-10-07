@@ -9,15 +9,18 @@ Strategy:
   2. Fetch top-level comments (each comment = one job posting)
   3. Parse company name, role title, and description from the free-text comment
 """
+
 import re
-import httpx
 from datetime import datetime
+
+import httpx
+
 from core.logger import get_logger
 
 logger = get_logger(__name__)
 
 ALGOLIA_URL = "https://hn.algolia.com/api/v1/search"
-ITEM_URL    = "https://hacker-news.firebaseio.com/v0/item/{id}.json"
+ITEM_URL = "https://hacker-news.firebaseio.com/v0/item/{id}.json"
 
 
 async def fetch_hn_hiring(max_comments: int = 60) -> list[dict]:
@@ -31,8 +34,8 @@ async def fetch_hn_hiring(max_comments: int = 60) -> list[dict]:
         return []
 
     comments = await _fetch_comments(thread_id, max_comments)
-    results  = [_parse_comment(c) for c in comments if c]
-    results  = [r for r in results if r]  # drop None (unparseable)
+    results = [_parse_comment(c) for c in comments if c]
+    results = [r for r in results if r]  # drop None (unparseable)
 
     logger.info(f"HN: Parsed {len(results)} job postings from thread {thread_id}.")
     return results
@@ -41,7 +44,7 @@ async def fetch_hn_hiring(max_comments: int = 60) -> list[dict]:
 async def _find_thread_id() -> str | None:
     """Use Algolia to find the 'Ask HN: Who is Hiring?' post for this month."""
     now = datetime.utcnow()
-    month_year = now.strftime("%B %Y")   # e.g. "May 2026"
+    month_year = now.strftime("%B %Y")  # e.g. "May 2026"
     query = f"Ask HN: Who is Hiring? ({month_year})"
 
     try:
@@ -49,8 +52,8 @@ async def _find_thread_id() -> str | None:
             resp = await client.get(
                 ALGOLIA_URL,
                 params={
-                    "query":  query,
-                    "tags":   "ask_hn",
+                    "query": query,
+                    "tags": "ask_hn",
                     "hitsPerPage": 5,
                 },
             )
@@ -68,6 +71,7 @@ async def _find_thread_id() -> str | None:
 async def _fetch_comments(thread_id: str, max_comments: int) -> list[dict]:
     """Fetch top-level child comment items from HN Firebase API."""
     import asyncio
+
     comments: list[dict] = []
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
@@ -75,7 +79,7 @@ async def _fetch_comments(thread_id: str, max_comments: int) -> list[dict]:
             resp = await client.get(ITEM_URL.format(id=thread_id))
             resp.raise_for_status()
             thread = resp.json()
-            kids   = (thread.get("kids") or [])[:max_comments]
+            kids = (thread.get("kids") or [])[:max_comments]
 
             # BUG-14 fix: Fetch concurrently using an asyncio semaphore to limit concurrency
             # to 10 at a time, so it's polite but doesn't block sequentially.
@@ -113,7 +117,7 @@ def _parse_comment(comment: dict) -> dict | None:
     parts = [p.strip() for p in text_clean.split("|")]
 
     company = parts[0] if len(parts) > 0 else "Unknown (HN)"
-    title   = parts[1] if len(parts) > 1 else "Software Engineer"
+    title = parts[1] if len(parts) > 1 else "Software Engineer"
     # Everything after pipe 1 becomes the description context
     description = text_clean
 
@@ -121,14 +125,14 @@ def _parse_comment(comment: dict) -> dict | None:
         return None
 
     return {
-        "title":           title[:200],
-        "company":         company[:200],
-        "job_url":         f"https://news.ycombinator.com/item?id={comment.get('id', '')}",
+        "title": title[:200],
+        "company": company[:200],
+        "job_url": f"https://news.ycombinator.com/item?id={comment.get('id', '')}",
         "raw_description": description,
-        "source":          "hn",
-        "location":        _extract_location(parts),
-        "salary":          "",
-        "tags":            "",
+        "source": "hn",
+        "location": _extract_location(parts),
+        "salary": "",
+        "tags": "",
     }
 
 

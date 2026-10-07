@@ -14,14 +14,15 @@ Agents:
     feedback_agent    — User feedback recording & weight adjustment
     analytics_agent   — Pipeline stats, daily digest, dashboards
 """
+
+from agents.analytics_agent import AnalyticsAgent
+from agents.application_agent import ApplicationAgent
+from agents.ats_agent import ATSAgent
 from agents.discovery_agent import DiscoveryAgent
+from agents.feedback_agent import FeedbackAgent
 from agents.ranking_agent import RankingAgent
 from agents.research_agent import ResearchAgent
 from agents.resume_agent import ResumeAgent
-from agents.ats_agent import ATSAgent
-from agents.application_agent import ApplicationAgent
-from agents.feedback_agent import FeedbackAgent
-from agents.analytics_agent import AnalyticsAgent
 
 __all__ = [
     "DiscoveryAgent",
