@@ -2,9 +2,20 @@ import { apiFetch } from "../lib/api";
 import { createFileRoute } from "@tanstack/react-router";
 import { Layout } from "../components/Layout";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { 
-  Radar, Target, Zap, DollarSign, MapPin, Sparkles, 
-  Check, X, Loader2, ArrowUpRight, Search, Globe, Building2
+import {
+  Radar,
+  Target,
+  Zap,
+  DollarSign,
+  MapPin,
+  Sparkles,
+  Check,
+  X,
+  Loader2,
+  ArrowUpRight,
+  Search,
+  Globe,
+  Building2,
 } from "lucide-react";
 import { useState } from "react";
 import { AgentPipeline } from "../components/AgentPipeline";
@@ -14,20 +25,46 @@ export const Route = createFileRoute("/job-discovery")({
 });
 
 function scoreStyle(s: number) {
-  if (s >= 90) return { color: "text-neon-green", ring: "stroke-neon-green", bg: "bg-neon-green/10 border-neon-green/30" };
-  if (s >= 75) return { color: "text-neon-blue",  ring: "stroke-neon-blue",  bg: "bg-neon-blue/10 border-neon-blue/30" };
-  return { color: "text-neon-amber", ring: "stroke-neon-amber", bg: "bg-neon-amber/10 border-neon-amber/30" };
+  if (s >= 90)
+    return {
+      color: "text-neon-green",
+      ring: "stroke-neon-green",
+      bg: "bg-neon-green/10 border-neon-green/30",
+    };
+  if (s >= 75)
+    return {
+      color: "text-neon-blue",
+      ring: "stroke-neon-blue",
+      bg: "bg-neon-blue/10 border-neon-blue/30",
+    };
+  return {
+    color: "text-neon-amber",
+    ring: "stroke-neon-amber",
+    bg: "bg-neon-amber/10 border-neon-amber/30",
+  };
 }
 
 function getLocationBadge(location: string = "") {
   const loc = (location || "").toLowerCase();
   if (loc.includes("remote") || loc.includes("anywhere") || loc.includes("global") || !loc) {
-    return { label: "Remote", color: "bg-neon-green/10 text-neon-green border-neon-green/30", icon: Globe };
+    return {
+      label: "Remote",
+      color: "bg-neon-green/10 text-neon-green border-neon-green/30",
+      icon: Globe,
+    };
   }
   if (loc.includes("hybrid")) {
-    return { label: "Hybrid", color: "bg-neon-cyan/10 text-neon-cyan border-neon-cyan/30", icon: MapPin };
+    return {
+      label: "Hybrid",
+      color: "bg-neon-cyan/10 text-neon-cyan border-neon-cyan/30",
+      icon: MapPin,
+    };
   }
-  return { label: location, color: "bg-white/5 text-muted-foreground border-white/10", icon: Building2 };
+  return {
+    label: location,
+    color: "bg-white/5 text-muted-foreground border-white/10",
+    icon: Building2,
+  };
 }
 
 function JobDiscoveryPage() {
@@ -36,13 +73,7 @@ function JobDiscoveryPage() {
   const [filterStatus, setFilterStatus] = useState("");
   const [showPipeline, setShowPipeline] = useState(false);
 
-  const { 
-    data, 
-    isLoading,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage
-  } = useInfiniteQuery({
+  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ["leads", filterStatus],
     initialPageParam: "",
     queryFn: async ({ pageParam = "" }) => {
@@ -50,7 +81,7 @@ function JobDiscoveryPage() {
       if (filterStatus) url.searchParams.set("status", filterStatus);
       if (pageParam) url.searchParams.set("cursor", pageParam);
       url.searchParams.set("limit", "20");
-      
+
       const res = await apiFetch(url.pathname + url.search);
       if (!res.ok) throw new Error("Failed to fetch leads");
       return res.json();
@@ -58,10 +89,10 @@ function JobDiscoveryPage() {
     getNextPageParam: (lastPage) => {
       if (!lastPage || lastPage.length < 20) return undefined;
       return lastPage[lastPage.length - 1].created_at;
-    }
+    },
   });
 
-  const leads = data?.pages.flatMap(page => page) || [];
+  const leads = data?.pages.flatMap((page) => page) || [];
 
   const harvestMutation = useMutation({
     mutationFn: async (query: string) => {
@@ -77,7 +108,7 @@ function JobDiscoveryPage() {
     onSettled: () => {
       // Hide the pipeline 15 seconds after the harvest completes (or fails)
       setTimeout(() => setShowPipeline(false), 15000);
-    }
+    },
   });
 
   const statusMutation = useMutation({
@@ -122,21 +153,26 @@ function JobDiscoveryPage() {
                 />
               </div>
             </div>
-            <button 
+            <button
               onClick={() => harvestMutation.mutate(searchQuery)}
               disabled={harvestMutation.isPending}
               className="h-11 px-6 rounded-xl bg-gradient-to-r from-neon-blue to-neon-purple text-black font-semibold inline-flex items-center gap-2 hover:scale-[1.02] transition glow-blue disabled:opacity-50 disabled:hover:scale-100 shrink-0"
             >
-              {harvestMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Radar className="w-4 h-4" />}
+              {harvestMutation.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Radar className="w-4 h-4" />
+              )}
               {harvestMutation.isPending ? "Harvesting..." : "Run Discovery Engine"}
             </button>
           </div>
 
           {showPipeline && <AgentPipeline inline />}
-          
+
           {harvestMutation.isSuccess && (
             <div className="mt-4 p-3 rounded-lg bg-neon-green/10 border border-neon-green/20 text-neon-green text-sm flex items-center gap-2">
-              <Check className="w-4 h-4" /> Pipeline triggered successfully! Agents are now scanning sources.
+              <Check className="w-4 h-4" /> Pipeline triggered successfully! Agents are now scanning
+              sources.
             </div>
           )}
         </div>
@@ -150,7 +186,7 @@ function JobDiscoveryPage() {
                 const filterVal = t === "All" ? "" : t;
                 const isActive = filterStatus === filterVal;
                 return (
-                  <button 
+                  <button
                     key={t}
                     onClick={() => setFilterStatus(filterVal)}
                     className={`px-3 py-1.5 rounded-md font-medium transition ${isActive ? "bg-neon-blue/20 text-neon-cyan" : "text-muted-foreground hover:text-white"}`}
@@ -181,7 +217,7 @@ function JobDiscoveryPage() {
                 const dash = ((job.score_total || 0) / 100) * circ;
                 const locBadge = getLocationBadge(job.location);
                 const LocIcon = locBadge.icon;
-                
+
                 return (
                   <div
                     key={job.job_id || job.id}
@@ -190,16 +226,29 @@ function JobDiscoveryPage() {
                     {/* Score ring */}
                     <div className="relative w-14 h-14 shrink-0">
                       <svg viewBox="0 0 48 48" className="w-14 h-14 -rotate-90">
-                        <circle cx="24" cy="24" r="20" strokeWidth="3" fill="none" className="stroke-white/8" />
                         <circle
-                          cx="24" cy="24" r="20" strokeWidth="3" fill="none"
+                          cx="24"
+                          cy="24"
+                          r="20"
+                          strokeWidth="3"
+                          fill="none"
+                          className="stroke-white/8"
+                        />
+                        <circle
+                          cx="24"
+                          cy="24"
+                          r="20"
+                          strokeWidth="3"
+                          fill="none"
                           className={s.ring}
                           strokeLinecap="round"
                           strokeDasharray={`${dash} ${circ}`}
                           style={{ filter: `drop-shadow(0 0 6px currentColor)` }}
                         />
                       </svg>
-                      <div className={`absolute inset-0 grid place-items-center font-mono font-bold text-sm ${s.color}`}>
+                      <div
+                        className={`absolute inset-0 grid place-items-center font-mono font-bold text-sm ${s.color}`}
+                      >
                         {job.score_total || 0}
                       </div>
                     </div>
@@ -209,20 +258,31 @@ function JobDiscoveryPage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-semibold truncate">{job.title}</h3>
                         {job.score_band && (
-                          <span className={`text-[13px] font-mono px-1.5 py-0.5 rounded ${
-                            ['A', 'HOT'].includes(job.score_band?.toUpperCase()) ? "bg-neon-green/15 text-neon-green border border-neon-green/30" : 
-                            ['B', 'WARM'].includes(job.score_band?.toUpperCase()) ? "bg-neon-blue/15 text-neon-blue border border-neon-blue/30" :
-                            "bg-neon-amber/15 text-neon-amber border border-neon-amber/30"
-                          }`}>{job.score_band.toUpperCase()}</span>
+                          <span
+                            className={`text-[13px] font-mono px-1.5 py-0.5 rounded ${
+                              ["A", "HOT"].includes(job.score_band?.toUpperCase())
+                                ? "bg-neon-green/15 text-neon-green border border-neon-green/30"
+                                : ["B", "WARM"].includes(job.score_band?.toUpperCase())
+                                  ? "bg-neon-blue/15 text-neon-blue border border-neon-blue/30"
+                                  : "bg-neon-amber/15 text-neon-amber border border-neon-amber/30"
+                            }`}
+                          >
+                            {job.score_band.toUpperCase()}
+                          </span>
                         )}
-                        <span className="text-[11px] px-1.5 py-0.5 rounded bg-white/10 text-muted-foreground uppercase">{job.status}</span>
+                        <span className="text-[11px] px-1.5 py-0.5 rounded bg-white/10 text-muted-foreground uppercase">
+                          {job.status}
+                        </span>
                       </div>
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        {job.company}
-                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5">{job.company}</div>
                       <div className="flex items-center gap-3 mt-1.5 text-[13px] text-muted-foreground flex-wrap">
-                        <span className="flex items-center gap-1 font-mono text-neon-green"><DollarSign className="w-3.5 h-3.5" />{job.salary || "Undisclosed"}</span>
-                        <span className={`flex items-center gap-1 text-[11px] px-2 py-0.5 rounded border ${locBadge.color}`}>
+                        <span className="flex items-center gap-1 font-mono text-neon-green">
+                          <DollarSign className="w-3.5 h-3.5" />
+                          {job.salary || "Undisclosed"}
+                        </span>
+                        <span
+                          className={`flex items-center gap-1 text-[11px] px-2 py-0.5 rounded border ${locBadge.color}`}
+                        >
                           <LocIcon className="w-3 h-3" />
                           {job.location || locBadge.label}
                         </span>
@@ -233,34 +293,49 @@ function JobDiscoveryPage() {
                     <div className={`hidden xl:block max-w-xs px-3 py-2 rounded-lg border ${s.bg}`}>
                       <div className="flex items-center gap-1.5 mb-1">
                         <Sparkles className={`w-3 h-3 ${s.color}`} />
-                        <span className="text-[13px] font-mono text-muted-foreground">AI Assessment</span>
+                        <span className="text-[13px] font-mono text-muted-foreground">
+                          AI Assessment
+                        </span>
                       </div>
-                      <p className="text-[13px] leading-snug line-clamp-2">{job.justification || "Awaiting AI Assessment..."}</p>
+                      <p className="text-[13px] leading-snug line-clamp-2">
+                        {job.justification || "Awaiting AI Assessment..."}
+                      </p>
                     </div>
 
                     {/* Actions */}
                     <div className="flex items-center gap-2 shrink-0">
-                      {job.status !== 'Approved' && job.status !== 'Applied' && (
-                        <button 
-                          onClick={() => statusMutation.mutate({ id: job.job_id || job.id, status: 'Approved' })}
+                      {job.status !== "Approved" && job.status !== "Applied" && (
+                        <button
+                          onClick={() =>
+                            statusMutation.mutate({ id: job.job_id || job.id, status: "Approved" })
+                          }
                           className="h-9 px-3 rounded-lg bg-neon-green/10 text-neon-green hover:bg-neon-green/20 text-xs font-medium inline-flex items-center gap-1.5 transition"
                         >
                           <Check className="w-3.5 h-3.5" /> Approve
                         </button>
                       )}
-                      
-                      {job.status !== 'Dismissed' && (
-                        <button 
-                          onClick={() => statusMutation.mutate({ id: job.job_id || job.id, status: 'Dismissed' })}
+
+                      {job.status !== "Dismissed" && (
+                        <button
+                          onClick={() =>
+                            statusMutation.mutate({ id: job.job_id || job.id, status: "Dismissed" })
+                          }
                           className="h-9 px-3 rounded-lg glass hover:bg-white/10 text-muted-foreground hover:text-white text-xs font-medium inline-flex items-center gap-1.5 transition"
                         >
                           <X className="w-3.5 h-3.5" /> Dismiss
                         </button>
                       )}
-                      
-                      <a 
-                        href={job.url || job.job_url || job.source_url || "#"} 
-                        target="_blank" 
+
+                      <Link
+                        to="/radar"
+                        className="h-9 px-3 rounded-lg glass hover:bg-white/10 text-neon-cyan hover:text-white text-xs font-medium inline-flex items-center gap-1.5 transition"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" /> Radar
+                      </Link>
+
+                      <a
+                        href={job.url || job.job_url || job.source_url || "#"}
+                        target="_blank"
                         rel="noreferrer"
                         className="h-9 px-3 rounded-lg bg-gradient-to-r from-neon-blue to-neon-purple text-black text-xs font-semibold inline-flex items-center gap-1.5 hover:scale-[1.02] transition"
                       >
@@ -272,7 +347,7 @@ function JobDiscoveryPage() {
               })}
             </div>
           )}
-          
+
           {hasNextPage && (
             <div className="mt-8 flex justify-center">
               <button
@@ -281,9 +356,11 @@ function JobDiscoveryPage() {
                 className="px-6 py-2.5 rounded-xl glass text-sm font-medium hover:bg-white/5 transition flex items-center gap-2"
               >
                 {isFetchingNextPage ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> Loading...</>
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Loading...
+                  </>
                 ) : (
-                  'Load More Leads'
+                  "Load More Leads"
                 )}
               </button>
             </div>

@@ -9,9 +9,11 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ResumeStudioRouteImport } from './routes/resume-studio'
 import { Route as RadarRouteImport } from './routes/radar'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as JobDiscoveryRouteImport } from './routes/job-discovery'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ContactRouteImport } from './routes/contact'
@@ -20,6 +22,11 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ApplicationsRouteImport } from './routes/applications'
 import { Route as IndexRouteImport } from './routes/index'
 
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -33,6 +40,11 @@ const ResumeStudioRoute = ResumeStudioRouteImport.update({
 const RadarRoute = RadarRouteImport.update({
   id: '/radar',
   path: '/radar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const JobDiscoveryRoute = JobDiscoveryRouteImport.update({
@@ -79,9 +91,11 @@ export interface FileRoutesByFullPath {
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/job-discovery': typeof JobDiscoveryRoute
+  '/privacy': typeof PrivacyRoute
   '/radar': typeof RadarRoute
   '/resume-studio': typeof ResumeStudioRoute
   '/settings': typeof SettingsRoute
+  '/terms': typeof TermsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -91,9 +105,11 @@ export interface FileRoutesByTo {
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/job-discovery': typeof JobDiscoveryRoute
+  '/privacy': typeof PrivacyRoute
   '/radar': typeof RadarRoute
   '/resume-studio': typeof ResumeStudioRoute
   '/settings': typeof SettingsRoute
+  '/terms': typeof TermsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -104,9 +120,11 @@ export interface FileRoutesById {
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/job-discovery': typeof JobDiscoveryRoute
+  '/privacy': typeof PrivacyRoute
   '/radar': typeof RadarRoute
   '/resume-studio': typeof ResumeStudioRoute
   '/settings': typeof SettingsRoute
+  '/terms': typeof TermsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -118,9 +136,11 @@ export interface FileRouteTypes {
     | '/contact'
     | '/dashboard'
     | '/job-discovery'
+    | '/privacy'
     | '/radar'
     | '/resume-studio'
     | '/settings'
+    | '/terms'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -130,9 +150,11 @@ export interface FileRouteTypes {
     | '/contact'
     | '/dashboard'
     | '/job-discovery'
+    | '/privacy'
     | '/radar'
     | '/resume-studio'
     | '/settings'
+    | '/terms'
   id:
     | '__root__'
     | '/'
@@ -142,9 +164,11 @@ export interface FileRouteTypes {
     | '/contact'
     | '/dashboard'
     | '/job-discovery'
+    | '/privacy'
     | '/radar'
     | '/resume-studio'
     | '/settings'
+    | '/terms'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -155,13 +179,22 @@ export interface RootRouteChildren {
   ContactRoute: typeof ContactRoute
   DashboardRoute: typeof DashboardRoute
   JobDiscoveryRoute: typeof JobDiscoveryRoute
+  PrivacyRoute: typeof PrivacyRoute
   RadarRoute: typeof RadarRoute
   ResumeStudioRoute: typeof ResumeStudioRoute
   SettingsRoute: typeof SettingsRoute
+  TermsRoute: typeof TermsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -181,6 +214,13 @@ declare module '@tanstack/react-router' {
       path: '/radar'
       fullPath: '/radar'
       preLoaderRoute: typeof RadarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/job-discovery': {
@@ -243,9 +283,11 @@ const rootRouteChildren: RootRouteChildren = {
   ContactRoute: ContactRoute,
   DashboardRoute: DashboardRoute,
   JobDiscoveryRoute: JobDiscoveryRoute,
+  PrivacyRoute: PrivacyRoute,
   RadarRoute: RadarRoute,
   ResumeStudioRoute: ResumeStudioRoute,
   SettingsRoute: SettingsRoute,
+  TermsRoute: TermsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

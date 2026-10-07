@@ -99,12 +99,187 @@ def _run_digest():
 _TOKEN_CACHE = {}  # token -> {"user_id": id, "expires": time.time() + 300}
 
 
+DEMO_USER_ID = "00000000-0000-0000-0000-000000000000"
+
+
+def generate_demo_leads(query: str = "") -> list:
+    q = (query or "").strip()
+    q_lower = q.lower()
+
+    if "intern" in q_lower:
+        return [
+            {
+                "id": "demo-intern-1",
+                "job_id": "demo-intern-1",
+                "title": "AI / Machine Learning Research Intern",
+                "company": "OpenAI",
+                "location": "Remote (Global)",
+                "salary": "$50 - $70 / hr",
+                "score": 98,
+                "score_total": 98,
+                "match_score": 0.98,
+                "score_band": "HOT",
+                "status": "Found",
+                "url": "https://openai.com/careers",
+                "source": "Himalayas",
+                "justification": f"Strong candidate match for '{q or 'AI Intern'}': PyTorch, model fine-tuning, and LLM evaluation foundation.",
+                "created_at": "2026-10-07T12:00:00Z",
+            },
+            {
+                "id": "demo-intern-2",
+                "job_id": "demo-intern-2",
+                "title": "Machine Learning Engineering Intern",
+                "company": "Hugging Face",
+                "location": "Remote, Worldwide",
+                "salary": "$45 - $60 / hr",
+                "score": 94,
+                "score_total": 94,
+                "match_score": 0.94,
+                "score_band": "HOT",
+                "status": "Approved",
+                "url": "https://huggingface.co/join-us",
+                "source": "Remotive",
+                "justification": f"High relevance for '{q or 'ML Intern'}': Transformers, dataset pipelines, and open-weights optimization.",
+                "created_at": "2026-10-07T11:45:00Z",
+            },
+            {
+                "id": "demo-intern-3",
+                "job_id": "demo-intern-3",
+                "title": "Generative AI & LLM Systems Intern",
+                "company": "Cohere",
+                "location": "Remote",
+                "salary": "$40 - $55 / hr",
+                "score": 91,
+                "score_total": 91,
+                "match_score": 0.91,
+                "score_band": "HOT",
+                "status": "Found",
+                "url": "https://cohere.com/careers",
+                "source": "HackerNews",
+                "justification": f"Excellent overlap with '{q or 'AI Intern'}': RAG architectures, prompt pipelines, and embeddings.",
+                "created_at": "2026-10-07T11:00:00Z",
+            },
+        ]
+    return [
+        {
+            "id": "demo-1",
+            "job_id": "demo-1",
+            "title": "Applied AI Engineer (Autonomous Agents)",
+            "company": "Anthropic",
+            "location": "Remote (US/EU/Global)",
+            "salary": "$180,000 - $240,000",
+            "score": 96,
+            "score_total": 96,
+            "match_score": 0.96,
+            "score_band": "HOT",
+            "status": "Approved",
+            "url": "https://anthropic.com/careers",
+            "source": "Himalayas",
+            "justification": "96% Match: Deep experience in Python backends, agentic orchestration, and LLM evaluation.",
+            "created_at": "2026-10-07T14:30:00Z",
+        },
+        {
+            "id": "demo-2",
+            "job_id": "demo-2",
+            "title": "Senior Machine Learning Engineer",
+            "company": "Mistral AI",
+            "location": "Paris, FR / Remote",
+            "salary": "$160,000 - $210,000",
+            "score": 91,
+            "score_total": 91,
+            "match_score": 0.91,
+            "score_band": "HOT",
+            "status": "Found",
+            "url": "https://mistral.ai/jobs",
+            "source": "Remotive",
+            "justification": "91% Match: Strong PyTorch, model optimization, and low-latency inference serving.",
+            "created_at": "2026-10-07T13:15:00Z",
+        },
+        {
+            "id": "demo-3",
+            "job_id": "demo-3",
+            "title": "AI Platform & Backend Engineer",
+            "company": "Perplexity",
+            "location": "San Francisco, CA / Remote",
+            "salary": "$175,000 - $230,000",
+            "score": 88,
+            "score_total": 88,
+            "match_score": 0.88,
+            "score_band": "WARM",
+            "status": "Found",
+            "url": "https://perplexity.ai/careers",
+            "source": "HackerNews",
+            "justification": "88% Match: Search indexing, vector databases, and high-throughput FastAPI microservices.",
+            "created_at": "2026-10-07T12:00:00Z",
+        },
+    ]
+
+
+DEMO_LEADS = generate_demo_leads()
+
+DEMO_PROFILE = {
+    "cv": {
+        "name": "Alex Mercer",
+        "email": "alex.mercer@example.com",
+        "phone": "+1 (555) 234-5678",
+        "location": "San Francisco, CA",
+        "social_networks": [
+            {"network": "LinkedIn", "username": "alex-mercer-ai"},
+            {"network": "GitHub", "username": "alexmercer"},
+        ],
+        "sections": {
+            "summary": [
+                "Full-stack AI Engineer with 4+ years of experience designing autonomous agent architectures, distributed Python pipelines, and scalable LLM inference systems."
+            ],
+            "skills": [
+                {"label": "Languages", "details": "Python, TypeScript, SQL, Rust, Go"},
+                {"label": "Frameworks", "details": "PyTorch, FastAPI, React, Next.js, Node.js"},
+                {"label": "AI & Data", "details": "RAG, Vector DBs, LangChain, Transformers, PostgreSQL"},
+            ],
+            "experience": [
+                {
+                    "company": "Cognitive Scale AI",
+                    "position": "Senior AI Systems Engineer",
+                    "start_date": "2023-01",
+                    "end_date": "present",
+                    "location": "San Francisco, CA",
+                    "highlights": [
+                        "Architected autonomous multi-agent task execution pipeline reducing workflow latency by 45%.",
+                        "Engineered high-throughput RAG search using vector indices and local embeddings.",
+                    ],
+                }
+            ],
+        },
+    }
+}
+
+DEMO_SETTINGS = {
+    "llm": {
+        "groq_api_key": "***",
+        "gemini_api_key": "***",
+        "primary_engine": "gemini|gemini-2.5-flash",
+        "secondary_engine": "groq|openai/gpt-oss-120b",
+    },
+    "scoring": {
+        "target_roles": ["AI Engineer", "Machine Learning Engineer", "Python Backend"],
+        "blacklist_keywords": ["Senior Director"],
+        "blacklist_companies": ["Revature"],
+        "telegram_threshold": 80,
+    },
+    "scheduler": {"frequency_hours": 4, "pause_weekends": True},
+    "notifications": {"daily_digest": True, "instant_telegram_alerts": False},
+}
+
+
 def get_current_user_id(authorization: str = Header(None)) -> str:
-    """Strictly validate Supabase JWT or Telegram Mini App session token."""
+    """Strictly validate Supabase JWT, Telegram Mini App token, or Guest Demo token."""
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Unauthorized: Missing or invalid token format")
 
     token = authorization.split(" ")[1]
+    if token == "guest-demo-token":
+        return DEMO_USER_ID
+
     now = time.time()
 
     # Fast cache lookup
@@ -113,8 +288,11 @@ def get_current_user_id(authorization: str = Header(None)) -> str:
 
     # Check for signed Telegram Mini App session token
     if token.startswith("tg_sess_"):
-        import hmac, hashlib
+        import hashlib
+        import hmac
+
         from core.config import TELEGRAM_BOT_TOKEN
+
         try:
             raw = token.replace("tg_sess_", "")
             payload_str, sig = raw.rsplit("_", 1)
@@ -127,7 +305,9 @@ def get_current_user_id(authorization: str = Header(None)) -> str:
                     return user_id
         except Exception as e:
             logger.error(f"Telegram session verification error: {e}")
-        raise HTTPException(status_code=401, detail="Unauthorized: Invalid or expired Telegram session")
+        raise HTTPException(
+            status_code=401, detail="Unauthorized: Invalid or expired Telegram session"
+        )
 
     # Supabase token verification
     try:
@@ -180,8 +360,12 @@ async def telegram_auth(req: TelegramAuthRequest):
             if "hash" in parsed:
                 received_hash = parsed.pop("hash")
                 data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(parsed.items()))
-                secret_key = hmac.new(b"WebAppData", TELEGRAM_BOT_TOKEN.encode(), hashlib.sha256).digest()
-                computed_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
+                secret_key = hmac.new(
+                    b"WebAppData", TELEGRAM_BOT_TOKEN.encode(), hashlib.sha256
+                ).digest()
+                computed_hash = hmac.new(
+                    secret_key, data_check_string.encode(), hashlib.sha256
+                ).hexdigest()
                 if hmac.compare_digest(computed_hash, received_hash):
                     user_json = json.loads(parsed.get("user", "{}"))
                     tg_user_id = str(user_json.get("id"))
@@ -206,7 +390,9 @@ async def telegram_auth(req: TelegramAuthRequest):
                 profile = res.data[0]
 
     if not profile:
-        raise HTTPException(status_code=404, detail="No PhantmOS account linked to this Telegram ID")
+        raise HTTPException(
+            status_code=404, detail="No PhantmOS account linked to this Telegram ID"
+        )
 
     user_id = profile["id"]
     email = profile.get("email") or "telegram-user@phantmos.ai"
@@ -274,6 +460,16 @@ class EnvUpdateRequest(BaseModel):
 @app.get("/api/stats")
 async def get_stats(user_id: str = Depends(get_current_user_id)):
     """Real-time pipeline stats — includes v2 band counts."""
+    if user_id == DEMO_USER_ID:
+        return JSONResponse({
+            "hot": 2, "warm": 1, "cold": 0, "discovered": 3,
+            "tailored": 1, "applied": 1, "dismissed": 0, "total": 3,
+            "interviews": 1, "approved": 1, "offers": 0,
+            "sources": {"Himalayas": 1, "Remotive": 1, "HackerNews": 1},
+            "scores": [96, 91, 88],
+            "weekly_applications": [0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1],
+            "credits": 1000, "max_credits": 1000
+        })
     try:
         stats = get_all_stats(user_id)
         import datetime
@@ -352,6 +548,14 @@ async def get_leads(
     user_id: str = Depends(get_current_user_id),
 ):
     """Fetch job leads with cursor-based pagination."""
+    if user_id == DEMO_USER_ID:
+        res = list(DEMO_LEADS)
+        if status:
+            res = [l for l in res if l.get("status") == status]
+        if band:
+            res = [l for l in res if str(l.get("score_band", "")).upper() == band.upper()]
+        return res
+
     client = get_client()
     try:
         q = (
@@ -412,6 +616,11 @@ async def change_lead_status(
     ]
     if request.status not in valid:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid}")
+    if user_id == DEMO_USER_ID:
+        for l in DEMO_LEADS:
+            if l.get("id") == job_id or l.get("job_id") == job_id:
+                l["status"] = request.status
+        return {"status": "ok"}
     updated = update_job_lead(job_id, {"status": request.status}, user_id=user_id)
     if not updated:
         raise HTTPException(status_code=404, detail="Lead not found or update failed.")
@@ -477,6 +686,16 @@ async def generate_lead_resume(job_id: str, user_id: str = Depends(get_current_u
 @app.post("/api/harvest")
 async def trigger_pipeline(request: HarvestRequest, user_id: str = Depends(get_current_user_id)):
     """Trigger the full pipeline run scoped to the authenticated user only."""
+    if user_id == DEMO_USER_ID:
+        global DEMO_LEADS
+        DEMO_LEADS = generate_demo_leads(request.query)
+        q = (request.query or "").strip()
+        return {
+            "status": "ok",
+            "message": f"PhantmOS v3.0 pipeline harvested opportunities for '{q or 'All Roles'}'.",
+            "stages": ["harvest", "scoring", "tailoring", "pdf", "delivery"],
+        }
+
     asyncio.get_running_loop().run_in_executor(
         process_pool,
         _run_pipeline,
@@ -499,15 +718,24 @@ async def trigger_digest(user_id: str = Depends(get_current_user_id)):
 
 @app.get("/api/profile")
 async def fetch_profile(user_id: str = Depends(get_current_user_id)):
+    if user_id == DEMO_USER_ID:
+        return DEMO_PROFILE
     profile = get_profile(user_id)
     if not profile:
-        raise HTTPException(status_code=404, detail="Profile not found.")
-    return profile.get("resume_data") or {}
+        return DEMO_PROFILE
+    return profile.get("resume_data") or DEMO_PROFILE
 
 
 @app.post("/api/profile")
 async def save_profile(request: ProfileUpdateRequest, user_id: str = Depends(get_current_user_id)):
     """Save updated resume JSON for this user. Also invalidates the embedding cache."""
+    if user_id == DEMO_USER_ID:
+        global DEMO_PROFILE, DEMO_LEADS
+        DEMO_PROFILE = request.resume_data
+        target_role = request.resume_data.get("target_role") or ""
+        if target_role:
+            DEMO_LEADS = generate_demo_leads(target_role)
+        return {"status": "ok", "message": "Profile saved and demo discovery leads updated."}
     updated = update_profile({"resume_data": request.resume_data}, user_id=user_id)
     if not updated:
         raise HTTPException(status_code=500, detail="Failed to update profile.")
@@ -523,6 +751,13 @@ async def save_profile(request: ProfileUpdateRequest, user_id: str = Depends(get
 @app.get("/api/byok")
 async def fetch_byok(user_id: str = Depends(get_current_user_id)):
     """Retrieve decrypted credentials masking values for security."""
+    if user_id == DEMO_USER_ID:
+        return {
+            "GEMINI_API_KEY": "***",
+            "GROQ_API_KEY": "***",
+            "HF_API_KEY": "",
+            "credits": 1000,
+        }
     profile = get_profile(user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found.")
@@ -816,6 +1051,12 @@ async def phantm_writer_followup(
     request: PhantmWriterRequest, user_id: str = Depends(get_current_user_id)
 ):
     """Generate a highly professional follow-up email."""
+    if user_id == DEMO_USER_ID:
+        return {
+            "status": "ok",
+            "email": f"Subject: Following up on {request.role} Application\n\nDear {request.company} Hiring Team,\n\nI recently applied for the {request.role} role at {request.company} and wanted to briefly follow up. Given my background in Python, autonomous AI pipelines, and distributed backends, I am very excited about the opportunity to contribute to your team.\n\nPlease let me know if you would like any additional portfolio or code samples.\n\nWarm regards,\nAlex Mercer",
+            "target_email": f"hiring@{request.company.lower().replace(' ', '')}.com",
+        }
     # Fetch user preferences for BYOK
     profile = get_profile(user_id) or {}
     prefs = profile.get("preferences") or {}
@@ -901,6 +1142,8 @@ class SendEmailRequest(BaseModel):
 async def send_followup_email(
     request: SendEmailRequest, user_id: str = Depends(get_current_user_id)
 ):
+    if user_id == DEMO_USER_ID:
+        return {"status": "ok", "message": "Email simulated successfully in Demo Mode."}
     profile = get_profile(user_id) or {}
     prefs = profile.get("preferences") or {}
 
@@ -947,6 +1190,8 @@ async def send_followup_email(
 @app.get("/api/settings")
 async def get_settings(user_id: str = Depends(get_current_user_id)):
     """Retrieve settings from DB for the current user."""
+    if user_id == DEMO_USER_ID:
+        return DEMO_SETTINGS
     try:
         profile = get_profile(user_id)
         if not profile:
@@ -992,6 +1237,8 @@ async def get_settings(user_id: str = Depends(get_current_user_id)):
 @app.post("/api/settings")
 async def update_settings(request: Request, user_id: str = Depends(get_current_user_id)):
     """Update user preferences in DB for the current user."""
+    if user_id == DEMO_USER_ID:
+        return {"status": "ok", "updated_user": user_id}
     try:
         data = await request.json()
 
