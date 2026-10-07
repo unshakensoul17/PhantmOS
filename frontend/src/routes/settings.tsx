@@ -97,8 +97,8 @@ function SettingsPage() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">System Preferences</h1>
-            <p className="text-sm text-zinc-400 mt-1">Configure AI reasoning engines, job scraping intervals, and scoring thresholds.</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Settings</h1>
+            <p className="text-sm text-zinc-400 mt-1">Manage your job preferences, AI, and connected accounts.</p>
           </div>
           <button
             onClick={handleSave}
@@ -106,7 +106,7 @@ function SettingsPage() {
             className="h-10 px-5 rounded-xl bg-white hover:bg-zinc-200 text-black font-semibold text-xs inline-flex items-center gap-2 transition disabled:opacity-50 shrink-0 shadow-sm"
           >
             {saveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            Save Configuration
+            Save
           </button>
         </div>
 
@@ -114,10 +114,10 @@ function SettingsPage() {
           {/* Side Menu */}
           <div className="lg:col-span-3 space-y-1.5 bg-zinc-950 rounded-2xl p-2">
             {[
-              { id: "api", label: "API Vault", icon: Key },
-              { id: "scoring", label: "Scoring Filters", icon: ShieldAlert },
-              { id: "scheduler", label: "Cron Scheduler", icon: Clock },
-              { id: "notifications", label: "Delivery & Alerts", icon: Bell },
+              { id: "scoring", label: "My Job Preferences", icon: ShieldAlert },
+              { id: "api", label: "AI", icon: Key },
+              { id: "notifications", label: "Connected Accounts", icon: Bell },
+              { id: "scheduler", label: "My Data", icon: Clock },
             ].map(tab => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;

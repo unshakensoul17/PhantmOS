@@ -35,11 +35,10 @@ function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen?: boolean; setMobil
   const NAV = [
     { icon: LayoutDashboard, label: "Home", path: "/dashboard" },
     { icon: Search, label: "Find Jobs", badge: foundCount > 0 ? foundCount.toString() : null, path: "/job-discovery" },
-    { icon: FileText, label: "Resume", path: "/resume-studio" },
-    { icon: Send, label: "Applications", badge: appsCount > 0 ? appsCount.toString() : null, path: "/applications" },
+    { icon: Send, label: "My Applications", badge: appsCount > 0 ? appsCount.toString() : null, path: "/applications" },
+    { icon: FileText, label: "My Resume", path: "/resume-studio" },
     { icon: Building2, label: "Companies", path: "/company-research" },
     { icon: Settings, label: "Settings", path: "/settings" },
-    { icon: Users, label: "Contact Us", path: "/contact" },
   ];
 
   return (
@@ -61,12 +60,12 @@ function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen?: boolean; setMobil
           </div>
           <div className="min-w-0">
             <div className="font-bold tracking-tight text-[16px] leading-tight text-white">PhantmOS</div>
-            <div className="text-[12px] font-normal text-zinc-400">Career Assistant</div>
+            <div className="text-[12px] font-normal text-zinc-400">Simple Job Search</div>
           </div>
         </Link>
 
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          <div className="px-3 pb-2 text-[11px] font-medium tracking-wider uppercase text-zinc-500">Navigation</div>
+          <div className="px-3 pb-2 text-[11px] font-medium tracking-wider uppercase text-zinc-500">Menu</div>
           {NAV.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;

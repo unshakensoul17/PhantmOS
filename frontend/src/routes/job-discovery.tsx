@@ -148,20 +148,12 @@ function JobDiscoveryPage() {
   return (
     <Layout>
       <div className="space-y-6">
-        {/* Header & Role Indicator */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Find Jobs</h1>
-            <p className="text-sm text-zinc-400 mt-1">
-              Explore high-fit opportunities discovered across 240+ verified sources.
-            </p>
-          </div>
-          {savedProfileRole && (
-            <div className="flex items-center gap-2 bg-zinc-950 px-3.5 py-1.5 rounded-full text-xs font-mono text-zinc-300">
-              <UserCheck className="w-4 h-4 text-white" />
-              <span>Target Role: <strong className="text-white font-semibold">{savedProfileRole}</strong></span>
-            </div>
-          )}
+        {/* Header */}
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Find Jobs</h1>
+          <p className="text-sm text-zinc-400 mt-1">
+            Tell us what job you want. We will find matching jobs.
+          </p>
         </div>
 
         {/* Search & Actions Bar */}
@@ -178,7 +170,7 @@ function JobDiscoveryPage() {
                     harvestMutation.mutate(searchQuery || savedProfileRole);
                   }
                 }}
-                placeholder={savedProfileRole ? `Search role (currently matching: ${savedProfileRole})` : "e.g. Frontend Developer, AI Intern, Remote..."}
+                placeholder="Example: Frontend Developer, React, Remote..."
                 className="w-full h-11 pl-10 pr-4 rounded-xl bg-black text-white text-sm placeholder:text-zinc-500 focus:outline-none transition"
               />
             </div>
@@ -188,69 +180,51 @@ function JobDiscoveryPage() {
               className="h-11 px-6 rounded-xl bg-white hover:bg-zinc-200 text-black font-semibold text-xs inline-flex items-center justify-center gap-2 shadow-sm transition disabled:opacity-50 shrink-0"
             >
               {harvestMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              {harvestMutation.isPending ? "Scanning Sources..." : "Search Jobs"}
+              {harvestMutation.isPending ? "Finding jobs..." : "Find Jobs"}
             </button>
           </div>
         </div>
 
         {/* Filters & Results List */}
         <div className="bg-zinc-950 rounded-2xl p-5">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-5 pb-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-5 pb-4 border-b border-zinc-900">
             <div>
-              <h2 className="text-base font-semibold text-white">Discovered Opportunities</h2>
-              <p className="text-xs text-zinc-400 mt-0.5 font-mono">{displayedLeads.length} roles found</p>
+              <h2 className="text-base font-semibold text-white">Matching Jobs</h2>
+              <p className="text-xs text-zinc-400 mt-0.5">{displayedLeads.length} jobs found</p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
-              {/* Location Type Filter */}
-              <div className="flex items-center gap-1 bg-black p-1 rounded-xl text-xs">
-                {[
-                  { label: "All", value: "All" },
-                  { label: "Remote", value: "Remote" },
-                  { label: "On-site", value: "On-site" },
-                  { label: "Hybrid", value: "Hybrid" },
-                ].map((item) => (
-                  <button
-                    key={item.value}
-                    onClick={() => setFilterLocation(item.value)}
-                    className={`px-3 py-1 rounded-lg font-medium transition ${
-                      filterLocation === item.value
-                        ? "bg-white text-black font-semibold shadow-sm"
-                        : "text-zinc-400 hover:text-white"
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Status Filter */}
-              <div className="flex items-center gap-1 bg-black p-1 rounded-xl text-xs">
-                {["All", "Found", "Approved", "Applied"].map((t) => {
-                  const filterVal = t === "All" ? "" : t;
-                  const isActive = filterStatus === filterVal;
-                  return (
-                    <button
-                      key={t}
-                      onClick={() => setFilterStatus(filterVal)}
-                      className={`px-3 py-1 rounded-lg font-medium transition ${
-                        isActive
-                          ? "bg-zinc-800 text-white font-semibold"
-                          : "text-zinc-400 hover:text-white"
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  );
-                })}
-              </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {[
+                { label: "All", value: "All" },
+                { label: "Remote", value: "Remote" },
+                { label: "On-site", value: "On-site" },
+                { label: "Hybrid", value: "Hybrid" },
+              ].map((item) => (
+                <button
+                  key={item.value}
+                  onClick={() => setFilterLocation(item.value)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                    filterLocation === item.value
+                      ? "bg-white text-black font-semibold shadow-sm"
+                      : "bg-black text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
             </div>
           </div>
 
           {displayedLeads.length === 0 ? (
             <div className="py-12 text-center text-zinc-400 bg-zinc-900/40 rounded-xl">
-              <p className="text-base font-semibold text-zinc-300">No opportunities match your current filters.</p>
-              <p className="text-xs mt-1 text-zinc-500">Try switching location to "All" or typing a different role in search.</p>
+              <p className="text-base font-semibold text-zinc-300">No matching jobs found.</p>
+              <p className="text-xs mt-1 text-zinc-500">Try a different job or location.</p>
+              <button
+                onClick={() => { setFilterLocation("All"); setSearchQuery(""); }}
+                className="mt-3 px-4 py-1.5 rounded-lg bg-white text-black text-xs font-semibold hover:bg-zinc-200 transition"
+              >
+                Search Again
+              </button>
             </div>
           ) : (
             <div className="space-y-3">
@@ -271,11 +245,8 @@ function JobDiscoveryPage() {
                           <h3 className="text-base font-semibold text-white truncate max-w-lg">
                             {job.title}
                           </h3>
-                          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-zinc-900 text-white">
+                          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-zinc-900 text-white font-medium">
                             {score}% Match
-                          </span>
-                          <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-zinc-900 text-zinc-400">
-                            {job.status || "Found"}
                           </span>
                         </div>
 
@@ -289,47 +260,34 @@ function JobDiscoveryPage() {
                           {job.salary && (
                             <>
                               <span>•</span>
-                              <span className="text-zinc-300 font-mono flex items-center gap-0.5">
-                                <DollarSign className="w-3 h-3 text-zinc-500" />
+                              <span className="text-zinc-300 font-mono">
                                 {job.salary}
                               </span>
                             </>
                           )}
                         </div>
 
-                        {job.justification && (
-                          <p className="mt-2.5 text-xs text-zinc-300 bg-zinc-900/60 rounded-lg p-2.5 leading-relaxed">
-                            <span className="font-medium text-white">Why this matches:</span> {job.justification}
-                          </p>
-                        )}
+                        <p className="mt-2 text-xs text-zinc-300 bg-zinc-900/60 rounded-lg p-2.5 leading-relaxed">
+                          <span className="font-medium text-white">Why this job?</span> {job.justification || "Your skills match this role."}
+                        </p>
                       </div>
 
                       {/* Right: Primary Actions */}
                       <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
-                        {job.status !== "Approved" && job.status !== "Applied" && (
-                          <button
-                            onClick={() => statusMutation.mutate({ id: job.job_id || job.id, status: "Approved" })}
-                            className="px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-200 text-xs font-medium inline-flex items-center gap-1 transition"
-                          >
-                            <Check className="w-3.5 h-3.5 text-white" /> Approve
-                          </button>
-                        )}
-
-                        {job.status !== "Dismissed" && (
-                          <button
-                            onClick={() => statusMutation.mutate({ id: job.job_id || job.id, status: "Dismissed" })}
-                            className="px-2.5 py-1.5 rounded-lg hover:bg-zinc-900 text-zinc-500 hover:text-white text-xs font-medium inline-flex items-center gap-1 transition"
-                            title="Dismiss lead"
-                          >
-                            <X className="w-3.5 h-3.5" /> Dismiss
-                          </button>
-                        )}
+                        <button
+                          onClick={() => statusMutation.mutate({ id: job.job_id || job.id, status: job.status === "Approved" ? "Found" : "Approved" })}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium inline-flex items-center gap-1 transition ${
+                            job.status === "Approved" ? "bg-zinc-800 text-white" : "bg-zinc-900 hover:bg-zinc-800 text-zinc-300"
+                          }`}
+                        >
+                          <Check className="w-3.5 h-3.5" /> {job.status === "Approved" ? "Saved" : "Save"}
+                        </button>
 
                         <Link
                           to="/resume-studio"
                           className="px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-medium transition inline-flex items-center gap-1"
                         >
-                          <FileEdit className="w-3.5 h-3.5" /> Tailor
+                          <FileEdit className="w-3.5 h-3.5" /> Improve Resume
                         </Link>
 
                         <a
@@ -338,7 +296,7 @@ function JobDiscoveryPage() {
                           rel="noreferrer"
                           className="px-4 py-1.5 rounded-lg bg-white hover:bg-zinc-200 text-black text-xs font-semibold inline-flex items-center gap-1 shadow-sm transition"
                         >
-                          Apply <ArrowUpRight className="w-3.5 h-3.5" />
+                          View Job <ArrowUpRight className="w-3.5 h-3.5" />
                         </a>
                       </div>
                     </div>
@@ -355,7 +313,7 @@ function JobDiscoveryPage() {
                 disabled={isFetchingNextPage}
                 className="px-5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-medium transition"
               >
-                {isFetchingNextPage ? "Loading more..." : "Load More Roles"}
+                {isFetchingNextPage ? "Loading..." : "Load More"}
               </button>
             </div>
           )}

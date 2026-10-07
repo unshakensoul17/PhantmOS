@@ -82,69 +82,27 @@ function NotFoundComponent() {
 
         {/* Headline & Description */}
         <div className="space-y-2">
-          <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight">
-            Lost in Cyberspace
+          <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">
+            This page could not be found.
           </h1>
-          <p className="text-sm md:text-base text-zinc-400 max-w-md mx-auto leading-relaxed">
-            The coordinates you navigated to do not exist or were decommissioned by PhantmOS protocols.
+          <p className="text-sm text-zinc-400 max-w-md mx-auto leading-relaxed">
+            The page you are looking for does not exist or has moved.
           </p>
-        </div>
-
-        {/* Quick Navigation Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-left">
-          <Link
-            to="/dashboard"
-            className="p-3.5 rounded-xl bg-zinc-950 hover:bg-zinc-900 border border-white/5 hover:border-white/20 transition-all group flex flex-col justify-between"
-          >
-            <div className="w-8 h-8 rounded-lg bg-zinc-900 group-hover:bg-zinc-800 grid place-items-center mb-2 transition">
-              <LayoutDashboard className="w-4 h-4 text-zinc-300 group-hover:text-white" />
-            </div>
-            <div>
-              <div className="text-xs font-semibold text-white">Dashboard</div>
-              <div className="text-[11px] text-zinc-500 mt-0.5">Live status & telemetry</div>
-            </div>
-          </Link>
-
-          <Link
-            to="/job-discovery"
-            className="p-3.5 rounded-xl bg-zinc-950 hover:bg-zinc-900 border border-white/5 hover:border-white/20 transition-all group flex flex-col justify-between"
-          >
-            <div className="w-8 h-8 rounded-lg bg-zinc-900 group-hover:bg-zinc-800 grid place-items-center mb-2 transition">
-              <Search className="w-4 h-4 text-zinc-300 group-hover:text-white" />
-            </div>
-            <div>
-              <div className="text-xs font-semibold text-white">Job Discovery</div>
-              <div className="text-[11px] text-zinc-500 mt-0.5">Explore active roles</div>
-            </div>
-          </Link>
-
-          <Link
-            to="/resume-studio"
-            className="p-3.5 rounded-xl bg-zinc-950 hover:bg-zinc-900 border border-white/5 hover:border-white/20 transition-all group flex flex-col justify-between"
-          >
-            <div className="w-8 h-8 rounded-lg bg-zinc-900 group-hover:bg-zinc-800 grid place-items-center mb-2 transition">
-              <FileText className="w-4 h-4 text-zinc-300 group-hover:text-white" />
-            </div>
-            <div>
-              <div className="text-xs font-semibold text-white">Resume Studio</div>
-              <div className="text-[11px] text-zinc-500 mt-0.5">Tailor & manage CV</div>
-            </div>
-          </Link>
         </div>
 
         {/* Primary Action Buttons */}
         <div className="flex flex-wrap items-center justify-center gap-3 pt-3">
-          <button
-            onClick={() => window.history.back()}
-            className="h-10 px-5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white text-xs font-semibold inline-flex items-center gap-2 transition border border-white/5"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" /> Go Back
-          </button>
           <Link
             to="/"
+            className="h-10 px-5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white text-xs font-semibold inline-flex items-center gap-2 transition"
+          >
+            <Home className="w-3.5 h-3.5" /> Go Home
+          </Link>
+          <Link
+            to="/dashboard"
             className="h-10 px-6 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-semibold inline-flex items-center gap-2 transition shadow-sm"
           >
-            <Home className="w-3.5 h-3.5" /> Return to Base
+            <LayoutDashboard className="w-3.5 h-3.5" /> Go to Dashboard
           </Link>
         </div>
       </div>
@@ -167,10 +125,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
         </div>
         <div>
           <h1 className="text-xl font-bold text-white tracking-tight">
-            Telemetry Interrupted
+            Something went wrong.
           </h1>
           <p className="mt-1.5 text-xs text-zinc-400 leading-relaxed">
-            An unexpected glitch occurred while rendering this interface.
+            Please try again.
           </p>
         </div>
         <div className="flex justify-center gap-2 pt-2">
@@ -187,7 +145,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
             to="/dashboard"
             className="h-9 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-medium inline-flex items-center gap-1.5 transition border border-white/5"
           >
-            <Home className="w-3.5 h-3.5" /> Dashboard
+            <Home className="w-3.5 h-3.5" /> Go to Dashboard
           </Link>
         </div>
       </div>
@@ -200,11 +158,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "PhantmOS Engine | Autonomous AI Job Search Command Center" },
-      { name: "description", content: "Enterprise-grade autonomous AI job search ecosystem. Multi-agent discovery, ranking, resume tailoring, and application automation." },
+      { title: "PhantmOS — Find a Job Without the Headache" },
+      { name: "description", content: "PhantmOS finds jobs, improves your resume, helps you apply, and keeps everything in one place." },
       { name: "author", content: "PhantmOS" },
-      { property: "og:title", content: "PhantmOS Engine" },
-      { property: "og:description", content: "Autonomous AI Job Search Command Center — multi-agent recruitment automation." },
+      { property: "og:title", content: "PhantmOS" },
+      { property: "og:description", content: "PhantmOS finds jobs, improves your resume, helps you apply, and keeps everything in one place." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],

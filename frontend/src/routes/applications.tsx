@@ -15,10 +15,12 @@ export const Route = createFileRoute("/applications")({
 });
 
 const COLUMNS = [
-  { id: "Approved", label: "To Apply" },
+  { id: "Saved", label: "Saved" },
+  { id: "Approved", label: "Ready to Apply" },
   { id: "Applied", label: "Applied" },
-  { id: "Interviewing", label: "Interviewing" },
-  { id: "Offer", label: "Offer Received" },
+  { id: "Interviewing", label: "Interview" },
+  { id: "Offer", label: "Offer" },
+  { id: "Rejected", label: "Rejected" },
 ];
 
 function ApplicationsPage() {
@@ -26,6 +28,8 @@ function ApplicationsPage() {
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [emailDraft, setEmailDraft] = useState<string | null>(null);
   const [targetEmail, setTargetEmail] = useState("");
+  const [outreachType, setOutreachType] = useState<"email" | "cover_letter">("email");
+  const [outreachTone, setOutreachTone] = useState<"Simple" | "Friendly" | "Professional">("Professional");
 
   const { data: leads = [] } = useQuery({
     queryKey: ["leads"],
@@ -38,7 +42,7 @@ function ApplicationsPage() {
   });
 
   const apps = leads.filter((l: any) => 
-    ["Approved", "Applied", "Interviewing", "Offer", "Rejected"].includes(l.status)
+    ["Saved", "Approved", "Applied", "Interviewing", "Offer", "Rejected"].includes(l.status)
   );
 
   const statusMutation = useMutation({
@@ -65,7 +69,7 @@ function ApplicationsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ job_id: job.job_id, company: job.company, role: job.title }),
       });
-      if (!res.ok) throw new Error("Failed to generate email");
+      if (!res.ok) throw new Error("Failed to generate text");
       return res.json();
     },
     onSuccess: (data) => {
@@ -98,7 +102,7 @@ function ApplicationsPage() {
       setEmailDraft(null);
       setSelectedJob(null);
       setTargetEmail("");
-      toast.success("Follow-up email sent successfully!");
+      toast.success("Email sent successfully!");
     },
     onError: (err: any) => {
       toast.error(err.message);
@@ -111,15 +115,15 @@ function ApplicationsPage() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Applications</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">My Applications</h1>
             <p className="text-sm text-zinc-400 mt-1">
-              Track your active job applications across every stage of the hiring pipeline.
+              Keep track of every job you applied for.
             </p>
           </div>
           <div className="flex items-center gap-3">
             <div className="bg-zinc-950 px-4 py-2 rounded-xl text-center">
               <span className="text-xl font-bold text-white block font-mono">{apps.length}</span>
-              <span className="text-[10px] uppercase font-semibold text-zinc-500">Total Tracked</span>
+              <span className="text-[10px] uppercase font-semibold text-zinc-500">Tracked</span>
             </div>
             <div className="bg-zinc-950 px-4 py-2 rounded-xl text-center">
               <span className="text-xl font-bold text-white block font-mono">{apps.filter((a: any) => a.status === 'Offer').length}</span>
@@ -128,7 +132,7 @@ function ApplicationsPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6 gap-4 items-start">
             {COLUMNS.map((col) => {
               const colApps = apps.filter((a: any) => a.status === col.id);
               
@@ -247,14 +251,14 @@ function ApplicationsPage() {
           </div>
       </div>
 
-      {/* Follow-up Note Modal */}
+      {/* Write for Me Modal */}
       {emailDraft && selectedJob && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="bg-zinc-950 rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl">
-            <div className="flex items-center justify-between p-4">
+          <div className="bg-zinc-950 rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl border border-zinc-800">
+            <div className="flex items-center justify-between p-4 border-b border-zinc-900">
               <h3 className="font-semibold text-white flex items-center gap-2 text-sm">
                 <Sparkles className="w-4 h-4 text-white" />
-                Draft Follow-Up Email
+                Write for Me
               </h3>
               <button 
                 onClick={() => { setEmailDraft(null); setSelectedJob(null); }}
@@ -264,48 +268,82 @@ function ApplicationsPage() {
               </button>
             </div>
             
-            <div className="p-5 space-y-3">
+            <div className="p-5 space-y-4">
               <div>
-                <span className="text-xs text-zinc-400 block mb-0.5">Role & Company</span>
+                <span className="text-xs text-zinc-400 block mb-0.5">Job</span>
                 <span className="font-medium text-sm text-white">{selectedJob.title} @ {selectedJob.company}</span>
               </div>
 
+              {/* Tone Selector */}
               <div>
-                <label className="text-xs font-medium text-zinc-400 block mb-1">Target Recruiter Email</label>
+                <label className="text-xs font-medium text-zinc-400 block mb-1.5">What tone do you want?</label>
+                <div className="flex gap-2">
+                  {(["Simple", "Friendly", "Professional"] as const).map((tone) => (
+                    <button
+                      key={tone}
+                      type="button"
+                      onClick={() => setOutreachTone(tone)}
+                      className={`px-3 py-1 rounded-lg text-xs font-medium transition ${
+                        outreachTone === tone
+                          ? "bg-white text-black font-semibold"
+                          : "bg-black text-zinc-400 hover:text-white"
+                      }`}
+                    >
+                      {tone}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-zinc-400 block mb-1">Company Email</label>
                 <input 
                   type="email"
                   value={targetEmail}
                   onChange={(e) => setTargetEmail(e.target.value)}
                   placeholder="recruiter@company.com"
-                  className="w-full h-9 px-3 rounded-lg bg-black text-white text-xs focus:outline-none"
+                  className="w-full h-9 px-3 rounded-lg bg-black text-white text-xs border border-zinc-800 focus:border-white focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-medium text-zinc-400 block mb-1">Generated Note</label>
+                <label className="text-xs font-medium text-zinc-400 block mb-1">Generated Text</label>
                 <textarea 
-                  className="w-full h-48 p-3 rounded-lg bg-black text-zinc-200 text-xs leading-relaxed focus:outline-none resize-none"
+                  className="w-full h-44 p-3 rounded-lg bg-black text-zinc-200 text-xs leading-relaxed border border-zinc-800 focus:border-white focus:outline-none resize-none font-sans"
                   value={emailDraft}
                   onChange={(e) => setEmailDraft(e.target.value)}
                 />
               </div>
             </div>
 
-            <div className="p-4 bg-black/40 flex justify-end gap-2">
-              <button 
-                onClick={() => { setEmailDraft(null); setSelectedJob(null); setTargetEmail(""); }}
-                className="px-4 py-2 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-900 transition"
+            <div className="p-4 bg-black/40 flex items-center justify-between border-t border-zinc-900">
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(emailDraft);
+                  toast.success("Copied to clipboard!");
+                }}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-zinc-900 hover:bg-zinc-800 text-zinc-200 transition"
               >
-                Cancel
+                Copy
               </button>
-              <button 
-                onClick={() => sendEmailMutation.mutate()}
-                disabled={sendEmailMutation.isPending || !targetEmail}
-                className="px-4 py-2 rounded-lg bg-white hover:bg-zinc-200 text-black text-xs font-semibold flex items-center gap-1.5 transition disabled:opacity-50"
-              >
-                {sendEmailMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                Send Email
-              </button>
+
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => { setEmailDraft(null); setSelectedJob(null); setTargetEmail(""); }}
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white transition"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => sendEmailMutation.mutate()}
+                  disabled={sendEmailMutation.isPending || !targetEmail}
+                  className="px-4 py-1.5 rounded-lg bg-white hover:bg-zinc-200 text-black text-xs font-semibold flex items-center gap-1.5 transition disabled:opacity-50"
+                >
+                  {sendEmailMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                  Send Email
+                </button>
+              </div>
             </div>
           </div>
         </div>

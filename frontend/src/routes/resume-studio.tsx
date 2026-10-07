@@ -198,48 +198,39 @@ function ResumeStudioPage() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Resume Profile</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">My Resume</h1>
             <p className="text-sm text-zinc-400 mt-1">
-              Your master resume data and appearance template used to generate tailored PDF resumes.
+              Create a resume that fits the jobs you want.
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button 
-              onClick={() => setViewMode(v => v === "visual" ? "json" : "visual")}
-              className="h-10 px-3.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-medium inline-flex items-center gap-1.5 transition"
-            >
-              <Code className="w-4 h-4" />
-              {viewMode === "visual" ? "Edit JSON" : "Visual Form"}
-            </button>
+            <label className="h-10 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-200 text-xs font-medium cursor-pointer inline-flex items-center gap-2 transition shrink-0">
+              <input type="file" className="hidden" accept=".pdf" onChange={handleUpload} />
+              {isUploading ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <Upload className="w-4 h-4 text-white" />}
+              <span>{isUploading ? "Reading resume..." : "Upload Resume"}</span>
+            </label>
             <button 
               onClick={handleSave}
               disabled={isSaving}
               className="h-10 px-5 rounded-xl bg-white hover:bg-zinc-200 text-black font-semibold text-xs inline-flex items-center gap-1.5 shadow-sm transition disabled:opacity-50"
             >
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              Save Profile
+              Save
             </button>
           </div>
         </div>
 
-        {/* Readiness Gauge */}
-        <div className="bg-zinc-950 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="font-bold font-mono text-xl text-white">
-              {readinessPct}%
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-white">Profile Readiness: {readinessPct >= 80 ? "Ready for Matching" : "Needs Information"}</div>
-              <div className="text-xs text-zinc-400">
-                {readinessPct >= 80 ? "Your profile contains all essential sections for high-accuracy scoring." : "Fill in your target role and experience to get the best job matches."}
-              </div>
+        {/* Readiness Info */}
+        <div className="bg-zinc-950 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border border-zinc-900">
+          <div>
+            <div className="text-sm font-semibold text-white">Resume Status: {readinessPct >= 80 ? "Ready to Use" : "Add more details"}</div>
+            <div className="text-xs text-zinc-400 mt-0.5">
+              {readinessPct >= 80 ? "Your resume has enough information for finding good jobs." : "Fill in your job title and work experience to get better matches."}
             </div>
           </div>
-          <label className="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-200 text-xs font-medium cursor-pointer inline-flex items-center gap-2 transition shrink-0">
-            <input type="file" className="hidden" accept=".pdf" onChange={handleUpload} />
-            {isUploading ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <Upload className="w-4 h-4 text-white" />}
-            <span>{isUploading ? "Parsing PDF..." : "Upload New PDF"}</span>
-          </label>
+          <div className="font-mono text-sm font-bold text-white bg-black px-3.5 py-1.5 rounded-lg">
+            {readinessPct}% Complete
+          </div>
         </div>
 
         {/* Form Container */}
@@ -249,12 +240,11 @@ function ResumeStudioPage() {
             {viewMode === "visual" && (
               <div className="bg-zinc-950 rounded-2xl p-2 flex flex-col gap-1">
                 {[
-                  { id: "basics", label: "Basics & Contact" },
+                  { id: "basics", label: "Basic Information" },
                   { id: "experience", label: "Work Experience" },
-                  { id: "projects", label: "Projects" },
                   { id: "education", label: "Education" },
+                  { id: "projects", label: "Projects" },
                   { id: "skills", label: "Skills" },
-                  { id: "appearance", label: "Resume Appearance" },
                 ].map(tab => (
                   <button
                     key={tab.id}

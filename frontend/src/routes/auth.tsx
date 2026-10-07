@@ -122,12 +122,12 @@ function AuthComponent() {
 
   // Helper for rendering titles and button text based on mode
   const uiConfig = {
-    login: { title: 'Welcome back, commander.', btn: 'Sign In' },
-    signup_request: { title: 'Create new agent profile.', btn: 'Send OTP' },
-    signup_verify: { title: 'Verify OTP code.', btn: 'Verify & Continue' },
-    reset_request: { title: 'Recover your account.', btn: 'Send Reset OTP' },
-    reset_verify: { title: 'Verify recovery code.', btn: 'Verify & Continue' },
-    set_password: { title: 'Secure your account.', btn: 'Save Password' }
+    login: { title: 'Welcome to PhantmOS', subtitle: 'Log in to find matching jobs.', btn: 'Log In' },
+    signup_request: { title: 'Welcome to PhantmOS', subtitle: 'Create an account and start finding jobs.', btn: 'Create Account' },
+    signup_verify: { title: 'Check your email', subtitle: 'Enter the 6-digit code sent to your email.', btn: 'Verify & Continue' },
+    reset_request: { title: 'Reset your password', subtitle: 'Enter your email to receive a reset code.', btn: 'Send Reset Code' },
+    reset_verify: { title: 'Check your email', subtitle: 'Enter the code sent to your email.', btn: 'Verify & Continue' },
+    set_password: { title: 'Set new password', subtitle: 'Choose a password for your account.', btn: 'Save Password' }
   };
 
   const isOtpMode = mode === 'signup_verify' || mode === 'reset_verify';
@@ -135,14 +135,14 @@ function AuthComponent() {
   const isEmailMode = mode !== 'signup_verify' && mode !== 'reset_verify' && mode !== 'set_password';
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="w-full max-w-md space-y-8 rounded-xl border bg-card p-8 shadow-sm">
+    <div className="flex min-h-screen items-center justify-center bg-black px-4 text-white">
+      <div className="w-full max-w-md space-y-6 rounded-2xl border border-zinc-800 bg-zinc-950 p-8 shadow-xl">
         <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-foreground">
-            PhantmOS
-          </h2>
-          <p className="mt-2 text-sm text-muted-foreground">
+          <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white">
             {uiConfig[mode].title}
+          </h2>
+          <p className="mt-1.5 text-sm text-zinc-400">
+            {uiConfig[mode].subtitle}
           </p>
         </div>
 
@@ -191,14 +191,14 @@ function AuthComponent() {
             
             {isEmailMode && (
               <div>
-                <label className="text-sm font-medium text-foreground">Email</label>
+                <label className="text-sm font-medium text-zinc-300">Email</label>
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                  placeholder="agent@phantmos.ai"
+                  className="mt-1 block w-full rounded-xl border border-zinc-800 bg-black px-3.5 py-2.5 text-sm text-white placeholder-zinc-600 shadow-sm focus:border-white focus:outline-none"
+                  placeholder="Example: you@domain.com"
                 />
               </div>
             )}
@@ -206,9 +206,9 @@ function AuthComponent() {
             {isPasswordMode && (
               <div>
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-foreground">Password</label>
+                  <label className="text-sm font-medium text-zinc-300">Password</label>
                   {mode === 'login' && (
-                    <button type="button" onClick={() => { setMode('reset_request'); setError(null); setMessage(null); }} className="text-xs text-primary hover:underline focus:outline-none">
+                    <button type="button" onClick={() => { setMode('reset_request'); setError(null); setMessage(null); }} className="text-xs text-zinc-400 hover:text-white focus:outline-none">
                       Forgot Password?
                     </button>
                   )}
@@ -218,7 +218,7 @@ function AuthComponent() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="mt-1 block w-full rounded-xl border border-zinc-800 bg-black px-3.5 py-2.5 text-sm text-white placeholder-zinc-600 shadow-sm focus:border-white focus:outline-none"
                   placeholder="••••••••"
                 />
               </div>
@@ -226,14 +226,14 @@ function AuthComponent() {
 
             {isOtpMode && (
               <div>
-                <label className="text-sm font-medium text-foreground">6-Digit Code</label>
+                <label className="text-sm font-medium text-zinc-300">6-Digit Code</label>
                 <input
                   type="text"
                   required
                   maxLength={6}
                   value={otp}
                   onChange={(e) => setOtp(e.target.value)}
-                  className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-center font-mono text-2xl tracking-widest shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="mt-1 block w-full rounded-xl border border-zinc-800 bg-black px-3.5 py-2.5 text-center font-mono text-2xl tracking-widest text-white shadow-sm focus:border-white focus:outline-none"
                   placeholder="000000"
                 />
               </div>
@@ -244,21 +244,25 @@ function AuthComponent() {
           <button
             type="submit"
             disabled={loading}
-            className="flex w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+            className="flex w-full items-center justify-center rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-zinc-200 disabled:opacity-50 shadow-sm"
           >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : uiConfig[mode].btn}
+            {loading ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" /> Please wait...
+              </span>
+            ) : uiConfig[mode].btn}
           </button>
         </form>
 
         {mode !== 'set_password' && (
-          <div className="flex flex-col space-y-3 text-center text-sm pt-2 border-t border-white/5">
+          <div className="flex flex-col space-y-3 text-center text-sm pt-2 border-t border-zinc-900">
             {mode === 'login' ? (
-              <button type="button" onClick={() => { setMode('signup_request'); setError(null); setMessage(null); }} className="text-primary hover:underline focus:outline-none">
-                Don't have an account? Sign up
+              <button type="button" onClick={() => { setMode('signup_request'); setError(null); setMessage(null); }} className="text-zinc-300 hover:text-white focus:outline-none">
+                Don't have an account? <span className="font-semibold underline">Create Account</span>
               </button>
             ) : (
-              <button type="button" onClick={() => { setMode('login'); setError(null); setMessage(null); }} className="text-muted-foreground hover:text-foreground transition-colors focus:outline-none">
-                ← Back to Login
+              <button type="button" onClick={() => { setMode('login'); setError(null); setMessage(null); }} className="text-zinc-400 hover:text-white transition-colors focus:outline-none">
+                ← Back to Log In
               </button>
             )}
           </div>

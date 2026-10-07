@@ -42,9 +42,9 @@ function CompanyResearchPage() {
       <div className="space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Company Intel</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Check a Company</h1>
           <p className="text-sm text-zinc-400 mt-1">
-            Research tech stacks, company stability, and interview prep guides for your target employers.
+            Learn important things about a company before you apply.
           </p>
         </div>
 
@@ -62,7 +62,7 @@ function CompanyResearchPage() {
                     researchMutation.mutate(searchQuery);
                   }
                 }}
-                placeholder="Search target company (e.g. OpenAI, Stripe, Zepto)..."
+                placeholder="Enter company name (example: Google, Microsoft, Stripe)..."
                 className="w-full h-11 pl-10 pr-4 rounded-xl bg-black text-white text-sm placeholder:text-zinc-500 focus:outline-none"
               />
             </div>
@@ -72,15 +72,15 @@ function CompanyResearchPage() {
               className="h-11 px-6 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-semibold inline-flex items-center justify-center gap-2 transition disabled:opacity-50 shrink-0 shadow-sm"
             >
               {researchMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Building2 className="w-4 h-4" />}
-              {researchMutation.isPending ? "Researching..." : "Search Intel"}
+              {researchMutation.isPending ? "Checking company..." : "Check Company"}
             </button>
           </div>
         </div>
 
         {researchMutation.isPending && (
-          <div className="py-20 flex flex-col items-center justify-center text-zinc-500">
+          <div className="py-20 flex flex-col items-center justify-center text-zinc-400">
             <Loader2 className="w-8 h-8 animate-spin text-white mb-2" />
-            <p className="text-sm">Gathering company intelligence, tech stack, and stability data...</p>
+            <p className="text-sm">Checking company information...</p>
           </div>
         )}
 
@@ -95,20 +95,20 @@ function CompanyResearchPage() {
                   </div>
                   <div>
                     <h2 className="text-xl font-bold text-white">{researchData.name}</h2>
-                    <span className="text-xs text-zinc-400 font-mono">{researchData.industry}</span>
+                    <span className="text-xs text-zinc-400">{researchData.industry}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg font-mono bg-zinc-900 text-white">
+                <div className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg bg-zinc-900 text-white font-medium">
                   <ShieldCheck className="w-3.5 h-3.5 text-white" />
-                  {researchData.stability?.risk_label || "Healthy Growth"}
+                  {researchData.stability?.risk_label || "Currently Hiring"}
                 </div>
               </div>
 
               <div>
-                <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2 font-mono">Detected Tech Stack</h3>
+                <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">What they use</h3>
                 <div className="flex flex-wrap gap-1.5">
                   {researchData.stack.map((t: string) => (
-                    <span key={t} className="text-xs px-2.5 py-1 rounded-lg bg-black text-zinc-300 font-mono">
+                    <span key={t} className="text-xs px-2.5 py-1 rounded-lg bg-black text-zinc-200">
                       {t}
                     </span>
                   ))}
@@ -116,7 +116,7 @@ function CompanyResearchPage() {
               </div>
 
               <div className="space-y-2">
-                <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2 font-mono">Recent Timeline & News</h3>
+                <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">Recent News</h3>
                 <div className="space-y-2 pl-2">
                   {researchData.news_timeline.map((n: string, j: number) => (
                     <div key={j} className="text-xs text-zinc-300 leading-relaxed">
@@ -129,13 +129,13 @@ function CompanyResearchPage() {
               <div className="bg-black rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-1 text-xs font-semibold text-white">
                   <Sparkles className="w-3.5 h-3.5 text-white" />
-                  <span>Strategic Positioning</span>
+                  <span>Things to know</span>
                 </div>
                 <p className="text-xs text-zinc-300 leading-relaxed">{researchData.insight}</p>
               </div>
             </div>
 
-            {/* Interview Playbook Section */}
+            {/* Interview Guide Section */}
             <div className="bg-zinc-950 rounded-2xl p-6 flex flex-col">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-white flex items-center gap-2 text-base">

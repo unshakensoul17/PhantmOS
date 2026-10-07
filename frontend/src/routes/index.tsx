@@ -525,47 +525,45 @@ function App() {
           <div>
             <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2, duration: 0.7 }} className="mb-7">
-              <span className="glass inline-block text-white/40 text-[10px] tracking-[0.32em] uppercase px-4 py-1.5 rounded-full"
-                style={{ fontFamily: "JetBrains Mono, monospace" }}>
-                Autonomous AI OS — v3.0
+              <span className="glass inline-block text-white/60 text-xs px-4 py-1.5 rounded-full font-medium">
+                Simple Job Search
               </span>
             </motion.div>
 
             <motion.h1 initial={{ opacity: 0, y: 36 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.32, duration: 1, ease: [0.16, 1, 0.3, 1] }}
-              className="heading-gradient text-[clamp(2.5rem,4.5vw,5.5rem)] font-black leading-[1.05] tracking-tight mb-8 whitespace-nowrap"
-              style={{ fontFamily: "Unbounded, sans-serif" }}>
-              PHANTMOS
+              className="text-white text-3xl sm:text-5xl lg:text-6xl font-bold leading-tight tracking-tight mb-6">
+              Find a Job Without the Headache
             </motion.h1>
 
             <motion.p initial={{ opacity: 0, y: 22 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.52, duration: 0.85 }}
-              className="text-white/45 text-[1.05rem] leading-[1.75] max-w-[480px] mb-10">
-              Your autonomous AI workforce that discovers opportunities, analyzes your profile, tailors your resume, and applies to jobs automatically while you focus on building your future.
+              className="text-zinc-300 text-base sm:text-lg leading-relaxed max-w-[540px] mb-8">
+              PhantmOS finds jobs, improves your resume, helps you apply, and keeps everything in one place.
             </motion.p>
 
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.7, duration: 0.8 }} className="flex flex-wrap gap-4 mb-14">
-              <a href="/auth" className="glow-btn-white relative inline-flex items-center justify-center px-8 py-4 bg-white text-black font-semibold text-sm tracking-wide rounded-full transition-all duration-300">
-                Launch PhantmOS
+              transition={{ delay: 0.7, duration: 0.8 }} className="flex flex-wrap gap-4 mb-10">
+              <a href="/job-discovery" className="inline-flex items-center justify-center px-8 py-3.5 bg-white text-black font-semibold text-sm rounded-xl hover:bg-zinc-200 transition shadow-sm">
+                Find Jobs
               </a>
-              <a href="/dashboard" className="glow-btn-glass glass flex items-center gap-2 px-8 py-4 text-white font-medium text-sm tracking-wide rounded-full group transition-all duration-300">
-                View Dashboard
-                <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform duration-300" />
+              <a href="#features" className="glass flex items-center gap-2 px-6 py-3.5 text-white font-medium text-sm rounded-xl hover:bg-zinc-900 transition">
+                See How It Works
+                <ArrowRight size={14} />
               </a>
             </motion.div>
 
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
               transition={{ delay: 1.05, duration: 0.8 }}
-              className="flex gap-9 pt-8" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+              className="flex gap-9 pt-6 border-t border-zinc-800/80">
               {[
-                { v: "4",     l: "Live Job Sources" },
-                { v: "3-tier", l: "LLM Waterfall" },
-                { v: "HOT→PDF", l: "Fully Automated" },
+                { v: "10,000+", l: "Jobs Scanned Daily" },
+                { v: "1-Click", l: "Resume Update" },
+                { v: "100% Free", l: "Open & Simple" },
               ].map(({ v, l }) => (
                 <div key={l}>
-                  <div className="heading-gradient text-2xl font-black" style={{ fontFamily: "Unbounded, sans-serif" }}>{v}</div>
-                  <div className="text-white/35 text-xs tracking-wide mt-1">{l}</div>
+                  <div className="text-xl sm:text-2xl font-bold text-white">{v}</div>
+                  <div className="text-zinc-400 text-xs mt-0.5">{l}</div>
                 </div>
               ))}
             </motion.div>
