@@ -1,5 +1,5 @@
 import { apiFetch } from "../lib/api";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Layout } from "../components/Layout";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -325,13 +325,6 @@ function JobDiscoveryPage() {
                           <X className="w-3.5 h-3.5" /> Dismiss
                         </button>
                       )}
-
-                      <Link
-                        to="/radar"
-                        className="h-9 px-3 rounded-lg glass hover:bg-white/10 text-neon-cyan hover:text-white text-xs font-medium inline-flex items-center gap-1.5 transition"
-                      >
-                        <Sparkles className="w-3.5 h-3.5" /> Radar
-                      </Link>
 
                       <a
                         href={job.url || job.job_url || job.source_url || "#"}

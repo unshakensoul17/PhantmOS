@@ -212,6 +212,7 @@ function AuthComponent() {
                 <input
                   type="email"
                   required
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
@@ -233,6 +234,7 @@ function AuthComponent() {
                 <input
                   type="password"
                   required
+                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
@@ -247,6 +249,7 @@ function AuthComponent() {
                 <input
                   type="text"
                   required
+                  autoComplete="one-time-code"
                   maxLength={6}
                   value={otp}
                   onChange={(e) => setOtp(e.target.value)}
