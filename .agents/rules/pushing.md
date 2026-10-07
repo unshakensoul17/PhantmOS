@@ -2,4 +2,4 @@
 trigger: always_on
 ---
 
-dont push any code to any platform
+Allow pushing code and creating pull requests when explicitly requested by the user.
