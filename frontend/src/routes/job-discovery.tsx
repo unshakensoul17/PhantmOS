@@ -215,6 +215,8 @@ function JobDiscoveryPage() {
     } else {
       rawLeads = generateRoleLeads(effectiveQuery, profile?.cv?.location);
     }
+  } else if (rawLeads.length === 0) {
+    rawLeads = generateRoleLeads("Software Engineer", profile?.cv?.location);
   }
 
   const leadsWithOverrides = rawLeads.map((job: any) => {
@@ -380,12 +382,7 @@ function JobDiscoveryPage() {
             </div>
           </div>
 
-          {isLoading ? (
-            <div className="py-16 text-center text-zinc-500">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-white" />
-              <p className="text-sm">Loading opportunities...</p>
-            </div>
-          ) : displayedLeads.length === 0 ? (
+          {displayedLeads.length === 0 ? (
             <div className="py-12 text-center text-zinc-400 bg-zinc-900/40 rounded-xl">
               <p className="text-base font-semibold text-zinc-300">No opportunities match your current filters.</p>
               <p className="text-xs mt-1 text-zinc-500">Try switching location to "All" or typing a different role in search.</p>

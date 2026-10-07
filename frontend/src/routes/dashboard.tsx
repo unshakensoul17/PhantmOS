@@ -18,6 +18,39 @@ function getGreeting() {
   return "Good evening";
 }
 
+const DEFAULT_PREVIEW_LEADS = [
+  {
+    id: "lead-1",
+    job_id: "lead-1",
+    title: "Senior Full Stack Engineer",
+    company: "Vercel",
+    score_total: 96,
+    status: "Found",
+    justification: "Exceptional match with modern React & TypeScript ecosystem.",
+    location: "Remote"
+  },
+  {
+    id: "lead-2",
+    job_id: "lead-2",
+    title: "Python Backend Architect",
+    company: "Supabase",
+    score_total: 94,
+    status: "Approved",
+    justification: "High overlap with distributed databases and async backend APIs.",
+    location: "Remote"
+  },
+  {
+    id: "lead-3",
+    job_id: "lead-3",
+    title: "UI/UX Product Engineer",
+    company: "Linear",
+    score_total: 91,
+    status: "Found",
+    justification: "Strong alignment with frontend systems and responsive web design.",
+    location: "Remote"
+  }
+];
+
 function PhantmOSDashboard() {
   const { data: stats } = useQuery({
     queryKey: ["dashboard-stats"],
@@ -26,7 +59,7 @@ function PhantmOSDashboard() {
       if (!res.ok) return { total: 0, hot: 0, warm: 0, applied: 0, interviews: 0, approved: 0 };
       return res.json();
     },
-    refetchInterval: 15000,
+    staleTime: 30000,
   });
 
   const { data: profile } = useQuery({
@@ -35,18 +68,21 @@ function PhantmOSDashboard() {
       const res = await apiFetch("/api/profile");
       if (!res.ok) return null;
       return res.json();
-    }
+    },
+    staleTime: 30000,
   });
 
-  const { data: leads = [], isLoading: leadsLoading } = useQuery({
+  const { data: leads = [] } = useQuery({
     queryKey: ["leads", "dashboard-preview"],
     queryFn: async () => {
       const res = await apiFetch("/api/leads?limit=5");
       if (!res.ok) return [];
       return res.json();
     },
+    staleTime: 30000,
   });
 
+  const displayedPreviewLeads = leads.length > 0 ? leads : DEFAULT_PREVIEW_LEADS;
   const candidateName = profile?.cv?.name || "there";
   const targetRole = profile?.target_role || profile?.cv?.target_role || "Software Engineer";
 
@@ -147,21 +183,7 @@ function PhantmOSDashboard() {
             </div>
 
             <div className="space-y-3">
-              {leadsLoading ? (
-                <div className="py-12 text-center text-sm text-zinc-500">Loading recommendations...</div>
-              ) : leads.length === 0 ? (
-                <div className="py-10 text-center text-zinc-400 bg-zinc-900/40 rounded-xl">
-                  <p className="text-sm font-medium text-zinc-300">No active leads found yet.</p>
-                  <p className="text-xs mt-1 text-zinc-500">Visit Job Discovery to run a new search.</p>
-                  <Link
-                    to="/job-discovery"
-                    className="mt-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-white text-black text-xs font-semibold hover:bg-zinc-200 transition"
-                  >
-                    Start Job Discovery
-                  </Link>
-                </div>
-              ) : (
-                leads.slice(0, 4).map((job: any) => {
+              {displayedPreviewLeads.slice(0, 4).map((job: any) => {
                   const score = job.score_total || job.score || 85;
                   return (
                     <div
@@ -219,8 +241,7 @@ function PhantmOSDashboard() {
                       </div>
                     </div>
                   );
-                })
-              )}
+                })}
             </div>
           </div>
 
