@@ -132,17 +132,44 @@ def _sanitize_cv_data(cv: dict) -> dict:
         if unknown_key in cv:
             del cv[unknown_key]
 
-    # 1. Clean up social networks casing (RenderCV is strict)
+    # 1. Clean up social networks casing and username formats (RenderCV is strict)
     allowed_networks = {"LinkedIn", "GitHub", "GitLab", "Twitter", "Mastodon", "Website", "YouTube"}
-    if "social_networks" in cv:
+    if "social_networks" in cv and isinstance(cv["social_networks"], list):
         valid_socials = []
         for s in cv["social_networks"]:
-            net = s.get("network", "")
+            if not isinstance(s, dict):
+                continue
+            net = str(s.get("network", "")).strip()
+            raw_uname = str(s.get("username") or s.get("url") or "").strip()
+            # Extract handle if a full URL was provided
+            for prefix in [
+                "https://www.linkedin.com/in/",
+                "http://www.linkedin.com/in/",
+                "https://linkedin.com/in/",
+                "http://linkedin.com/in/",
+                "https://github.com/",
+                "http://github.com/",
+                "https://gitlab.com/",
+                "http://gitlab.com/",
+                "https://twitter.com/",
+                "https://x.com/",
+            ]:
+                if prefix in raw_uname.lower():
+                    # Preserve exact casing of handle
+                    idx = raw_uname.lower().find(prefix) + len(prefix)
+                    raw_uname = raw_uname[idx:].strip("/")
+            if raw_uname.startswith("http"):
+                raw_uname = raw_uname.split("/")[-1].strip("/")
+
+            matched_net = None
             for allowed in allowed_networks:
                 if allowed.lower() == net.lower():
-                    s["network"] = allowed
-                    valid_socials.append(s)
+                    matched_net = allowed
                     break
+
+            if matched_net and raw_uname:
+                # RenderCV 2.x only accepts network and username
+                valid_socials.append({"network": matched_net, "username": raw_uname})
         cv["social_networks"] = valid_socials
 
     # 2. Normalize ALL date fields and clean short string fields
@@ -210,27 +237,35 @@ def _sanitize_cv_data(cv: dict) -> dict:
         for sec in [s for s, e in list(cv["sections"].items()) if isinstance(e, list) and not e]:
             del cv["sections"][sec]
 
-    # 4. Fix phone number validation (RenderCV requires +countrycode)
+    # 4. Fix phone number validation (RenderCV requires valid E.164 +countrycode)
     if "phone" in cv:
         phone_str = str(cv["phone"]).strip()
         digits = "".join(filter(str.isdigit, phone_str))
         if "X" in phone_str.upper() or "x" in phone_str.lower() or len(digits) < 7:
             del cv["phone"]
-        elif phone_str.startswith("+"):
-            safe_phone = "+" + "".join(c for c in phone_str[1:] if c.isdigit() or c in " -()")
-            cv["phone"] = safe_phone
-        elif len(digits) == 10:
-            loc = str(cv.get("location", "")).upper()
-            if any(k in loc for k in ["US", "USA", "UNITED STATES", "CA", "NY", "SF", "TX", "WA"]):
-                cv["phone"] = f"+1{digits}"
-            elif any(
-                k in loc for k in ["INDIA", "IN", "BANGALORE", "HYDERABAD", "DELHI", "MUMBAI"]
-            ):
-                cv["phone"] = f"+91{digits}"
-            else:
-                cv["phone"] = f"+1{digits}"
         else:
-            cv["phone"] = f"+{digits}"
+            if digits.startswith("0") and len(digits) == 11:
+                digits = digits[1:]  # strip trunk prefix 0 (e.g. 07772074181 -> 7772074181)
+
+            if phone_str.startswith("+") and not phone_str.startswith("+0"):
+                safe_phone = "+" + "".join(c for c in phone_str[1:] if c.isdigit() or c in " -()")
+                cv["phone"] = safe_phone
+            elif len(digits) == 10:
+                loc = str(cv.get("location", "")).upper()
+                if any(k in loc for k in ["US", "USA", "UNITED STATES", "CA", "NY", "SF", "TX", "WA"]):
+                    cv["phone"] = f"+1{digits}"
+                elif any(
+                    k in loc for k in ["INDIA", "IN", "BANGALORE", "HYDERABAD", "DELHI", "MUMBAI", "INDORE", "PUNE"]
+                ):
+                    cv["phone"] = f"+91{digits}"
+                else:
+                    cv["phone"] = f"+91{digits}"
+            elif digits.startswith("91") and len(digits) == 12:
+                cv["phone"] = f"+{digits}"
+            elif digits.startswith("1") and len(digits) == 11:
+                cv["phone"] = f"+{digits}"
+            else:
+                cv["phone"] = f"+{digits}"
 
     return cv
 
