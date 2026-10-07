@@ -30,30 +30,29 @@ function ResumeStudioPage() {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(DEFAULT_PROFILE);
   const [activeTab, setActiveTab] = useState("basics");
   const [viewMode, setViewMode] = useState<"visual"|"json">("visual");
   const [jsonText, setJsonText] = useState("");
   const [resumeTemplate, setResumeTemplate] = useState("sb2nov");
 
+  const { data: serverProfile } = useQuery({
+    queryKey: ["profile"],
+    queryFn: async () => {
+      const res = await apiFetch("/api/profile");
+      if (!res.ok) return DEFAULT_PROFILE;
+      const data = await res.json();
+      return (data && Object.keys(data).length > 0) ? data : DEFAULT_PROFILE;
+    },
+    staleTime: 30000,
+    refetchOnWindowFocus: false,
+  });
+
   useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const res = await apiFetch("/api/profile");
-        if (res.ok) {
-          const data = await res.json();
-          if (data && Object.keys(data).length > 0) {
-            setProfile(data);
-          } else {
-            setProfile(DEFAULT_PROFILE);
-          }
-        }
-      } catch (err) {
-        console.error("Failed to load profile:", err);
-      }
-    };
-    loadProfile();
-  }, []);
+    if (serverProfile) {
+      setProfile(serverProfile);
+    }
+  }, [serverProfile]);
 
   const { data: settings } = useQuery({
     queryKey: ["settings"],
@@ -182,16 +181,7 @@ function ResumeStudioPage() {
     }
   };
 
-  if (!profile) {
-    return (
-      <Layout>
-        <div className="p-16 flex flex-col items-center justify-center text-zinc-500">
-          <Loader2 className="w-8 h-8 animate-spin text-white mb-2" />
-          <p className="text-sm">Loading resume profile...</p>
-        </div>
-      </Layout>
-    );
-  }
+
 
   const hasName = Boolean(profile.cv?.name);
   const hasRole = Boolean(profile.target_role);

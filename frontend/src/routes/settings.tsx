@@ -17,34 +17,37 @@ export const Route = createFileRoute("/settings")({
 function SettingsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const DEFAULT_SETTINGS = {
+    llm: { groq_api_key: "", gemini_api_key: "", primary_engine: "groq|llama-3.1-8b-instant", secondary_engine: "groq|llama-3.1-8b-instant" },
+    scoring: { target_roles: [], blacklist_keywords: [], blacklist_companies: [], telegram_threshold: 80 },
+    scheduler: { frequency_hours: 4, pause_weekends: true },
+    notifications: { daily_digest: true, instant_telegram_alerts: false },
+    telegram_connected: false,
+  };
+
   const [activeTab, setActiveTab] = useState("api");
-  const [localSettings, setLocalSettings] = useState<any>(null);
+  const [localSettings, setLocalSettings] = useState<any>(DEFAULT_SETTINGS);
   const [newCompany, setNewCompany] = useState("");
   const [newKeyword, setNewKeyword] = useState("");
 
-  const { data, isLoading } = useQuery({
+  const { data } = useQuery({
     queryKey: ["settings"],
     queryFn: async () => {
       const res = await apiFetch("/api/settings");
-      if (!res.ok) throw new Error("Failed to fetch settings");
+      if (!res.ok) return DEFAULT_SETTINGS;
       return res.json();
     },
+    staleTime: 30000,
+    refetchOnWindowFocus: false,
   });
 
   useEffect(() => {
     if (data) {
-      const defaultSettings = {
-        llm: { groq_api_key: "", gemini_api_key: "", primary_engine: "groq|llama-3.1-8b-instant", secondary_engine: "groq|llama-3.1-8b-instant" },
-        scoring: { target_roles: [], blacklist_keywords: [], blacklist_companies: [], telegram_threshold: 80 },
-        scheduler: { frequency_hours: 4, pause_weekends: true },
-        notifications: { daily_digest: true, instant_telegram_alerts: false }
-      };
-      
       setLocalSettings({
-        llm: { ...defaultSettings.llm, ...(data.llm || {}) },
-        scoring: { ...defaultSettings.scoring, ...(data.scoring || {}) },
-        scheduler: { ...defaultSettings.scheduler, ...(data.scheduler || {}) },
-        notifications: { ...defaultSettings.notifications, ...(data.notifications || {}) },
+        llm: { ...DEFAULT_SETTINGS.llm, ...(data.llm || {}) },
+        scoring: { ...DEFAULT_SETTINGS.scoring, ...(data.scoring || {}) },
+        scheduler: { ...DEFAULT_SETTINGS.scheduler, ...(data.scheduler || {}) },
+        notifications: { ...DEFAULT_SETTINGS.notifications, ...(data.notifications || {}) },
         telegram_connected: data.telegram_connected || false,
       });
     }
@@ -54,17 +57,19 @@ function SettingsPage() {
     queryKey: ["telegram-link"],
     queryFn: async () => {
       const res = await apiFetch("/api/telegram/link");
-      if (!res.ok) return { link: "" };
+      if (!res.ok) return null;
       return res.json();
     },
+    enabled: !!user,
+    staleTime: 60000,
   });
 
   const saveMutation = useMutation({
-    mutationFn: async (updatedSettings: any) => {
+    mutationFn: async (settingsData: any) => {
       const res = await apiFetch("/api/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatedSettings),
+        body: JSON.stringify(settingsData),
       });
       if (!res.ok) throw new Error("Failed to save settings");
       return res.json();
@@ -74,20 +79,9 @@ function SettingsPage() {
       toast.success("Settings saved successfully!");
     },
     onError: (err: any) => {
-      toast.error("Failed to save settings: " + err.message);
-    }
+      toast.error(err.message || "Failed to update settings.");
+    },
   });
-
-  if (isLoading || !localSettings) {
-    return (
-      <Layout>
-        <div className="flex flex-col items-center justify-center h-96 text-zinc-500">
-          <Loader2 className="w-8 h-8 animate-spin text-white mb-3" />
-          <div className="text-sm">Loading settings...</div>
-        </div>
-      </Layout>
-    );
-  }
 
   const handleSave = () => {
     saveMutation.mutate(localSettings);
