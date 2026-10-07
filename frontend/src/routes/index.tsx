@@ -557,9 +557,9 @@ function App() {
               transition={{ delay: 1.05, duration: 0.8 }}
               className="flex gap-9 pt-6 border-t border-zinc-800/80">
               {[
-                { v: "10,000+", l: "Jobs Scanned Daily" },
-                { v: "1-Click", l: "Resume Update" },
-                { v: "100% Free", l: "Open & Simple" },
+                { v: "Multi-Source", l: "Job Discovery" },
+                { v: "Fast", l: "Resume Parsing" },
+                { v: "Direct", l: "Application Tracking" },
               ].map(({ v, l }) => (
                 <div key={l}>
                   <div className="text-xl sm:text-2xl font-bold text-white">{v}</div>

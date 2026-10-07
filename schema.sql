@@ -50,12 +50,12 @@ CREATE TRIGGER trg_user_profiles_updated
 --  Tracks every discovered job through the pipeline lifecycle.
 -- ─────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS job_leads (
-    job_id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    job_id          TEXT        PRIMARY KEY,
     title           TEXT        NOT NULL,
     company         TEXT        NOT NULL,
     match_score     FLOAT       CHECK (match_score >= 0.0 AND match_score <= 1.0),
     status          TEXT        NOT NULL DEFAULT 'Found'
-                                CHECK (status IN ('Found', 'Tailored', 'Approved', 'Applied')),
+                                CHECK (status IN ('Found', 'Tailored', 'Approved', 'Applied', 'Dismissed', 'Interviewing', 'Offer', 'Rejected')),
     job_url         TEXT        UNIQUE NOT NULL,
     genuity_flag    BOOLEAN     DEFAULT TRUE,   -- FALSE = suspected ghost/spam posting
     source_platform TEXT,                       -- 'linkedin', 'naukri', 'indeed', etc.
@@ -85,7 +85,7 @@ CREATE OR REPLACE FUNCTION query_similar_jobs(
     match_count INT DEFAULT 5
 ) RETURNS TABLE (
     id UUID,
-    job_id UUID,
+    job_id TEXT,
     title TEXT,
     company TEXT,
     raw_description TEXT,

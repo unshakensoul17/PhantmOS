@@ -135,20 +135,14 @@ CREATE POLICY "Read global jobs" ON global_jobs FOR SELECT USING (auth.role() = 
 CREATE POLICY "Insert global jobs" ON global_jobs FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
 -- user_job_pipelines
-CREATE POLICY "User job pipeline access" ON user_job_pipelines FOR ALL USING (auth.uid() IS NULL OR auth.uid() = user_id);
+CREATE POLICY "User job pipeline access" ON user_job_pipelines FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
 -- Sub-tables (Queue, Feedback, Logs)
-CREATE POLICY "Delivery Queue access" ON delivery_queue FOR ALL USING (
-    auth.uid() IS NULL OR EXISTS (SELECT 1 FROM user_job_pipelines WHERE user_job_pipelines.job_id = delivery_queue.job_id AND user_job_pipelines.user_id = auth.uid())
-);
+CREATE POLICY "Delivery Queue access" ON delivery_queue FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Feedback access" ON user_feedback FOR ALL USING (
-    auth.uid() IS NULL OR EXISTS (SELECT 1 FROM user_job_pipelines WHERE user_job_pipelines.job_id = user_feedback.job_id AND user_job_pipelines.user_id = auth.uid())
-);
+CREATE POLICY "Feedback access" ON user_feedback FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Stage Logs access" ON stage_logs FOR ALL USING (
-    auth.uid() IS NULL OR EXISTS (SELECT 1 FROM user_job_pipelines WHERE user_job_pipelines.job_id = stage_logs.job_id AND user_job_pipelines.user_id = auth.uid())
-);
+CREATE POLICY "Stage Logs access" ON stage_logs FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
 -- =========================================================================
 -- 4. TRIGGERS & RPC FUNCTIONS

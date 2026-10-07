@@ -51,34 +51,9 @@ CREATE TABLE IF NOT EXISTS company_context (
     id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     company_name TEXT        UNIQUE NOT NULL,
     context      TEXT,
-    scraped_at   TIMESTAMPTZ DEFAULT NOW()
+    scraped_at   TIMESTAMPTZ DEFAULT NOW(),
+    age_days     INTEGER     DEFAULT 0
 );
-
--- Computed column: how many days old is the cached entry
--- (Supabase/Postgres 12+ supports GENERATED ALWAYS)
--- Note: if your Postgres version doesn't support it, replace with a view or app-level check.
-DO $$
-BEGIN
-    -- Add age_days as a regular column if GENERATED ALWAYS is not supported
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'company_context' AND column_name = 'age_days'
-    ) THEN
-        ALTER TABLE company_context
-            ADD COLUMN age_days INTEGER
-            GENERATED ALWAYS AS
-                (EXTRACT(DAY FROM NOW() - scraped_at)::INTEGER)
-            STORED;
-    END IF;
-EXCEPTION WHEN OTHERS THEN
-    -- Fallback: add as plain column, app will compute age
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'company_context' AND column_name = 'age_days'
-    ) THEN
-        ALTER TABLE company_context ADD COLUMN age_days INTEGER DEFAULT 0;
-    END IF;
-END $$;
 
 -- ─────────────────────────────────────────────────────────
 --  PART 3: delivery_queue — reliable message delivery
@@ -86,7 +61,7 @@ END $$;
 
 CREATE TABLE IF NOT EXISTS delivery_queue (
     id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    job_id       UUID        REFERENCES job_leads(job_id) ON DELETE CASCADE,
+    job_id       TEXT        REFERENCES job_leads(job_id) ON DELETE CASCADE,
     status       TEXT        NOT NULL DEFAULT 'pending'
                              CHECK (status IN ('pending', 'sent', 'failed')),
     attempts     INTEGER     DEFAULT 0,
