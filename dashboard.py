@@ -513,9 +513,67 @@ class EnvUpdateRequest(BaseModel):
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 
+_STATS_CACHE: dict = {}  # user_id -> {"data": dict, "expires": float}
+_LEADS_CACHE: dict = {}  # cache_key -> {"data": list, "expires": float}
+
+def _fetch_stats_sync(user_id: str):
+    stats = get_all_stats(user_id)
+    import datetime
+
+    now = datetime.datetime.now(datetime.UTC)
+    twelve_weeks_ago = now - datetime.timedelta(weeks=12)
+
+    client = get_client()
+    try:
+        app_resp = (
+            client.table("user_job_pipelines")
+            .select("created_at")
+            .eq("user_id", user_id)
+            .eq("status", "Applied")
+            .gte("created_at", twelve_weeks_ago.isoformat())
+            .execute()
+        )
+        weeks_data = [0] * 12
+        for row in app_resp.data or []:
+            try:
+                dt_str = row["created_at"].replace("Z", "+00:00")
+                dt = datetime.datetime.fromisoformat(dt_str)
+                delta = now - dt
+                week_idx = 11 - (delta.days // 7)
+                if 0 <= week_idx < 12:
+                    weeks_data[week_idx] += 1
+            except Exception:
+                pass
+    except Exception:
+        weeks_data = [0] * 12
+
+    try:
+        profile = get_profile(user_id) or {}
+        credits_val = profile.get("credits", 1000)
+    except Exception:
+        credits_val = 1000
+
+    return {
+        "hot": stats.get("hot", 0),
+        "warm": stats.get("warm", 0),
+        "cold": stats.get("cold", 0),
+        "discovered": stats.get("found", 0),
+        "tailored": stats.get("tailored", 0),
+        "applied": stats.get("applied", 0),
+        "dismissed": stats.get("dismissed", 0),
+        "total": stats.get("total", 0),
+        "interviews": stats.get("interviews", 0),
+        "sources": stats.get("sources", {}),
+        "scores": stats.get("scores", []),
+        "approved": stats.get("approved", 0),
+        "weekly_applications": weeks_data,
+        "credits": credits_val,
+        "max_credits": 1000,
+    }
+
 @app.get("/api/stats")
 async def get_stats(user_id: str = Depends(get_current_user_id)):
-    """Real-time pipeline stats — includes v2 band counts."""
+    """Real-time pipeline stats with non-blocking fast in-memory cache."""
     if user_id == DEMO_USER_ID:
         return JSONResponse({
             "hot": 2, "warm": 2, "cold": 1, "discovered": 3,
@@ -526,73 +584,58 @@ async def get_stats(user_id: str = Depends(get_current_user_id)):
             "weekly_applications": [0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1],
             "credits": 1000, "max_credits": 1000
         })
+
+    now = time.time()
+    if user_id in _STATS_CACHE and _STATS_CACHE[user_id]["expires"] > now:
+        return JSONResponse(_STATS_CACHE[user_id]["data"])
+
     try:
-        stats = get_all_stats(user_id)
-        import datetime
-
-        now = datetime.datetime.now(datetime.UTC)
-        twelve_weeks_ago = now - datetime.timedelta(weeks=12)
-
-        client = get_client()
-        app_resp = (
-            client.table("user_job_pipelines")
-            .select("created_at")
-            .eq("user_id", user_id)
-            .eq("status", "Applied")
-            .gte("created_at", twelve_weeks_ago.isoformat())
-            .execute()
-        )
-
-        weeks_data = [0] * 12
-        for row in app_resp.data or []:
-            try:
-                dt_str = row["created_at"].replace("Z", "+00:00")
-                if "." not in dt_str and "+" in dt_str:
-                    pass
-                dt = datetime.datetime.fromisoformat(dt_str)
-                delta = now - dt
-                week_idx = 11 - (delta.days // 7)
-                if 0 <= week_idx < 12:
-                    weeks_data[week_idx] += 1
-            except Exception:
-                pass
-
-        return JSONResponse(
-            {
-                "hot": stats.get("hot", 0),
-                "warm": stats.get("warm", 0),
-                "cold": stats.get("cold", 0),
-                "discovered": stats.get("found", 0),
-                "tailored": stats.get("tailored", 0),
-                "applied": stats.get("applied", 0),
-                "dismissed": stats.get("dismissed", 0),
-                "total": stats.get("total", 0),
-                "interviews": stats.get("interviews", 0),
-                "sources": stats.get("sources", {}),
-                "scores": stats.get("scores", []),
-                "approved": stats.get("approved", 0),
-                "weekly_applications": weeks_data,
-                "credits": get_profile(user_id).get("credits", 0) if get_profile(user_id) else 0,
-                "max_credits": 1000,
-            }
-        )
+        data = await asyncio.to_thread(_fetch_stats_sync, user_id)
+        _STATS_CACHE[user_id] = {"data": data, "expires": now + 10.0}
+        return JSONResponse(data)
     except Exception as e:
         logger.error(f"Stats error: {e}")
-        return JSONResponse(
-            {
-                "hot": 0,
-                "warm": 0,
-                "cold": 0,
-                "discovered": 0,
-                "tailored": 0,
-                "applied": 0,
-                "dismissed": 0,
-                "total": 0,
-                "sources": {},
-                "scores": [],
-                "approved": 0,
-            }
-        )
+        return JSONResponse({
+            "hot": 0, "warm": 0, "cold": 0, "discovered": 0,
+            "tailored": 0, "applied": 0, "dismissed": 0, "total": 0,
+            "sources": {}, "scores": [], "approved": 0, "credits": 1000, "max_credits": 1000
+        })
+
+
+def _fetch_leads_sync(user_id: str, band: str, status: str, limit: int, cursor: str):
+    client = get_client()
+    q = (
+        client.table("user_job_pipelines")
+        .select("*, global_jobs(*)")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+    )
+    if band:
+        q = q.eq("score_band", band.upper())
+    if status:
+        q = q.eq("status", status)
+    if cursor:
+        import urllib.parse
+        decoded_cursor = urllib.parse.unquote(cursor)
+        q = q.lt("created_at", decoded_cursor)
+
+    resp = q.limit(limit).execute()
+
+    leads = []
+    for row in resp.data or []:
+        flat = _flatten_lead(row)
+        match_score = flat.get("match_score", 0) or 0
+        score_val = int(match_score * 100) if match_score <= 1.0 else int(match_score)
+        flat["score_total"] = score_val
+        flat["score"] = score_val
+        leads.append(flat)
+
+    from itertools import groupby
+    lifo_leads = []
+    for _, group in groupby(leads, key=lambda x: x.get("created_at")):
+        lifo_leads.extend(reversed(list(group)))
+
+    return lifo_leads
 
 
 @app.get("/api/leads")
@@ -603,7 +646,7 @@ async def get_leads(
     cursor: str = "",
     user_id: str = Depends(get_current_user_id),
 ):
-    """Fetch job leads with cursor-based pagination."""
+    """Fetch job leads with cursor-based pagination and async thread pool."""
     if user_id == DEMO_USER_ID:
         res = list(DEMO_LEADS)
         if status:
@@ -612,45 +655,15 @@ async def get_leads(
             res = [l for l in res if l.get("score_band") == band.upper()]
         return res
 
-    client = get_client()
+    cache_key = f"{user_id}:{band}:{status}:{limit}:{cursor}"
+    now = time.time()
+    if cache_key in _LEADS_CACHE and _LEADS_CACHE[cache_key]["expires"] > now:
+        return _LEADS_CACHE[cache_key]["data"]
+
     try:
-        q = (
-            client.table("user_job_pipelines")
-            .select("*, global_jobs(*)")
-            .eq("user_id", user_id)
-            .order("created_at", desc=True)
-        )
-        if band:
-            q = q.eq("score_band", band.upper())
-        if status:
-            q = q.eq("status", status)
-        if cursor:
-            # Decode the cursor if it was url-encoded, it should be an ISO timestamp
-            import urllib.parse
-
-            decoded_cursor = urllib.parse.unquote(cursor)
-            q = q.lt("created_at", decoded_cursor)
-
-        resp = q.limit(limit).execute()
-
-        leads = []
-        for row in resp.data or []:
-            flat = _flatten_lead(row)
-            # Add score_total and score for frontend compatibility
-            match_score = flat.get("match_score", 0) or 0
-            score_val = int(match_score * 100) if match_score <= 1.0 else int(match_score)
-            flat["score_total"] = score_val
-            flat["score"] = score_val
-            leads.append(flat)
-
-        # Implement LIFO for identical batches
-        from itertools import groupby
-
-        lifo_leads = []
-        for _, group in groupby(leads, key=lambda x: x.get("created_at")):
-            lifo_leads.extend(reversed(list(group)))
-
-        return lifo_leads
+        leads = await asyncio.to_thread(_fetch_leads_sync, user_id, band, status, limit, cursor)
+        _LEADS_CACHE[cache_key] = {"data": leads, "expires": now + 8.0}
+        return leads
     except Exception as e:
         logger.error(f"Leads fetch error: {e}")
         return []
@@ -680,6 +693,11 @@ async def change_lead_status(
     updated = update_job_lead(job_id, {"status": request.status}, user_id=user_id)
     if not updated:
         raise HTTPException(status_code=404, detail="Lead not found or update failed.")
+    # Invalidate cache
+    _STATS_CACHE.pop(user_id, None)
+    for k in list(_LEADS_CACHE.keys()):
+        if k.startswith(f"{user_id}:"):
+            _LEADS_CACHE.pop(k, None)
     return {"status": "ok", "updated_lead": updated}
 
 

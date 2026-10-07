@@ -12,51 +12,24 @@ import { apiFetch } from "../lib/api";
 function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen?: boolean; setMobileOpen?: (v: boolean) => void }) {
   const location = useLocation();
   const { signOut } = useAuth();
-  
   const queryClient = useQueryClient();
 
-  const { data: credits, isFetching: creditsFetching } = useQuery({
-    queryKey: ["sidebar-credits"],
-    queryFn: async () => {
-      const res = await apiFetch("/api/stats");
-      if (!res.ok) return { credits: 0, max_credits: 1000 };
-      const d = await res.json();
-      return { credits: d.credits ?? 0, max_credits: d.max_credits ?? 1000 };
-    },
-    refetchInterval: 5000,
-    staleTime: 0,
-  });
-
-  const { data: stats } = useQuery({
+  const { data: stats, isFetching: statsFetching } = useQuery({
     queryKey: ["dashboard-stats"],
     queryFn: async () => {
       const res = await apiFetch("/api/stats");
-      if (!res.ok) return { discovered: 0, applied: 0 };
+      if (!res.ok) return { discovered: 0, applied: 0, credits: 1000, max_credits: 1000, total: 0 };
       return res.json();
     },
-    refetchInterval: 15000,
+    staleTime: 30000,
+    refetchOnWindowFocus: false,
   });
 
-  const { data: leads = [] } = useQuery({
-    queryKey: ["leads"],
-    queryFn: async () => {
-      const res = await apiFetch("/api/leads?limit=200");
-      if (!res.ok) return [];
-      return res.json();
-    },
-    refetchInterval: 15000,
-  });
+  const appsCount = (stats?.applied || 0) + (stats?.approved || 0) + (stats?.interviews || 0);
+  const foundCount = stats?.discovered || stats?.found || stats?.total || 0;
 
-  const appsCount = leads.length > 0
-    ? leads.filter((l: any) => ["Approved", "Applied", "Interviewing", "Offer"].includes(l.status)).length
-    : ((stats?.applied || 0) + (stats?.approved || 0) + (stats?.interviews || 0));
-
-  const foundCount = leads.length > 0
-    ? leads.filter((l: any) => !l.status || l.status === "Found").length
-    : (stats?.discovered || stats?.total || 0);
-
-  const current = credits?.credits ?? 1000;
-  const maxC = credits?.max_credits ?? 1000;
+  const current = stats?.credits ?? 1000;
+  const maxC = stats?.max_credits ?? 1000;
   const pct = Math.round((current / maxC) * 100);
 
   const NAV = [
@@ -130,11 +103,11 @@ function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen?: boolean; setMobil
                 <span className="text-[11px] font-mono text-zinc-400">Engine Credits</span>
               </div>
               <button
-                title="Refresh credits"
-                onClick={() => queryClient.invalidateQueries({ queryKey: ["sidebar-credits"] })}
+                title="Refresh stats"
+                onClick={() => queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })}
                 className="text-zinc-400 hover:text-white transition-colors"
               >
-                <RefreshCw className={`w-3 h-3 ${creditsFetching ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-3 h-3 ${statsFetching ? 'animate-spin' : ''}`} />
               </button>
             </div>
 
