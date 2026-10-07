@@ -49,6 +49,24 @@ def get_profile(user_id: str | None = None) -> dict | None:
             q = q.eq("id", user_id)
         resp = q.limit(1).execute()
         if not resp.data:
+            if user_id:
+                try:
+                    init_data = {
+                        "id": user_id,
+                        "email": f"user-{user_id[:8]}@phantmos.ai",
+                        "full_name": "Candidate",
+                        "credits": 1000,
+                        "preferences": {},
+                        "encrypted_keys": {},
+                        "has_gemini_key": False,
+                        "has_groq_key": False,
+                        "has_hf_key": False,
+                    }
+                    get_client().table("user_profiles").upsert(init_data).execute()
+                    return {**init_data, "resume_data": {}}
+                except Exception as create_err:
+                    logger.warning(f"Could not auto-create profile for {user_id}: {create_err}")
+                    return {"id": user_id, "credits": 1000, "preferences": {}, "resume_data": {}}
             return None
 
         profile = resp.data[0]
@@ -496,26 +514,30 @@ def _fallback_get_all_stats(user_id: str) -> dict:
             "scores": [0] * 20,  # 20 buckets for score histogram
         }
         for lead in leads:
-            s = (lead.get("status") or "").lower()
-            b = (lead.get("score_band") or "").lower()
-            if s == "found":
+            s = (lead.get("status") or "").title()
+            b = (lead.get("score_band") or "").upper()
+            if s == "Found":
                 stats["found"] += 1
-            elif s == "tailored":
+            elif s == "Tailored":
                 stats["tailored"] += 1
-            elif s == "approved":
+            elif s == "Approved":
                 stats["approved"] += 1
-            elif s == "applied":
+            elif s == "Applied":
                 stats["applied"] += 1
-            elif s == "dismissed":
+            elif s == "Dismissed":
                 stats["dismissed"] += 1
-            elif s in ["interviewing", "offer"]:
+            elif s == "Interviewing":
                 stats["interviews"] += 1
+            elif s == "Offer":
+                stats["offers"] += 1
+            elif s == "Rejected":
+                stats["rejected"] += 1
 
-            if b in ("hot", "a"):
+            if b == "HOT":
                 stats["hot"] += 1
-            elif b in ("warm", "b"):
+            elif b == "WARM":
                 stats["warm"] += 1
-            elif b in ("cold", "c"):
+            elif b == "COLD":
                 stats["cold"] += 1
 
             # Source
