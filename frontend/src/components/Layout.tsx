@@ -2,7 +2,7 @@ import { ReactNode, useState } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
 import {
   LayoutDashboard, Search, FileText, Building2, Send,
-  Settings, Activity, ChevronRight, Cpu, Wifi, LogOut, RefreshCw, Users,
+  Settings, Cpu, Wifi, LogOut, RefreshCw, Users,
 } from "lucide-react";
 import { AuthGuard } from "./AuthGuard";
 import { useAuth } from "../hooks/useAuth";
@@ -15,7 +15,6 @@ function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen?: boolean; setMobil
   
   const queryClient = useQueryClient();
 
-  // Dedicated credits query — 5 s polling, separate key so it's always fresh
   const { data: credits, isFetching: creditsFetching } = useQuery({
     queryKey: ["sidebar-credits"],
     queryFn: async () => {
@@ -28,7 +27,6 @@ function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen?: boolean; setMobil
     staleTime: 0,
   });
 
-  // Shared stats for nav badges
   const { data: stats } = useQuery({
     queryKey: ["dashboard-stats"],
     queryFn: async () => {
@@ -39,22 +37,34 @@ function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen?: boolean; setMobil
     refetchInterval: 15000,
   });
 
-  // Active leads = everything in the pipeline that isn't dismissed
-  const activeApps = Math.max(0, (stats?.total || 0) - (stats?.dismissed || 0));
+  const { data: leads = [] } = useQuery({
+    queryKey: ["leads"],
+    queryFn: async () => {
+      const res = await apiFetch("/api/leads?limit=200");
+      if (!res.ok) return [];
+      return res.json();
+    },
+    refetchInterval: 15000,
+  });
 
-  const current   = credits?.credits    ?? 0;
-  const maxC      = credits?.max_credits ?? 1000;
-  const pct       = Math.round((current / maxC) * 100);
-  const barColor  = pct > 50 ? "from-neon-green to-neon-cyan"
-                  : pct > 20 ? "from-neon-amber to-neon-blue"
-                  : "from-red-500 to-neon-amber";
+  const appsCount = leads.length > 0
+    ? leads.filter((l: any) => ["Approved", "Applied", "Interviewing", "Offer"].includes(l.status)).length
+    : ((stats?.applied || 0) + (stats?.approved || 0) + (stats?.interviews || 0));
+
+  const foundCount = leads.length > 0
+    ? leads.filter((l: any) => !l.status || l.status === "Found").length
+    : (stats?.discovered || stats?.total || 0);
+
+  const current = credits?.credits ?? 1000;
+  const maxC = credits?.max_credits ?? 1000;
+  const pct = Math.round((current / maxC) * 100);
 
   const NAV = [
-    { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
-    { icon: FileText, label: "Resume Studio", path: "/resume-studio" },
-    { icon: Search, label: "Job Discovery", badge: stats?.total > 0 ? stats.total.toString() : null, path: "/job-discovery" },
-    { icon: Building2, label: "Company Research", path: "/company-research" },
-    { icon: Send, label: "Applications", badge: activeApps > 0 ? activeApps.toString() : null, path: "/applications" },
+    { icon: LayoutDashboard, label: "Home", path: "/dashboard" },
+    { icon: Search, label: "Find Jobs", badge: foundCount > 0 ? foundCount.toString() : null, path: "/job-discovery" },
+    { icon: FileText, label: "Resume", path: "/resume-studio" },
+    { icon: Send, label: "Applications", badge: appsCount > 0 ? appsCount.toString() : null, path: "/applications" },
+    { icon: Building2, label: "Companies", path: "/company-research" },
     { icon: Settings, label: "Settings", path: "/settings" },
     { icon: Users, label: "Contact Us", path: "/contact" },
   ];
@@ -63,125 +73,110 @@ function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen?: boolean; setMobil
     <>
       {mobileOpen && (
         <div 
-          className="fixed inset-0 z-40 bg-black/80 lg:hidden" 
+          className="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm lg:hidden" 
           onClick={() => setMobileOpen?.(false)}
         />
       )}
-      <aside className={`fixed left-0 top-0 h-screen w-64 flex-col glass-strong border-r border-white/8 z-50 transition-transform duration-300 ${mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} flex`}>
-      <Link to="/" className="flex items-center gap-3 px-6 h-20 border-b border-white/5 hover:bg-white/[0.02] transition-colors cursor-pointer">
-        <div className="relative">
-          <div className="w-12 h-12 rounded-xl overflow-hidden bg-black grid place-items-center border border-white/10 glow-blue p-1">
-            <img src="/logo.png" alt="PhantmOS Logo" className="w-full h-full object-contain" />
-          </div>
-          <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-neon-green ring-2 ring-[#0B1020] animate-pulse-glow" />
-        </div>
-        <div className="min-w-0">
-          <div className="font-bold tracking-tight text-[15px] leading-tight">PhantmOS</div>
-          <div className="text-[12px] font-medium text-muted-foreground">Engine v3.2</div>
-        </div>
-      </Link>
-
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        <div className="px-3 pb-2 text-[12px] font-medium text-muted-foreground/60">Command</div>
-        {NAV.map((item, i) => {
-          const Icon = item.icon;
-          const isActive = location.pathname === item.path;
-          return (
-            <Link
-              key={item.label}
-              to={item.path}
-              className={`group w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[15px] transition-all relative overflow-hidden ${
-                isActive
-                  ? "bg-gradient-to-r from-neon-blue/20 via-neon-purple/10 to-transparent text-white border border-neon-blue/30"
-                  : "text-muted-foreground hover:text-white hover:bg-white/5"
-              }`}
-            >
-              {isActive && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r bg-gradient-to-b from-neon-blue to-neon-purple" />
-              )}
-              <Icon className={`w-4 h-4 shrink-0 ${isActive ? "text-neon-cyan" : ""}`} />
-              <span className="flex-1 text-left font-medium">{item.label}</span>
-              {item.badge && (
-                <span className="text-[12px] font-mono px-1.5 py-0.5 rounded bg-white/10 text-neon-cyan">
-                  {item.badge}
-                </span>
-              )}
-              {i === 0 && <ChevronRight className="w-3.5 h-3.5 opacity-60" />}
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* Credits / Engine Usage card */}
-      <div className="p-3 border-t border-white/5">
-        <div className="glass rounded-xl p-3 space-y-2">
-          {/* Header row */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <Cpu className={`w-3.5 h-3.5 ${pct > 50 ? 'text-neon-green' : pct > 20 ? 'text-neon-amber' : 'text-red-400'}`} />
-              <span className="text-[12px] font-mono text-muted-foreground">Engine Credits</span>
-            </div>
-            <button
-              title="Refresh credits"
-              onClick={() => queryClient.invalidateQueries({ queryKey: ["sidebar-credits"] })}
-              className="text-muted-foreground hover:text-white transition-colors"
-            >
-              <RefreshCw className={`w-3 h-3 ${creditsFetching ? 'animate-spin' : ''}`} />
-            </button>
-          </div>
-
-          {/* Credit count */}
-          <div className="flex items-baseline gap-1">
-            <span
-              className={`text-xl font-bold font-mono transition-all duration-500 ${
-                pct > 50 ? 'text-neon-cyan' : pct > 20 ? 'text-neon-amber' : 'text-red-400'
-              }`}
-            >
-              {current.toLocaleString()}
-            </span>
-            <span className="text-xs text-muted-foreground font-mono">/ {maxC.toLocaleString()} left</span>
-          </div>
-
-          {/* Depleting progress bar */}
-          <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
-            <div
-              className={`h-full bg-gradient-to-r ${barColor} transition-all duration-700 ease-in-out`}
-              style={{ width: `${pct}%` }}
+      <aside className={`fixed left-0 top-0 h-screen w-64 flex-col bg-black z-50 transition-transform duration-300 ${mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} flex`}>
+        <Link to="/" className="flex items-center gap-3 px-5 h-20 hover:bg-zinc-900/50 transition-colors cursor-pointer">
+          <div className="w-12 h-12 flex items-center justify-center shrink-0">
+            <img 
+              src="/logo.png" 
+              alt="PhantmOS Logo" 
+              className="w-11 h-11 object-contain brightness-150 contrast-125 drop-shadow-[0_0_1px_rgba(255,255,255,0.8)]" 
             />
           </div>
+          <div className="min-w-0">
+            <div className="font-bold tracking-tight text-[16px] leading-tight text-white">PhantmOS</div>
+            <div className="text-[12px] font-normal text-zinc-400">Career Assistant</div>
+          </div>
+        </Link>
 
-          <div className="text-[10px] font-mono text-muted-foreground/50 text-right">
-            {pct}% remaining · auto-refills monthly
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+          <div className="px-3 pb-2 text-[11px] font-medium tracking-wider uppercase text-zinc-500">Navigation</div>
+          {NAV.map((item) => {
+            const Icon = item.icon;
+            const isActive = location.pathname === item.path;
+            return (
+              <Link
+                key={item.label}
+                to={item.path}
+                className={`group w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm transition-all ${
+                  isActive
+                    ? "bg-white text-black font-semibold shadow-sm"
+                    : "text-zinc-400 hover:text-white hover:bg-zinc-900/80"
+                }`}
+              >
+                <Icon className={`w-4 h-4 shrink-0 ${isActive ? "text-black" : "text-zinc-400 group-hover:text-white"}`} />
+                <span className="flex-1 text-left">{item.label}</span>
+                {item.badge && (
+                  <span className={`text-[11px] font-mono px-2 py-0.5 rounded-full ${
+                    isActive ? "bg-black/15 text-black font-bold" : "bg-zinc-900 text-zinc-300"
+                  }`}>
+                    {item.badge}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* Engine Credits Card */}
+        <div className="p-3">
+          <div className="bg-zinc-950 rounded-xl p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Cpu className="w-3.5 h-3.5 text-zinc-300" />
+                <span className="text-[11px] font-mono text-zinc-400">Engine Credits</span>
+              </div>
+              <button
+                title="Refresh credits"
+                onClick={() => queryClient.invalidateQueries({ queryKey: ["sidebar-credits"] })}
+                className="text-zinc-400 hover:text-white transition-colors"
+              >
+                <RefreshCw className={`w-3 h-3 ${creditsFetching ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+
+            <div className="flex items-baseline gap-1">
+              <span className="text-xl font-bold font-mono text-white">
+                {current.toLocaleString()}
+              </span>
+              <span className="text-xs text-zinc-500 font-mono">/ {maxC.toLocaleString()}</span>
+            </div>
+
+            <div className="h-1.5 rounded-full bg-zinc-900 overflow-hidden">
+              <div
+                className="h-full bg-white transition-all duration-700 ease-in-out"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+
+            <div className="text-[10px] font-mono text-zinc-500 text-right">
+              {pct}% remaining
+            </div>
           </div>
         </div>
-      </div>
-    </aside>
+      </aside>
     </>
   );
 }
 
-function StatusPill({ icon: Icon, label, value, color, onClick, loading }: { icon: any; label: string; value: string; color: "green" | "cyan" | "amber" | "red"; onClick?: () => void; loading?: boolean }) {
-  const dot = color === "green" ? "bg-neon-green" : color === "amber" ? "bg-neon-amber" : color === "red" ? "bg-red-500" : "bg-neon-cyan";
-  const Comp = onClick ? "button" : "div";
+function StatusPill({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
   return (
-    <Comp 
-      onClick={onClick}
-      disabled={loading}
-      className={`hidden md:flex items-center gap-2 h-11 px-3 rounded-xl glass ${onClick ? 'cursor-pointer hover:bg-white/10 transition-colors' : ''} ${loading ? 'opacity-70' : ''}`}
-    >
-      <span className={`w-1.5 h-1.5 rounded-full ${dot} ${!loading ? 'animate-pulse-glow' : ''}`} />
-      <Icon className={`w-3.5 h-3.5 text-muted-foreground ${loading ? 'animate-spin' : ''}`} />
-      <div className="text-[13px] leading-none text-left">
-        <div className="text-muted-foreground font-mono text-[13px]">{label}</div>
-        <div className="font-semibold mt-0.5">{value}</div>
+    <div className="hidden md:flex items-center gap-2 h-10 px-3.5 rounded-xl bg-zinc-950 text-white text-xs">
+      <span className="w-1.5 h-1.5 rounded-full bg-white" />
+      <Icon className="w-3.5 h-3.5 text-zinc-400" />
+      <div className="text-[12px] leading-none text-left">
+        <span className="text-zinc-400 font-mono text-[11px] mr-1.5">{label}:</span>
+        <span className="font-semibold text-white">{value}</span>
       </div>
-    </Comp>
+    </div>
   );
 }
 
 function TopBar({ setMobileOpen }: { setMobileOpen?: (v: boolean) => void }) {
   const { user, signOut } = useAuth();
-  const queryClient = useQueryClient();
   
   const { data: settings } = useQuery({
     queryKey: ["settings"],
@@ -192,59 +187,34 @@ function TopBar({ setMobileOpen }: { setMobileOpen?: (v: boolean) => void }) {
     }
   });
 
-  const { data: health, isFetching: isCheckingHealth } = useQuery({
-    queryKey: ["health"],
-    queryFn: async () => {
-      try {
-        const res = await apiFetch("/api/health");
-        if (!res.ok) return { status: "offline" };
-        return res.json();
-      } catch (e) {
-        return { status: "offline" };
-      }
-    },
-    refetchInterval: 30000,
-  });
-
   return (
-    <header className="sticky top-0 z-30 h-20 glass-strong border-b border-white/5 flex items-center gap-4 px-6">
+    <header className="sticky top-0 z-30 h-20 bg-black/90 backdrop-blur-md flex items-center gap-4 px-6">
       <button 
-        className="lg:hidden text-white/70 p-2 -ml-2" 
+        className="lg:hidden text-zinc-400 hover:text-white p-2 -ml-2" 
         onClick={() => setMobileOpen?.(true)}
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" x2="21" y1="6" y2="6"/><line x1="3" x2="21" y1="12" y2="12"/><line x1="3" x2="21" y1="18" y2="18"/></svg>
       </button>
       <div className="flex-1"></div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2.5">
         <StatusPill 
           icon={Wifi} 
           label="Telegram" 
-          value={settings?.telegram_connected ? "Synced" : "Pending"} 
-          color={settings?.telegram_connected ? "green" : "amber"} 
-        />
-        <StatusPill 
-          icon={Activity} 
-          label="System" 
-          value={isCheckingHealth ? "Pinging..." : (health?.status === "ok" ? "Nominal" : "Offline")} 
-          color={health?.status === "ok" ? "cyan" : "red"} 
-          loading={isCheckingHealth}
-          onClick={() => {
-            queryClient.invalidateQueries({ queryKey: ["health"] });
-          }}
+          value={settings?.telegram_connected ? "Synced" : "Ready"} 
         />
 
-        <div className="flex items-center gap-3 pl-4 ml-2 border-l border-white/10">
+        <div className="flex items-center gap-3 pl-3 ml-2">
           <div className="text-right hidden sm:block">
-            <div className="text-sm font-medium leading-none text-white/90">{user?.email?.split('@')[0] || 'User'}</div>
+            <div className="text-xs font-semibold text-white leading-none">{user?.email?.split('@')[0] || 'User'}</div>
             <div className="flex items-center justify-end gap-1.5 mt-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse-glow" />
-              <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Online</div>
+              <span className="w-1.5 h-1.5 rounded-full bg-white" />
+              <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider">Online</div>
             </div>
           </div>
           <button 
             onClick={() => signOut()}
-            className="w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 hover:border-white/20 hover:text-red-400 transition-colors text-muted-foreground ml-1"
+            className="w-9 h-9 rounded-xl bg-zinc-900 flex items-center justify-center hover:bg-zinc-800 hover:text-white transition-colors text-zinc-400"
             title="Sign Out"
           >
             <LogOut className="w-4 h-4" />
@@ -259,19 +229,14 @@ export function Layout({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   return (
     <AuthGuard>
-      <div className="min-h-screen text-foreground">
+      <div className="min-h-screen bg-black text-white">
         <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
-        <div className="lg:pl-64 flex flex-col min-h-screen">
+        <div className="lg:pl-64 flex flex-col min-h-screen bg-black">
           <TopBar setMobileOpen={setMobileOpen} />
-          <main className="flex-1 p-4 md:p-6 xl:p-8 space-y-6 max-w-[1800px] w-full mx-auto relative z-10">
+          <main className="flex-1 p-4 md:p-6 xl:p-8 space-y-6 max-w-[1700px] w-full mx-auto relative z-10">
             {children}
           </main>
         </div>
-        
-        {/* Ambient orbs */}
-        <div className="pointer-events-none fixed -top-40 -left-40 w-96 h-96 rounded-full bg-neon-blue/15 blur-[120px]" />
-        <div className="pointer-events-none fixed top-1/3 -right-40 w-96 h-96 rounded-full bg-neon-purple/15 blur-[120px]" />
-        <div className="pointer-events-none fixed bottom-0 left-1/3 w-96 h-96 rounded-full bg-neon-cyan/10 blur-[120px]" />
       </div>
     </AuthGuard>
   );

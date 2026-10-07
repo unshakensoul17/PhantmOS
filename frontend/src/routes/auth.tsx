@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Sparkles } from 'lucide-react';
 
 export const Route = createFileRoute('/auth')({
   component: AuthComponent,
@@ -28,7 +28,7 @@ function AuthComponent() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   
-  const { user } = useAuth();
+  const { user, guestLogin } = useAuth();
   const navigate = useNavigate();
 
   // If already logged in and not in the process of setting a password, redirect to dashboard
@@ -158,6 +158,23 @@ function AuthComponent() {
             {message}
           </div>
         )}
+
+        {/* Quick Demo / Guest Mode Access */}
+        <button
+          type="button"
+          onClick={() => {
+            guestLogin();
+            navigate({ to: '/dashboard' });
+          }}
+          className="group relative flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-neon-cyan via-neon-blue to-neon-purple p-[1.5px] font-semibold text-sm transition-all duration-300 hover:scale-[1.02] shadow-[0_0_20px_rgba(0,240,255,0.25)]"
+        >
+          <div className="flex w-full items-center justify-center gap-2.5 rounded-[10px] bg-[#0c1222] px-4 py-3 text-white transition-colors group-hover:bg-[#111a33]">
+            <Sparkles className="w-4 h-4 text-neon-cyan animate-pulse" />
+            <span className="bg-gradient-to-r from-neon-cyan via-white to-neon-purple bg-clip-text text-transparent font-bold text-sm">
+              Explore Demo / Guest Mode (बिना लॉगिन सीधे चलाएं)
+            </span>
+          </div>
+        </button>
 
         {mode === 'login' && (
           <>

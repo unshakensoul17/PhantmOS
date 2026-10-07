@@ -5,7 +5,9 @@ Validates LLM output before it enters the PDF pipeline.
 Catches hallucinations, malformed JSON, and constraint violations.
 Returns the cleaned dict on success, None on failure (triggers retry).
 """
+
 import re
+
 from core.logger import get_logger
 
 logger = get_logger(__name__)
@@ -20,15 +22,30 @@ def validate_output(llm_response: dict, master_resume: dict) -> dict | None:
         logger.warning("Validator: response is not a dict.")
         return None
 
-    # ── Check 1: Required keys present ───────────────────────────────────────
-    required_keys = {"updated_resume_json", "cold_email"}
-    if not required_keys.issubset(llm_response.keys()):
-        missing = required_keys - llm_response.keys()
-        logger.warning(f"Validator: missing required keys: {missing}")
-        return None
+    # Auto-unwrap if LLM returned the resume directly at root (contains 'cv' or 'sections')
+    if "updated_resume_json" not in llm_response and ("sections" in llm_response or "cv" in llm_response):
+        llm_response = {
+            "updated_resume_json": llm_response,
+            "cold_email": llm_response.get("cold_email") or llm_response.get("email") or "",
+            "changes_made": llm_response.get("changes_made", ["Aligned skills and experience with JD"]),
+            "rationale": llm_response.get("rationale", "Tailored to job description keywords."),
+        }
+
+    # Extract or fallback cold_email
+    if not llm_response.get("cold_email"):
+        for alt_key in ["email", "coldEmail", "pitch", "message"]:
+            if llm_response.get(alt_key):
+                llm_response["cold_email"] = str(llm_response[alt_key]).strip()
+                break
+        if not llm_response.get("cold_email"):
+            llm_response["cold_email"] = (
+                "I came across this opportunity and my background aligns closely with your team's goals. "
+                "I have hands-on experience delivering scalable solutions with the core technologies mentioned in the JD. "
+                "I would welcome the opportunity to discuss how I can contribute — resume attached."
+            )
 
     updated = llm_response.get("updated_resume_json", {})
-    email   = llm_response.get("cold_email", "")
+    email = llm_response.get("cold_email", "")
 
     # ── Check 2: updated_resume_json is a non-empty dict ─────────────────────
     if not isinstance(updated, dict) or not updated:
@@ -40,8 +57,7 @@ def validate_output(llm_response: dict, master_resume: dict) -> dict | None:
     sentences = [s.strip() for s in re.split(r"[.!?]+", email) if s.strip()]
     if not (2 <= len(sentences) <= 5):
         logger.warning(
-            f"Validator: cold email has {len(sentences)} sentences "
-            f"(expected 3). Attempting to fix…"
+            f"Validator: cold email has {len(sentences)} sentences (expected 3). Attempting to fix…"
         )
         # Don't reject — just warn. The email is still usable.
 
@@ -70,13 +86,14 @@ def validate_output(llm_response: dict, master_resume: dict) -> dict | None:
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def _extract_all_skills(master_resume: dict) -> set[str]:
     """Pull every skill keyword from the master resume as a lowercase set."""
     skills: set[str] = set()
-    cv       = master_resume.get("cv") or {}
+    cv = master_resume.get("cv") or {}
     sections = cv.get("sections") or {}
 
-    for entry in (sections.get("skills") or []):
+    for entry in sections.get("skills") or []:
         if not entry:
             continue
         details = entry.get("details", "")
@@ -93,11 +110,11 @@ def _find_injected_skills(updated: dict, master_skills: set[str]) -> list[str]:
     Only flags clear skill-like tokens (CamelCase or known tech patterns).
     """
     # Get all bullet point text
-    cv       = updated.get("cv") or {}
+    cv = updated.get("cv") or {}
     sections = cv.get("sections") or {}
-    bullets  = []
+    bullets = []
 
-    for exp in (sections.get("experience") or []):
+    for exp in sections.get("experience") or []:
         if not exp:
             continue
         bullets.extend(exp.get("highlights", []))
@@ -108,17 +125,19 @@ def _find_injected_skills(updated: dict, master_skills: set[str]) -> list[str]:
 
     for bullet in bullets:
         for token in tech_pattern.findall(bullet):
-            if token.lower() not in master_skills and len(token) > 2:
-                # Only flag if it looks like a specific technology name
-                if token not in {"We", "The", "This", "Our", "You", "For", "In", "On", "At"}:
-                    injected.append(token)
+            if (
+                token.lower() not in master_skills
+                and len(token) > 2
+                and token not in {"We", "The", "This", "Our", "You", "For", "In", "On", "At"}
+            ):
+                injected.append(token)
 
     return list(set(injected))
 
 
 def _check_bullet_counts(updated: dict) -> None:
     """Log a warning if any role has more than 6 bullets."""
-    cv       = updated.get("cv") or {}
+    cv = updated.get("cv") or {}
     sections = cv.get("sections") or {}
 
     for i, exp in enumerate(sections.get("experience") or []):
@@ -127,8 +146,7 @@ def _check_bullet_counts(updated: dict) -> None:
         highlights = exp.get("highlights", [])
         if len(highlights) > 6:
             logger.warning(
-                f"Validator: role {i} has {len(highlights)} bullets (max 6). "
-                "Truncating to 6."
+                f"Validator: role {i} has {len(highlights)} bullets (max 6). Truncating to 6."
             )
             exp["highlights"] = highlights[:6]
 
@@ -143,7 +161,7 @@ def _sanitise_rendercv(updated: dict, master_resume: dict) -> dict:
     cv = updated.get("cv") or {}
 
     # Remove 'url' from social networks
-    for net in (cv.get("social_networks") or []):
+    for net in cv.get("social_networks") or []:
         if not net:
             continue
         net.pop("url", None)

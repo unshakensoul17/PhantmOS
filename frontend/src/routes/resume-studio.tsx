@@ -1,7 +1,8 @@
 import { apiFetch } from "../lib/api";
 import { createFileRoute } from "@tanstack/react-router";
 import { Layout } from "../components/Layout";
-import { Upload, Check, Loader2, Save, Plus, Trash2, Code } from "lucide-react";
+import { Upload, Loader2, Save, Plus, Trash2, Code } from "lucide-react";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
@@ -13,25 +14,27 @@ const DEFAULT_PROFILE = {
   target_role: "Software Engineer",
   cv: {
     name: "Your Name", email: "you@example.com", phone: "+1-555-0100", location: "San Francisco, CA",
-    social_networks: [ { network: "LinkedIn", username: "yourusername" }, { network: "GitHub", username: "yourusername" } ],
+    social_networks: [ { network: "LinkedIn", username: "https://linkedin.com/in/yourprofile", url: "https://linkedin.com/in/yourprofile" }, { network: "GitHub", username: "https://github.com/yourprofile", url: "https://github.com/yourprofile" } ],
     sections: {
-      summary: ["A highly motivated engineer with 5+ years of experience in scalable systems."],
-      education: [ { institution: "University of Example", area: "Computer Science", degree: "BS", date: "2018-08 to 2022-05", highlights: ["Graduated Summa Cum Laude"] } ],
-      experience: [ { company: "Tech Corp", position: "Senior Engineer", location: "Remote", date: "2022-06 to present", highlights: ["Built a distributed pipeline that reduced latency by 40%."] } ],
-      projects: [ { name: "Open Source Tool", date: "2023-01 to 2023-04", url: "https://github.com/...", highlights: ["Developed a CLI tool with 1k+ stars on GitHub."] } ],
-      skills: [ { label: "Programming Languages", details: "Python, TypeScript, Go, Rust" } ]
+      summary: ["Experienced engineer specializing in modern web applications, scalable backend systems, and distributed architecture."],
+      education: [ { institution: "University", area: "Computer Science", degree: "BS", date: "2018-08 to 2022-05", highlights: ["Graduated with Honors"] } ],
+      experience: [ { company: "Tech Company", position: "Software Engineer", location: "Remote", date: "2022-06 to present", highlights: ["Architected microservices that improved API throughput by 35%."] } ],
+      projects: [ { name: "Full Stack Platform", date: "2023-01 to 2023-04", url: "https://github.com/example/project", highlights: ["Implemented real-time data sync with WebSockets and React."] } ],
+      skills: [ { label: "Programming & Frameworks", details: "TypeScript, React, Python, Node.js, SQL" } ]
     }
   }
 };
 
 function ResumeStudioPage() {
+  const queryClient = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [profile, setProfile] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("basics");
   const [viewMode, setViewMode] = useState<"visual"|"json">("visual");
-  const [jsonText, setJsonText] = useState(""); // For manual JSON override
+  const [jsonText, setJsonText] = useState("");
+  const [resumeTemplate, setResumeTemplate] = useState("sb2nov");
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -51,6 +54,19 @@ function ResumeStudioPage() {
     };
     loadProfile();
   }, []);
+
+  const { data: settings } = useQuery({
+    queryKey: ["settings"],
+    queryFn: async () => {
+      const res = await apiFetch("/api/settings");
+      if (!res.ok) return {};
+      const data = await res.json();
+      if (data.resume_template) {
+        setResumeTemplate(data.resume_template);
+      }
+      return data;
+    }
+  });
 
   useEffect(() => {
     if (profile && viewMode === "json") {
@@ -77,7 +93,7 @@ function ResumeStudioPage() {
     const idx = d.cv.social_networks.findIndex((s: any) => s.network?.toLowerCase() === network.toLowerCase());
     if (idx >= 0) {
       d.cv.social_networks[idx].url = value;
-      d.cv.social_networks[idx].username = value; // Maintain both for parser compatibility
+      d.cv.social_networks[idx].username = value;
     } else {
       d.cv.social_networks.push({ network, url: value, username: value });
     }
@@ -88,7 +104,6 @@ function ResumeStudioPage() {
     try {
       const payload = viewMode === "json" ? JSON.parse(jsonText) : profile;
       
-      // Validation for mandatory LinkedIn and GitHub links
       const socials = payload?.cv?.social_networks || [];
       const linkedin = socials.find((s: any) => s.network?.toLowerCase() === "linkedin");
       const github = socials.find((s: any) => s.network?.toLowerCase() === "github");
@@ -118,8 +133,22 @@ function ResumeStudioPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ resume_data: payload }),
       });
-      if (!res.ok) throw new Error("Failed to save on server");
-      toast.success("Profile Saved Successfully!");
+      if (!res.ok) throw new Error("Failed to save profile on server");
+
+      if (settings) {
+        await apiFetch("/api/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...settings, resume_template: resumeTemplate }),
+        });
+      }
+      
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      
+      toast.success("Profile & appearance saved successfully!");
       if (viewMode === "json") setProfile(payload);
     } catch (err: any) {
       toast.error(err.message.includes("mandatory") || err.message.includes("Invalid") ? err.message : "Save Failed: " + err.message);
@@ -142,53 +171,7 @@ function ResumeStudioPage() {
         const data = await res.json();
         if (data.status === "success" && data.profile) {
             setProfile(data.profile);
-            toast.success("Resume uploaded successfully!");
-            
-            // Validate for mocked/missing data
-            const warnings: string[] = [];
-            const cv = data.profile.cv || {};
-            
-            // Check socials
-            const socials = cv.social_networks || [];
-            const linkedin = socials.find((s: any) => s.network?.toLowerCase() === "linkedin");
-            if (!linkedin || !linkedin.url || linkedin.url === "Link" || linkedin.url === "null") {
-              warnings.push("LinkedIn URL is missing or mocked.");
-            }
-            const github = socials.find((s: any) => s.network?.toLowerCase() === "github");
-            if (!github || !github.url || github.url === "Link" || github.url === "null") {
-              warnings.push("GitHub URL is missing or mocked.");
-            }
-            
-            // Check education
-            const education = cv.sections?.education || [];
-            if (education.length === 0) {
-              warnings.push("Education section is empty.");
-            } else {
-              education.forEach((edu: any, i: number) => {
-                if (!edu.institution || edu.institution === "null") warnings.push(`Education #${i+1} is missing an institution.`);
-                if (edu.degree === "null") warnings.push(`Education #${i+1} degree is marked as "null".`);
-              });
-            }
-
-            // Check projects
-            const projects = cv.sections?.projects || [];
-            projects.forEach((proj: any, i: number) => {
-              if (proj.url === "null" || proj.url === "Link") {
-                warnings.push(`Project #${i+1} has a mocked URL.`);
-              }
-            });
-
-            if (warnings.length > 0) {
-              toast.warning(
-                <div>
-                  <p className="font-bold mb-1">Please review these fields:</p>
-                  <ul className="list-disc pl-4 text-xs space-y-1">
-                    {warnings.map((w, i) => <li key={i}>{w}</li>)}
-                  </ul>
-                </div>,
-                { duration: 10000 }
-              );
-            }
+            toast.success("Resume parsed successfully!");
         }
         setIsUploading(false);
       } catch (err: any) {
@@ -199,117 +182,152 @@ function ResumeStudioPage() {
     }
   };
 
-  if (!profile) return <Layout><div className="p-10 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-neon-cyan" /></div></Layout>;
+  if (!profile) {
+    return (
+      <Layout>
+        <div className="p-16 flex flex-col items-center justify-center text-zinc-500">
+          <Loader2 className="w-8 h-8 animate-spin text-white mb-2" />
+          <p className="text-sm">Loading resume profile...</p>
+        </div>
+      </Layout>
+    );
+  }
+
+  const hasName = Boolean(profile.cv?.name);
+  const hasRole = Boolean(profile.target_role);
+  const hasLinkedIn = Boolean(getSocial("LinkedIn"));
+  const hasExperience = Boolean(profile.cv?.sections?.experience?.length > 0);
+  const hasSkills = Boolean(profile.cv?.sections?.skills?.length > 0);
+
+  const completedCount = [hasName, hasRole, hasLinkedIn, hasExperience, hasSkills].filter(Boolean).length;
+  const readinessPct = Math.round((completedCount / 5) * 100);
 
   return (
     <Layout>
-      <div className="space-y-6 animate-fade-up">
-        <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="text-[13px] font-mono text-neon-purple mb-1">Resume Studio</div>
-            <h2 className="text-3xl font-bold tracking-tight">Master Profile Editor</h2>
+            <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Resume Profile</h1>
+            <p className="text-sm text-zinc-400 mt-1">
+              Your master resume data and appearance template used to generate tailored PDF resumes.
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <button 
               onClick={() => setViewMode(v => v === "visual" ? "json" : "visual")}
-              className="h-11 px-4 rounded-xl glass hover:bg-white/10 text-sm font-medium inline-flex items-center gap-2 transition">
+              className="h-10 px-3.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-medium inline-flex items-center gap-1.5 transition"
+            >
               <Code className="w-4 h-4" />
-              {viewMode === "visual" ? "Edit Raw JSON" : "Visual Editor"}
+              {viewMode === "visual" ? "Edit JSON" : "Visual Form"}
             </button>
             <button 
               onClick={handleSave}
               disabled={isSaving}
-              className="h-11 px-6 rounded-xl bg-gradient-to-r from-neon-blue to-neon-purple text-black font-semibold inline-flex items-center gap-2 hover:scale-[1.02] transition glow-blue disabled:opacity-50">
+              className="h-10 px-5 rounded-xl bg-white hover:bg-zinc-200 text-black font-semibold text-xs inline-flex items-center gap-1.5 shadow-sm transition disabled:opacity-50"
+            >
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Save Profile
             </button>
           </div>
         </div>
 
-        <div className="grid lg:grid-cols-4 gap-6">
-          {/* Left Sidebar (Upload & Tabs) */}
-          <div className="lg:col-span-1 space-y-4">
-            <div className="glass-strong rounded-2xl p-4">
-              <label className="relative flex flex-col items-center justify-center h-32 border border-dashed border-white/20 rounded-xl hover:bg-white/5 transition cursor-pointer group overflow-hidden bg-black/20">
-                <input type="file" className="hidden" accept=".pdf" onChange={handleUpload} />
-                {isUploading ? (
-                  <Loader2 className="w-6 h-6 animate-spin text-neon-cyan mb-2" />
-                ) : file ? (
-                  <Check className="w-6 h-6 text-neon-green mb-2" />
-                ) : (
-                  <Upload className="w-6 h-6 text-muted-foreground group-hover:text-neon-cyan transition mb-2" />
-                )}
-                <span className="text-xs font-mono">{isUploading ? "Parsing..." : "Upload Resume PDF"}</span>
-              </label>
+        {/* Readiness Gauge */}
+        <div className="bg-zinc-950 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="font-bold font-mono text-xl text-white">
+              {readinessPct}%
             </div>
+            <div>
+              <div className="text-sm font-semibold text-white">Profile Readiness: {readinessPct >= 80 ? "Ready for Matching" : "Needs Information"}</div>
+              <div className="text-xs text-zinc-400">
+                {readinessPct >= 80 ? "Your profile contains all essential sections for high-accuracy scoring." : "Fill in your target role and experience to get the best job matches."}
+              </div>
+            </div>
+          </div>
+          <label className="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-200 text-xs font-medium cursor-pointer inline-flex items-center gap-2 transition shrink-0">
+            <input type="file" className="hidden" accept=".pdf" onChange={handleUpload} />
+            {isUploading ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <Upload className="w-4 h-4 text-white" />}
+            <span>{isUploading ? "Parsing PDF..." : "Upload New PDF"}</span>
+          </label>
+        </div>
 
+        {/* Form Container */}
+        <div className="grid lg:grid-cols-4 gap-6">
+          {/* Navigation Tabs */}
+          <div className="lg:col-span-1 space-y-2">
             {viewMode === "visual" && (
-              <div className="glass-strong rounded-2xl p-2 flex flex-col gap-1">
-                {["basics", "experience", "projects", "education", "skills"].map(tab => (
+              <div className="bg-zinc-950 rounded-2xl p-2 flex flex-col gap-1">
+                {[
+                  { id: "basics", label: "Basics & Contact" },
+                  { id: "experience", label: "Work Experience" },
+                  { id: "projects", label: "Projects" },
+                  { id: "education", label: "Education" },
+                  { id: "skills", label: "Skills" },
+                  { id: "appearance", label: "Resume Appearance" },
+                ].map(tab => (
                   <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`text-left px-4 py-2.5 rounded-xl text-sm font-medium transition ${
-                      activeTab === tab ? "bg-white/10 text-white" : "text-muted-foreground hover:bg-white/5 hover:text-white"
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`text-left px-3.5 py-2.5 rounded-xl text-xs font-medium transition ${
+                      activeTab === tab.id
+                        ? "bg-white text-black font-semibold shadow-sm"
+                        : "text-zinc-400 hover:bg-zinc-900 hover:text-white"
                     }`}
                   >
-                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                    {tab.label}
                   </button>
                 ))}
               </div>
             )}
           </div>
 
-          {/* Editor Area */}
-          <div className="glass-strong rounded-2xl p-6 lg:col-span-3 min-h-[500px]">
+          {/* Form Content */}
+          <div className="bg-zinc-950 rounded-2xl p-6 lg:col-span-3 min-h-[480px]">
             {viewMode === "json" ? (
               <textarea 
                 value={jsonText} 
                 onChange={e => setJsonText(e.target.value)}
-                className="w-full h-full min-h-[500px] p-4 rounded-xl glass text-sm focus:outline-none focus:ring-2 focus:ring-neon-purple/50 transition bg-black/40 font-mono leading-relaxed" 
+                className="w-full h-full min-h-[480px] p-4 rounded-xl bg-black text-zinc-200 text-xs focus:outline-none font-mono leading-relaxed" 
                 spellCheck={false}
               />
             ) : (
               <div className="space-y-6">
                 {activeTab === "basics" && (
-                  <div className="space-y-4 animate-fade-up">
-                    <h3 className="text-lg font-bold mb-4">Basic Details</h3>
-                    <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-4">
+                    <h3 className="text-base font-semibold text-white">Basic Information</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="text-xs font-mono text-muted-foreground mb-1 block">Target Role (for AI Harvesting)</label>
-                        <input className="w-full h-10 px-3 rounded-lg glass text-sm" value={profile.target_role || ""} onChange={e => updateProfile(d => d.target_role = e.target.value)} />
-                      </div>
-                      <div>
-                        <label className="text-xs font-mono text-muted-foreground mb-1 block">Full Name</label>
-                        <input className="w-full h-10 px-3 rounded-lg glass text-sm" value={profile.cv?.name || ""} onChange={e => updateProfile(d => { if(!d.cv) d.cv={}; d.cv.name = e.target.value })} />
+                        <label className="text-xs font-medium text-zinc-400 mb-1.5 block">Target Role (for AI matching)</label>
+                        <input className="w-full h-10 px-3.5 rounded-lg bg-black text-white text-xs focus:outline-none" value={profile.target_role || ""} onChange={e => updateProfile(d => d.target_role = e.target.value)} placeholder="e.g. Frontend Developer, AI Intern" />
                       </div>
                       <div>
-                        <label className="text-xs font-mono text-muted-foreground mb-1 block">Email</label>
-                        <input className="w-full h-10 px-3 rounded-lg glass text-sm" value={profile.cv?.email || ""} onChange={e => updateProfile(d => d.cv.email = e.target.value)} />
+                        <label className="text-xs font-medium text-zinc-400 mb-1.5 block">Full Name</label>
+                        <input className="w-full h-10 px-3.5 rounded-lg bg-black text-white text-xs focus:outline-none" value={profile.cv?.name || ""} onChange={e => updateProfile(d => { if(!d.cv) d.cv={}; d.cv.name = e.target.value })} />
                       </div>
                       <div>
-                        <label className="text-xs font-mono text-muted-foreground mb-1 block">Phone</label>
-                        <input className="w-full h-10 px-3 rounded-lg glass text-sm" value={profile.cv?.phone || ""} onChange={e => updateProfile(d => d.cv.phone = e.target.value)} />
-                      </div>
-                      <div className="col-span-2">
-                        <label className="text-xs font-mono text-muted-foreground mb-1 block">Location</label>
-                        <input className="w-full h-10 px-3 rounded-lg glass text-sm" value={profile.cv?.location || ""} onChange={e => updateProfile(d => d.cv.location = e.target.value)} />
+                        <label className="text-xs font-medium text-zinc-400 mb-1.5 block">Email</label>
+                        <input className="w-full h-10 px-3.5 rounded-lg bg-black text-white text-xs focus:outline-none" value={profile.cv?.email || ""} onChange={e => updateProfile(d => d.cv.email = e.target.value)} />
                       </div>
                       <div>
-                        <label className="text-xs font-mono text-muted-foreground mb-1 block">LinkedIn URL</label>
-                        <input className="w-full h-10 px-3 rounded-lg glass text-sm" value={getSocial("LinkedIn")} onChange={e => updateProfile(d => setSocial(d, "LinkedIn", e.target.value))} placeholder="https://linkedin.com/in/..." />
+                        <label className="text-xs font-medium text-zinc-400 mb-1.5 block">Phone</label>
+                        <input className="w-full h-10 px-3.5 rounded-lg bg-black text-white text-xs focus:outline-none" value={profile.cv?.phone || ""} onChange={e => updateProfile(d => d.cv.phone = e.target.value)} />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="text-xs font-medium text-zinc-400 mb-1.5 block">Location</label>
+                        <input className="w-full h-10 px-3.5 rounded-lg bg-black text-white text-xs focus:outline-none" value={profile.cv?.location || ""} onChange={e => updateProfile(d => d.cv.location = e.target.value)} placeholder="e.g. San Francisco, CA or Remote" />
                       </div>
                       <div>
-                        <label className="text-xs font-mono text-muted-foreground mb-1 block">GitHub URL</label>
-                        <input className="w-full h-10 px-3 rounded-lg glass text-sm" value={getSocial("GitHub")} onChange={e => updateProfile(d => setSocial(d, "GitHub", e.target.value))} placeholder="https://github.com/..." />
+                        <label className="text-xs font-medium text-zinc-400 mb-1.5 block">LinkedIn URL</label>
+                        <input className="w-full h-10 px-3.5 rounded-lg bg-black text-white text-xs focus:outline-none" value={getSocial("LinkedIn")} onChange={e => updateProfile(d => setSocial(d, "LinkedIn", e.target.value))} placeholder="https://linkedin.com/in/..." />
                       </div>
-                      <div className="col-span-2">
-                        <label className="text-xs font-mono text-muted-foreground mb-1 block">Portfolio URL</label>
-                        <input className="w-full h-10 px-3 rounded-lg glass text-sm" value={getSocial("Portfolio")} onChange={e => updateProfile(d => setSocial(d, "Portfolio", e.target.value))} placeholder="https://yourportfolio.com" />
+                      <div>
+                        <label className="text-xs font-medium text-zinc-400 mb-1.5 block">GitHub URL</label>
+                        <input className="w-full h-10 px-3.5 rounded-lg bg-black text-white text-xs focus:outline-none" value={getSocial("GitHub")} onChange={e => updateProfile(d => setSocial(d, "GitHub", e.target.value))} placeholder="https://github.com/..." />
                       </div>
-                      <div className="col-span-2">
-                        <label className="text-xs font-mono text-muted-foreground mb-1 block">Professional Summary</label>
-                        <textarea className="w-full h-24 p-3 rounded-lg glass text-sm" value={profile.cv?.sections?.summary?.[0] || ""} onChange={e => updateProfile(d => { if(!d.cv.sections) d.cv.sections={}; d.cv.sections.summary = [e.target.value] })} />
+                      <div className="sm:col-span-2">
+                        <label className="text-xs font-medium text-zinc-400 mb-1.5 block">Professional Summary</label>
+                        <textarea className="w-full h-24 p-3.5 rounded-lg bg-black text-white text-xs focus:outline-none resize-none" value={profile.cv?.sections?.summary?.[0] || ""} onChange={e => updateProfile(d => { if(!d.cv.sections) d.cv.sections={}; d.cv.sections.summary = [e.target.value] })} />
                       </div>
                     </div>
                   </div>
@@ -317,27 +335,19 @@ function ResumeStudioPage() {
 
                 {activeTab === "experience" && (
                   <ListEditor 
-                    title="Experience" 
+                    title="Work Experience" 
                     items={profile.cv?.sections?.experience || []} 
                     onUpdate={(newItems) => updateProfile(d => { if(!d.cv.sections) d.cv.sections={}; d.cv.sections.experience = newItems; })}
                     emptyItem={{ company: "", position: "", location: "", date: "", highlights: [""] }}
                     renderItem={(item, updateItem) => (
-                      <div className="grid grid-cols-2 gap-3">
-                        <input placeholder="Company" className="h-10 px-3 rounded-lg glass text-sm" value={item.company || ""} onChange={e => updateItem({...item, company: e.target.value})} />
-                        <input placeholder="Position" className="h-10 px-3 rounded-lg glass text-sm" value={item.position || ""} onChange={e => updateItem({...item, position: e.target.value})} />
-                        <input placeholder="Date (e.g. 2020-01 to 2023-01)" className="h-10 px-3 rounded-lg glass text-sm" 
-                          value={item.date || (item.start_date ? `${item.start_date} to ${item.end_date || 'Present'}` : "")} 
-                          onChange={e => {
-                            const copy = {...item, date: e.target.value};
-                            delete copy.start_date;
-                            delete copy.end_date;
-                            updateItem(copy);
-                          }} 
-                        />
-                        <input placeholder="Location" className="h-10 px-3 rounded-lg glass text-sm" value={item.location || ""} onChange={e => updateItem({...item, location: e.target.value})} />
-                        <div className="col-span-2">
-                          <label className="text-[11px] font-mono text-muted-foreground mb-1 block">Highlights (One bullet per line)</label>
-                          <textarea className="w-full h-32 p-3 rounded-lg glass text-sm" value={(item.highlights || []).join("\n")} onChange={e => updateItem({...item, highlights: e.target.value.split("\n").filter(x=>x.trim())})} />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <input placeholder="Company Name" className="h-10 px-3.5 rounded-lg bg-black text-white text-xs focus:outline-none" value={item.company || ""} onChange={e => updateItem({...item, company: e.target.value})} />
+                        <input placeholder="Position / Title" className="h-10 px-3.5 rounded-lg bg-black text-white text-xs focus:outline-none" value={item.position || ""} onChange={e => updateItem({...item, position: e.target.value})} />
+                        <input placeholder="Dates (e.g. 2022-06 to Present)" className="h-10 px-3.5 rounded-lg bg-black text-white text-xs focus:outline-none" value={item.date || (item.start_date ? `${item.start_date} to ${item.end_date || 'Present'}` : "")} onChange={e => updateItem({...item, date: e.target.value})} />
+                        <input placeholder="Location" className="h-10 px-3.5 rounded-lg bg-black text-white text-xs focus:outline-none" value={item.location || ""} onChange={e => updateItem({...item, location: e.target.value})} />
+                        <div className="sm:col-span-2">
+                          <label className="text-[11px] font-medium text-zinc-400 mb-1 block">Key Achievements / Bullets (One per line)</label>
+                          <textarea className="w-full h-28 p-3.5 rounded-lg bg-black text-white text-xs focus:outline-none resize-none" value={(item.highlights || []).join("\n")} onChange={e => updateItem({...item, highlights: e.target.value.split("\n").filter(x=>x.trim())})} />
                         </div>
                       </div>
                     )}
@@ -346,26 +356,18 @@ function ResumeStudioPage() {
 
                 {activeTab === "projects" && (
                   <ListEditor 
-                    title="Projects" 
+                    title="Key Projects" 
                     items={profile.cv?.sections?.projects || []} 
                     onUpdate={(newItems) => updateProfile(d => { if(!d.cv.sections) d.cv.sections={}; d.cv.sections.projects = newItems; })}
                     emptyItem={{ name: "", url: "", date: "", highlights: [""] }}
                     renderItem={(item, updateItem) => (
-                      <div className="grid grid-cols-2 gap-3">
-                        <input placeholder="Project Name" className="h-10 px-3 rounded-lg glass text-sm" value={item.name || ""} onChange={e => updateItem({...item, name: e.target.value})} />
-                        <input placeholder="Date" className="h-10 px-3 rounded-lg glass text-sm" 
-                          value={item.date || (item.start_date ? `${item.start_date} to ${item.end_date || 'Present'}` : "")} 
-                          onChange={e => {
-                            const copy = {...item, date: e.target.value};
-                            delete copy.start_date;
-                            delete copy.end_date;
-                            updateItem(copy);
-                          }} 
-                        />
-                        <input placeholder="URL (Optional)" className="col-span-2 h-10 px-3 rounded-lg glass text-sm" value={item.url || ""} onChange={e => updateItem({...item, url: e.target.value})} />
-                        <div className="col-span-2">
-                          <label className="text-[11px] font-mono text-muted-foreground mb-1 block">Highlights (One bullet per line)</label>
-                          <textarea className="w-full h-24 p-3 rounded-lg glass text-sm" value={(item.highlights || []).join("\n")} onChange={e => updateItem({...item, highlights: e.target.value.split("\n").filter(x=>x.trim())})} />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <input placeholder="Project Name" className="h-10 px-3.5 rounded-lg bg-black text-white text-xs focus:outline-none" value={item.name || ""} onChange={e => updateItem({...item, name: e.target.value})} />
+                        <input placeholder="Dates" className="h-10 px-3.5 rounded-lg bg-black text-white text-xs focus:outline-none" value={item.date || ""} onChange={e => updateItem({...item, date: e.target.value})} />
+                        <input placeholder="Project / Repo URL" className="sm:col-span-2 h-10 px-3.5 rounded-lg bg-black text-white text-xs focus:outline-none" value={item.url || ""} onChange={e => updateItem({...item, url: e.target.value})} />
+                        <div className="sm:col-span-2">
+                          <label className="text-[11px] font-medium text-zinc-400 mb-1 block">Project Highlights (One per line)</label>
+                          <textarea className="w-full h-24 p-3.5 rounded-lg bg-black text-white text-xs focus:outline-none resize-none" value={(item.highlights || []).join("\n")} onChange={e => updateItem({...item, highlights: e.target.value.split("\n").filter(x=>x.trim())})} />
                         </div>
                       </div>
                     )}
@@ -379,19 +381,11 @@ function ResumeStudioPage() {
                     onUpdate={(newItems) => updateProfile(d => { if(!d.cv.sections) d.cv.sections={}; d.cv.sections.education = newItems; })}
                     emptyItem={{ institution: "", area: "", degree: "", date: "", highlights: [] }}
                     renderItem={(item, updateItem) => (
-                      <div className="grid grid-cols-2 gap-3">
-                        <input placeholder="Institution" className="h-10 px-3 rounded-lg glass text-sm" value={item.institution || ""} onChange={e => updateItem({...item, institution: e.target.value})} />
-                        <input placeholder="Area / Major" className="h-10 px-3 rounded-lg glass text-sm" value={item.area || ""} onChange={e => updateItem({...item, area: e.target.value})} />
-                        <input placeholder="Degree (e.g. BS)" className="h-10 px-3 rounded-lg glass text-sm" value={item.degree || ""} onChange={e => updateItem({...item, degree: e.target.value})} />
-                        <input placeholder="Date" className="h-10 px-3 rounded-lg glass text-sm" 
-                          value={item.date || (item.start_date ? `${item.start_date} to ${item.end_date || 'Present'}` : "")} 
-                          onChange={e => {
-                            const copy = {...item, date: e.target.value};
-                            delete copy.start_date;
-                            delete copy.end_date;
-                            updateItem(copy);
-                          }} 
-                        />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <input placeholder="Institution / University" className="h-10 px-3.5 rounded-lg bg-black text-white text-xs focus:outline-none" value={item.institution || ""} onChange={e => updateItem({...item, institution: e.target.value})} />
+                        <input placeholder="Field of Study / Major" className="h-10 px-3.5 rounded-lg bg-black text-white text-xs focus:outline-none" value={item.area || ""} onChange={e => updateItem({...item, area: e.target.value})} />
+                        <input placeholder="Degree (e.g. BS, BTech)" className="h-10 px-3.5 rounded-lg bg-black text-white text-xs focus:outline-none" value={item.degree || ""} onChange={e => updateItem({...item, degree: e.target.value})} />
+                        <input placeholder="Dates" className="h-10 px-3.5 rounded-lg bg-black text-white text-xs focus:outline-none" value={item.date || ""} onChange={e => updateItem({...item, date: e.target.value})} />
                       </div>
                     )}
                   />
@@ -399,17 +393,58 @@ function ResumeStudioPage() {
 
                 {activeTab === "skills" && (
                   <ListEditor 
-                    title="Skills" 
+                    title="Skills & Technologies" 
                     items={profile.cv?.sections?.skills || []} 
                     onUpdate={(newItems) => updateProfile(d => { if(!d.cv.sections) d.cv.sections={}; d.cv.sections.skills = newItems; })}
                     emptyItem={{ label: "", details: "" }}
                     renderItem={(item, updateItem) => (
-                      <div className="grid grid-cols-2 gap-3">
-                        <input placeholder="Category (e.g. Languages)" className="h-10 px-3 rounded-lg glass text-sm" value={item.label || ""} onChange={e => updateItem({...item, label: e.target.value})} />
-                        <input placeholder="Details (e.g. Python, Java)" className="h-10 px-3 rounded-lg glass text-sm" value={item.details || ""} onChange={e => updateItem({...item, details: e.target.value})} />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <input placeholder="Category (e.g. Languages, Tools)" className="h-10 px-3.5 rounded-lg bg-black text-white text-xs focus:outline-none" value={item.label || ""} onChange={e => updateItem({...item, label: e.target.value})} />
+                        <input placeholder="Skills (e.g. React, Python, PostgreSQL)" className="h-10 px-3.5 rounded-lg bg-black text-white text-xs focus:outline-none" value={item.details || ""} onChange={e => updateItem({...item, details: e.target.value})} />
                       </div>
                     )}
                   />
+                )}
+
+                {/* RESUME APPEARANCE TAB */}
+                {activeTab === "appearance" && (
+                  <div className="space-y-6">
+                    <div>
+                      <h3 className="text-base font-semibold text-white">Resume Appearance & PDF Template</h3>
+                      <p className="text-xs text-zinc-400 mt-0.5">
+                        Choose the RenderCV template used to format and style all tailored PDF resumes.
+                      </p>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-medium text-zinc-400 mb-2">Select Template</label>
+                        <select 
+                          className="w-full bg-black rounded-xl px-4 py-3 text-white focus:outline-none font-mono text-xs"
+                          value={resumeTemplate}
+                          onChange={(e) => setResumeTemplate(e.target.value)}
+                        >
+                          <option value="sb2nov">SB2Nov (Standard Tech Clean)</option>
+                          <option value="classic">Classic (Standard Academic)</option>
+                          <option value="engineeringresumes">Engineering Resumes (Dense)</option>
+                          <option value="moderncv">ModernCV (Two-column layout)</option>
+                        </select>
+                        <p className="text-[11px] text-zinc-500 mt-1.5">This template layout will be applied when exporting tailored resumes.</p>
+                      </div>
+
+                      <div className="mt-4 p-5 rounded-xl bg-black">
+                        <h4 className="text-xs font-semibold text-white uppercase tracking-wider mb-3">Template Preview</h4>
+                        <div className="w-full max-w-sm mx-auto rounded-xl shadow-2xl overflow-hidden bg-white">
+                          <img 
+                            src={`/templates/${resumeTemplate || 'sb2nov'}.png`} 
+                            alt={`${resumeTemplate} preview`} 
+                            className="w-full h-auto object-cover"
+                            loading="lazy"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             )}
@@ -420,30 +455,36 @@ function ResumeStudioPage() {
   );
 }
 
-// Reusable array manager component
 function ListEditor({ title, items, onUpdate, emptyItem, renderItem }: { title: string, items: any[], onUpdate: (items: any[]) => void, emptyItem: any, renderItem: (item: any, updateItem: (i: any) => void) => React.ReactNode }) {
   return (
-    <div className="space-y-4 animate-fade-up">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-bold">{title}</h3>
+        <h3 className="text-base font-semibold text-white">{title}</h3>
         <button 
           onClick={() => onUpdate([...items, emptyItem])}
-          className="h-8 px-3 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-medium inline-flex items-center gap-1.5 transition">
-          <Plus className="w-3 h-3" /> Add Item
+          className="h-8 px-3.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-xs font-medium text-zinc-200 inline-flex items-center gap-1.5 transition"
+        >
+          <Plus className="w-3.5 h-3.5" /> Add New
         </button>
       </div>
       
-      {items.length === 0 && <div className="text-sm text-muted-foreground py-8 text-center border border-dashed border-white/10 rounded-xl">No {title.toLowerCase()} added yet.</div>}
+      {items.length === 0 && (
+        <div className="text-xs text-zinc-500 py-8 text-center bg-black/40 rounded-xl">
+          No {title.toLowerCase()} added yet. Click "Add New" above.
+        </div>
+      )}
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         {items.map((item, idx) => (
-          <div key={idx} className="relative glass p-4 rounded-xl border border-white/5">
+          <div key={idx} className="relative bg-black p-4 rounded-xl">
             <button 
               onClick={() => { const copy = [...items]; copy.splice(idx, 1); onUpdate(copy); }}
-              className="absolute top-2 right-2 w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-red-400 hover:bg-red-400/10 transition">
+              className="absolute top-3 right-3 w-7 h-7 rounded-lg flex items-center justify-center text-zinc-500 hover:text-white hover:bg-zinc-900 transition"
+              title="Delete item"
+            >
               <Trash2 className="w-4 h-4" />
             </button>
-            <div className="pr-10">
+            <div className="pr-8">
               {renderItem(item, (updatedItem) => {
                 const copy = [...items];
                 copy[idx] = updatedItem;
