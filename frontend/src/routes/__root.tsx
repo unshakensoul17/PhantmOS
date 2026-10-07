@@ -20,6 +20,45 @@ import {
 } from "lucide-react";
 
 function NotFoundComponent() {
+  const router = useRouter();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = decodeURIComponent(window.location.pathname || "").toLowerCase().trim();
+      const clean = raw.replace(/[_\s\+]+/g, "-").replace(/^\/+|\/+$/g, "");
+      
+      if (clean === "resume-studio" || clean === "resume" || clean === "resumes" || clean.includes("resume") || clean.includes("cv")) {
+        router.navigate({ to: "/resume-studio" });
+        return;
+      }
+      if (clean === "job-discovery" || clean === "jobs" || clean === "job" || clean.includes("job") || clean.includes("discover")) {
+        router.navigate({ to: "/job-discovery" });
+        return;
+      }
+      if (clean === "company-research" || clean === "companies" || clean === "company" || clean.includes("company") || clean.includes("intel")) {
+        router.navigate({ to: "/company-research" });
+        return;
+      }
+      if (clean === "applications" || clean === "applied" || clean === "apps" || clean.includes("app")) {
+        router.navigate({ to: "/applications" });
+        return;
+      }
+      if (clean === "settings" || clean === "preferences" || clean.includes("setting")) {
+        router.navigate({ to: "/settings" });
+        return;
+      }
+      if (clean === "radar" || clean === "feed" || clean.includes("radar")) {
+        router.navigate({ to: "/radar" });
+        return;
+      }
+      if (clean === "dashboard" || clean === "home" || clean === "dash") {
+        router.navigate({ to: "/dashboard" });
+        return;
+      }
+    } catch {}
+  }, [router]);
+
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-4 relative overflow-hidden font-sans select-none">
       {/* Background ambient lighting */}
