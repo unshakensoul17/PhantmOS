@@ -24,133 +24,6 @@ function getLocationBadge(locationStr: string) {
   return { type: "On-site", label: "On-site", icon: Building2 };
 }
 
-function generateRoleLeads(query: string, candidateLoc?: string) {
-  const q = query.trim();
-  const qLower = q.toLowerCase();
-
-  const isIndia = !candidateLoc || candidateLoc.toLowerCase().includes("india") || candidateLoc.toLowerCase().includes("remote") || candidateLoc.toLowerCase().includes("delhi") || candidateLoc.toLowerCase().includes("bengaluru");
-  const onSiteLoc1 = isIndia ? "On-site (Bengaluru, India)" : "On-site (San Francisco, CA)";
-  const onSiteLoc2 = isIndia ? "On-site (Gurgaon / Delhi NCR)" : "On-site (New York, NY)";
-  const hybridLoc1 = isIndia ? "Hybrid / Off-site (Pune / Remote)" : "Hybrid / Off-site (San Francisco, CA)";
-
-  if (
-    (qLower.includes("front") || qLower.includes("frount") || qLower.includes("react") || qLower.includes("ui") || qLower.includes("web")) &&
-    (qLower.includes("intern") || qLower.includes("trainee") || qLower.includes("junior") || qLower.includes("fresher"))
-  ) {
-    return [
-      {
-        id: "demo-fe-int-1",
-        job_id: "demo-fe-int-1",
-        title: "Frontend Engineering Intern (React & TypeScript)",
-        company: "Zepto",
-        location: onSiteLoc1,
-        salary: "₹35,000 - ₹50,000 / mo",
-        score_total: 98,
-        score: 98,
-        status: "Found",
-        url: "https://zeptonow.com/careers",
-        justification: `Direct match for profile '${q}': React 19, TypeScript, responsive UI components, and state management.`,
-        created_at: new Date().toISOString()
-      },
-      {
-        id: "demo-fe-int-2",
-        job_id: "demo-fe-int-2",
-        title: "Frontend Web Developer Intern",
-        company: "Vercel",
-        location: "Remote (Worldwide)",
-        salary: "$35 - $45 / hr",
-        score_total: 95,
-        score: 95,
-        status: "Approved",
-        url: "https://vercel.com/careers",
-        justification: `High relevance for profile '${q}': Next.js, component micro-animations, and fast page performance.`,
-        created_at: new Date().toISOString()
-      },
-      {
-        id: "demo-fe-int-3",
-        job_id: "demo-fe-int-3",
-        title: "React / UI Engineering Intern",
-        company: "Razorpay",
-        location: onSiteLoc2,
-        salary: "₹40,000 - ₹55,000 / mo",
-        score_total: 92,
-        score: 92,
-        status: "Found",
-        url: "https://razorpay.com/jobs",
-        justification: `Strong alignment with profile '${q}': Frontend dashboard architecture, design systems, and API integrations.`,
-        created_at: new Date().toISOString()
-      }
-    ];
-  }
-
-  if (qLower.includes("intern") || qLower.includes("trainee") || qLower.includes("junior") || qLower.includes("fresher")) {
-    return [
-      {
-        id: "demo-intern-1",
-        job_id: "demo-intern-1",
-        title: "AI / Machine Learning Research Intern",
-        company: "OpenAI",
-        location: hybridLoc1,
-        salary: "$50 - $70 / hr",
-        score_total: 98,
-        score: 98,
-        status: "Found",
-        url: "https://openai.com/careers",
-        justification: `Direct match for profile '${q}': Python, PyTorch, LLM fine-tuning, and transformer architectures.`,
-        created_at: new Date().toISOString()
-      },
-      {
-        id: "demo-intern-2",
-        job_id: "demo-intern-2",
-        title: "Machine Learning Engineering Intern",
-        company: "Hugging Face",
-        location: "Remote (Worldwide)",
-        salary: "$45 - $60 / hr",
-        score_total: 94,
-        score: 94,
-        status: "Approved",
-        url: "https://huggingface.co/join-us",
-        justification: `High relevance for profile '${q}': Open-source LLM evaluation, dataset curation, and diffusion models.`,
-        created_at: new Date().toISOString()
-      }
-    ];
-  }
-
-  const titleFormatted = q.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-  return [
-    {
-      id: "demo-gen-1",
-      job_id: "demo-gen-1",
-      title: `${titleFormatted}`,
-      company: "Vercel",
-      location: "Remote (Worldwide)",
-      salary: "$145,000 - $190,000",
-      score_total: 96,
-      score: 96,
-      status: "Found",
-      url: "https://vercel.com/careers",
-      justification: `Neural alignment for your saved profile role: '${q}'.`,
-      created_at: new Date().toISOString()
-    },
-    {
-      id: "demo-gen-2",
-      job_id: "demo-gen-2",
-      title: `Full Stack Engineer`,
-      company: "Supabase",
-      location: onSiteLoc1,
-      salary: "$140,000 - $185,000",
-      score_total: 91,
-      score: 91,
-      status: "Approved",
-      url: "https://supabase.com/careers",
-      justification: `High match score with your candidate background for '${q}'.`,
-      created_at: new Date().toISOString()
-    }
-  ];
-}
-
-
-
 function JobDiscoveryPage() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
@@ -200,7 +73,7 @@ function JobDiscoveryPage() {
 
   let rawLeads = leads;
   if (effectiveQuery) {
-    const matched = leads.filter((job: any) => {
+    rawLeads = leads.filter((job: any) => {
       const q = effectiveQuery.toLowerCase();
       const title = (job.title || "").toLowerCase();
       const company = (job.company || "").toLowerCase();
@@ -209,14 +82,6 @@ function JobDiscoveryPage() {
       const words = q.split(/\s+/).filter(w => w.length > 2);
       return words.some(w => title.includes(w) || company.includes(w) || justification.includes(w));
     });
-
-    if (matched.length > 0) {
-      rawLeads = matched;
-    } else {
-      rawLeads = generateRoleLeads(effectiveQuery, profile?.cv?.location);
-    }
-  } else if (rawLeads.length === 0) {
-    rawLeads = generateRoleLeads("Software Engineer", profile?.cv?.location);
   }
 
   const leadsWithOverrides = rawLeads.map((job: any) => {

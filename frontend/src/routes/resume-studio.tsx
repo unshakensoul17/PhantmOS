@@ -10,17 +10,17 @@ export const Route = createFileRoute("/resume-studio")({
   component: ResumeStudioPage,
 });
 
-const DEFAULT_PROFILE = {
-  target_role: "Software Engineer",
+const EMPTY_PROFILE = {
+  target_role: "",
   cv: {
-    name: "Your Name", email: "you@example.com", phone: "+1-555-0100", location: "San Francisco, CA",
-    social_networks: [ { network: "LinkedIn", username: "https://linkedin.com/in/yourprofile", url: "https://linkedin.com/in/yourprofile" }, { network: "GitHub", username: "https://github.com/yourprofile", url: "https://github.com/yourprofile" } ],
+    name: "", email: "", phone: "", location: "",
+    social_networks: [],
     sections: {
-      summary: ["Experienced engineer specializing in modern web applications, scalable backend systems, and distributed architecture."],
-      education: [ { institution: "University", area: "Computer Science", degree: "BS", date: "2018-08 to 2022-05", highlights: ["Graduated with Honors"] } ],
-      experience: [ { company: "Tech Company", position: "Software Engineer", location: "Remote", date: "2022-06 to present", highlights: ["Architected microservices that improved API throughput by 35%."] } ],
-      projects: [ { name: "Full Stack Platform", date: "2023-01 to 2023-04", url: "https://github.com/example/project", highlights: ["Implemented real-time data sync with WebSockets and React."] } ],
-      skills: [ { label: "Programming & Frameworks", details: "TypeScript, React, Python, Node.js, SQL" } ]
+      summary: [],
+      education: [],
+      experience: [],
+      projects: [],
+      skills: []
     }
   }
 };
@@ -30,7 +30,7 @@ function ResumeStudioPage() {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [profile, setProfile] = useState<any>(DEFAULT_PROFILE);
+  const [profile, setProfile] = useState<any>(EMPTY_PROFILE);
   const [activeTab, setActiveTab] = useState("basics");
   const [viewMode, setViewMode] = useState<"visual"|"json">("visual");
   const [jsonText, setJsonText] = useState("");
@@ -40,9 +40,9 @@ function ResumeStudioPage() {
     queryKey: ["profile"],
     queryFn: async () => {
       const res = await apiFetch("/api/profile");
-      if (!res.ok) return DEFAULT_PROFILE;
+      if (!res.ok) return EMPTY_PROFILE;
       const data = await res.json();
-      return (data && Object.keys(data).length > 0) ? data : DEFAULT_PROFILE;
+      return (data && Object.keys(data).length > 0) ? data : EMPTY_PROFILE;
     },
     staleTime: 30000,
     refetchOnWindowFocus: false,

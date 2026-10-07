@@ -21,42 +21,6 @@ const COLUMNS = [
   { id: "Offer", label: "Offer Received" },
 ];
 
-const DEMO_APPS_FALLBACK = [
-  {
-    id: "app-1",
-    job_id: "app-1",
-    title: "Senior Frontend Engineer (React/TypeScript)",
-    company: "Vercel",
-    location: "Remote",
-    salary: "$145,000 - $185,000",
-    score_total: 96,
-    status: "Approved",
-    created_at: new Date().toISOString()
-  },
-  {
-    id: "app-2",
-    job_id: "app-2",
-    title: "Full Stack Product Engineer",
-    company: "Linear",
-    location: "Remote",
-    salary: "$165,000 - $215,000",
-    score_total: 91,
-    status: "Applied",
-    created_at: new Date().toISOString()
-  },
-  {
-    id: "app-3",
-    job_id: "app-3",
-    title: "Distributed Systems Python Engineer",
-    company: "Anthropic",
-    location: "Remote",
-    salary: "$170,000 - $220,000",
-    score_total: 93,
-    status: "Interviewing",
-    created_at: new Date().toISOString()
-  }
-];
-
 function ApplicationsPage() {
   const queryClient = useQueryClient();
   const [selectedJob, setSelectedJob] = useState<any>(null);
@@ -73,10 +37,9 @@ function ApplicationsPage() {
     staleTime: 30000,
   });
 
-  const rawApps = leads.filter((l: any) => 
+  const apps = leads.filter((l: any) => 
     ["Approved", "Applied", "Interviewing", "Offer", "Rejected"].includes(l.status)
   );
-  const apps = rawApps.length > 0 ? rawApps : DEMO_APPS_FALLBACK;
 
   const statusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {

@@ -99,254 +99,12 @@ def _run_digest():
 _TOKEN_CACHE = {}  # token -> {"user_id": id, "expires": time.time() + 300}
 
 
-DEMO_USER_ID = "00000000-0000-0000-0000-000000000000"
-
-def generate_demo_leads(query: str = "") -> list:
-    q = (query or "").strip()
-    q_lower = q.lower()
-    
-    if "intern" in q_lower:
-        return [
-            {
-                "id": "demo-intern-1", "job_id": "demo-intern-1",
-                "title": "AI / Machine Learning Research Intern", "company": "OpenAI",
-                "location": "Remote (Global)", "salary": "$50 - $70 / hr",
-                "score": 98, "score_total": 98, "score_band": "A", "status": "Found",
-                "url": "https://openai.com/careers", "source": "Himalayas",
-                "justification": f"Strong candidate match for '{q}' role: PyTorch, model fine-tuning, and LLM evaluation foundation.",
-                "created_at": "2026-10-04T12:00:00Z"
-            },
-            {
-                "id": "demo-intern-2", "job_id": "demo-intern-2",
-                "title": "Machine Learning Engineering Intern", "company": "Hugging Face",
-                "location": "Remote, Worldwide", "salary": "$45 - $60 / hr",
-                "score": 94, "score_total": 94, "score_band": "A", "status": "Approved",
-                "url": "https://huggingface.co/join-us", "source": "Remotive",
-                "justification": f"High relevance for '{q}': Transformers, dataset pipelines, and open-weights optimization.",
-                "created_at": "2026-10-04T11:45:00Z"
-            },
-            {
-                "id": "demo-intern-3", "job_id": "demo-intern-3",
-                "title": "Generative AI & LLM Systems Intern", "company": "Cohere",
-                "location": "Remote", "salary": "$40 - $55 / hr",
-                "score": 91, "score_total": 91, "score_band": "A", "status": "Found",
-                "url": "https://cohere.com/careers", "source": "HackerNews",
-                "justification": f"Excellent overlap with '{q}': RAG architectures, prompt pipelines, and embeddings.",
-                "created_at": "2026-10-04T11:00:00Z"
-            },
-            {
-                "id": "demo-intern-4", "job_id": "demo-intern-4",
-                "title": "Applied AI / Computer Vision Intern", "company": "Midjourney",
-                "location": "Remote", "salary": "$45 - $65 / hr",
-                "score": 88, "score_total": 88, "score_band": "B", "status": "Applied",
-                "url": "https://midjourney.com", "source": "Arbeitnow",
-                "justification": f"Candidate demonstrates required core competencies for '{q}' internship.",
-                "created_at": "2026-10-04T10:15:00Z"
-            },
-            {
-                "id": "demo-intern-5", "job_id": "demo-intern-5",
-                "title": "Data Science & Deep Learning Intern", "company": "Scale AI",
-                "location": "Remote, North America", "salary": "$40 - $50 / hr",
-                "score": 85, "score_total": 85, "score_band": "B", "status": "Interviewing",
-                "url": "https://scale.com/careers", "source": "Himalayas",
-                "justification": f"Matched skills in Python, NumPy, SciPy, and neural network training for '{q}'.",
-                "created_at": "2026-10-04T09:30:00Z"
-            }
-        ]
-    elif "full" in q_lower or "stack" in q_lower or "dev" in q_lower or "software" in q_lower:
-        return [
-            {
-                "id": "demo-fs-1", "job_id": "demo-fs-1",
-                "title": "Full Stack Developer (React & Python/FastAPI)", "company": "Vercel",
-                "location": "Remote (Worldwide)", "salary": "$150,000 - $195,000",
-                "score": 97, "score_total": 97, "score_band": "A", "status": "Found",
-                "url": "https://vercel.com/careers", "source": "Remotive",
-                "justification": f"Direct match for '{q}': React 19, Next.js/Vite, TypeScript, and modern API architecture.",
-                "created_at": "2026-10-04T12:00:00Z"
-            },
-            {
-                "id": "demo-fs-2", "job_id": "demo-fs-2",
-                "title": "Senior Full Stack Software Engineer", "company": "Supabase",
-                "location": "Remote, Global", "salary": "$160,000 - $210,000",
-                "score": 94, "score_total": 94, "score_band": "A", "status": "Approved",
-                "url": "https://supabase.com/careers", "source": "HackerNews",
-                "justification": f"Exceptional overlap for '{q}': PostgreSQL, distributed backends, and responsive dashboard UIs.",
-                "created_at": "2026-10-04T11:30:00Z"
-            },
-            {
-                "id": "demo-fs-3", "job_id": "demo-fs-3",
-                "title": "Full Stack Product Engineer", "company": "Linear",
-                "location": "Remote", "salary": "$165,000 - $215,000",
-                "score": 91, "score_total": 91, "score_band": "A", "status": "Found",
-                "url": "https://linear.app/careers", "source": "Himalayas",
-                "justification": f"High relevance for '{q}': Real-time WebSockets, state sync, and high-polish frontend engineering.",
-                "created_at": "2026-10-04T11:00:00Z"
-            },
-            {
-                "id": "demo-fs-4", "job_id": "demo-fs-4",
-                "title": "Full Stack AI Applications Engineer", "company": "Scale AI",
-                "location": "Remote", "salary": "$155,000 - $200,000",
-                "score": 88, "score_total": 88, "score_band": "B", "status": "Applied",
-                "url": "https://scale.com/careers", "source": "Arbeitnow",
-                "justification": f"Matches '{q}' with hands-on AI workflow builder and full-stack integration expertise.",
-                "created_at": "2026-10-04T10:15:00Z"
-            },
-            {
-                "id": "demo-fs-5", "job_id": "demo-fs-5",
-                "title": "Lead Full Stack Engineer", "company": "Stripe",
-                "location": "Remote, US/EU", "salary": "$175,000 - $230,000",
-                "score": 86, "score_total": 86, "score_band": "B", "status": "Interviewing",
-                "url": "https://stripe.com/jobs", "source": "Himalayas",
-                "justification": f"Targeted role match for '{q}' involving payment workflows and full-stack scalability.",
-                "created_at": "2026-10-04T09:30:00Z"
-            }
-        ]
-    elif "front" in q_lower or "react" in q_lower or "web" in q_lower:
-        return [
-            {
-                "id": "demo-fe-1", "job_id": "demo-fe-1",
-                "title": "Senior Frontend Engineer (React/TypeScript)", "company": "Vercel",
-                "location": "Remote", "salary": "$145,000 - $185,000",
-                "score": 96, "score_total": 96, "score_band": "A", "status": "Found",
-                "url": "https://vercel.com/careers", "source": "Remotive",
-                "justification": f"Exact match for '{q}': Tailwind, component architectures, and responsive micro-animations.",
-                "created_at": "2026-10-04T12:00:00Z"
-            },
-            {
-                "id": "demo-fe-2", "job_id": "demo-fe-2",
-                "title": "Lead UI/UX Frontend Developer", "company": "Figma",
-                "location": "Remote, Global", "salary": "$155,000 - $195,000",
-                "score": 92, "score_total": 92, "score_band": "A", "status": "Approved",
-                "url": "https://figma.com/careers", "source": "Himalayas",
-                "justification": f"High relevance for '{q}': Design system engineering and Canvas/WebGL rendering.",
-                "created_at": "2026-10-04T11:00:00Z"
-            }
-        ]
-    elif "back" in q_lower or "python" in q_lower:
-        return [
-            {
-                "id": "demo-be-1", "job_id": "demo-be-1",
-                "title": "Senior Python Backend Architect", "company": "Supabase",
-                "location": "Remote", "salary": "$160,000 - $200,000",
-                "score": 96, "score_total": 96, "score_band": "A", "status": "Found",
-                "url": "https://supabase.com/careers", "source": "HackerNews",
-                "justification": f"High overlap on PostgreSQL, FastAPI, AsyncIO, and multi-tenant architectures.",
-                "created_at": "2026-10-04T12:00:00Z"
-            },
-            {
-                "id": "demo-be-2", "job_id": "demo-be-2",
-                "title": "Distributed Systems Python Engineer", "company": "Anthropic",
-                "location": "Remote, Global", "salary": "$170,000 - $220,000",
-                "score": 93, "score_total": 93, "score_band": "A", "status": "Approved",
-                "url": "https://anthropic.com/careers", "source": "Himalayas",
-                "justification": f"Strong alignment for '{q}' involving high-throughput async pipelines and database scaling.",
-                "created_at": "2026-10-04T11:00:00Z"
-            }
-        ]
-    elif q:
-        clean_title = q.title()
-        return [
-            {
-                "id": "demo-gen-1", "job_id": "demo-gen-1",
-                "title": f"Senior {clean_title}", "company": "Anthropic",
-                "location": "Remote, Global", "salary": "$150,000 - $200,000",
-                "score": 96, "score_total": 96, "score_band": "A", "status": "Found",
-                "url": "https://anthropic.com/careers", "source": "Himalayas",
-                "justification": f"Targeted neural match for your custom role query: {q}.",
-                "created_at": "2026-10-04T12:00:00Z"
-            },
-            {
-                "id": "demo-gen-2", "job_id": "demo-gen-2",
-                "title": f"Staff {clean_title}", "company": "Vercel",
-                "location": "Remote (Worldwide)", "salary": "$145,000 - $190,000",
-                "score": 92, "score_total": 92, "score_band": "A", "status": "Approved",
-                "url": "https://vercel.com/careers", "source": "Remotive",
-                "justification": f"High relevance based on semantic similarity to '{q}'.",
-                "created_at": "2026-10-04T11:00:00Z"
-            },
-            {
-                "id": "demo-gen-3", "job_id": "demo-gen-3",
-                "title": f"{clean_title} Specialist", "company": "Supabase",
-                "location": "Remote", "salary": "$140,000 - $185,000",
-                "score": 88, "score_total": 88, "score_band": "B", "status": "Applied",
-                "url": "https://supabase.com/careers", "source": "HackerNews",
-                "justification": f"Strong alignment with target domain and core skills for '{q}'.",
-                "created_at": "2026-10-04T10:00:00Z"
-            }
-        ]
-    return [
-        {
-            "id": "demo-1", "job_id": "demo-1", "title": "Senior AI Systems Engineer", "company": "Anthropic",
-            "location": "Remote, Global", "salary": "$180,000 - $240,000", "score": 96, "score_total": 96,
-            "score_band": "A", "status": "Found", "url": "https://anthropic.com/careers", "source": "Himalayas",
-            "justification": "Exceptional fit with candidate's Python, LLM orchestration, and distributed pipeline background.",
-            "created_at": "2026-10-04T12:00:00Z"
-        },
-        {
-            "id": "demo-2", "job_id": "demo-2", "title": "Staff Full-Stack AI Engineer", "company": "Vercel",
-            "location": "Remote (Worldwide)", "salary": "$170,000 - $210,000", "score": 91, "score_total": 91,
-            "score_band": "A", "status": "Approved", "url": "https://vercel.com/careers", "source": "Remotive",
-            "justification": "Strong match with React 19, TypeScript, and autonomous agents expertise.",
-            "created_at": "2026-10-04T11:30:00Z"
-        },
-        {
-            "id": "demo-3", "job_id": "demo-3", "title": "Senior Python Backend Architect", "company": "Supabase",
-            "location": "Remote", "salary": "$160,000 - $200,000", "score": 88, "score_total": 88,
-            "score_band": "B", "status": "Applied", "url": "https://supabase.com/careers", "source": "HackerNews",
-            "justification": "High overlap on PostgreSQL, FastAPI, AsyncIO, and multi-tenant architectures.",
-            "created_at": "2026-10-04T10:15:00Z"
-        },
-        {
-            "id": "demo-4", "job_id": "demo-4", "title": "Machine Learning Engineer", "company": "Mistral AI",
-            "location": "Remote, EU/US", "salary": "$175,000 - $225,000", "score": 84, "score_total": 84,
-            "score_band": "B", "status": "Interviewing", "url": "https://mistral.ai/careers", "source": "Arbeitnow",
-            "justification": "Candidate has hands-on experience with LLM quantization, Hugging Face, and embedding fine-tuning.",
-            "created_at": "2026-10-04T09:00:00Z"
-        },
-        {
-            "id": "demo-5", "job_id": "demo-5", "title": "Principal Agentic AI Engineer", "company": "Perplexity",
-            "location": "Remote", "salary": "$200,000 - $260,000", "score": 93, "score_total": 93,
-            "score_band": "A", "status": "Offer", "url": "https://perplexity.ai/careers", "source": "Himalayas",
-            "justification": "Deep search, DuckDuckGo scraper integration, and autonomous tool calling expertise.",
-            "created_at": "2026-10-04T08:00:00Z"
-        }
-    ]
-
-DEMO_LEADS = generate_demo_leads()
-
-DEMO_PROFILE = {
-    "target_role": "Senior AI Systems Engineer",
-    "cv": {
-        "name": "Ali Ahmad", "email": "aliahmad071205@gmail.com", "phone": "+91-9876543210", "location": "Remote / India",
-        "social_networks": [
-            {"network": "LinkedIn", "username": "aliahmad", "url": "https://linkedin.com/in/aliahmad"},
-            {"network": "GitHub", "username": "aliahmad", "url": "https://github.com/aliahmad"}
-        ],
-        "sections": {
-            "summary": ["Autonomous agentic AI engineer specializing in LLM cascades, distributed data scraping, and high-throughput backend architecture."],
-            "education": [{"institution": "Indian Institute of Technology", "area": "Computer Science", "degree": "B.Tech", "date": "2020 - 2024", "highlights": ["Dean's List"]}],
-            "experience": [{"company": "Phantm Systems", "position": "Senior AI Engineer", "location": "Remote", "date": "2024 - Present", "highlights": ["Engineered 6-agent autonomous pipeline orchestrating real-time job discovery and automated resume tailoring."]}],
-            "projects": [{"name": "PhantmOS Engine", "date": "2025", "url": "https://github.com/...", "highlights": ["Engineered multi-agent LLM waterfall with BM25 pre-filtering and Typst PDF generation."]}],
-            "skills": [{"label": "Languages & Frameworks", "details": "Python, TypeScript, FastAPI, React 19, PyTorch, Docker, Supabase"}]
-        }
-    }
-}
-
-DEMO_SETTINGS = {
-    "llm": {"groq_api_key": "***", "gemini_api_key": "***", "primary_engine": "groq|llama-3.1-8b-instant", "secondary_engine": "gemini|gemini-1.5-flash"},
-    "scoring": {"target_roles": ["AI Engineer", "Python Backend", "Full Stack"], "blacklist_keywords": ["Senior Director"], "blacklist_companies": ["Revature"], "telegram_threshold": 80},
-    "scheduler": {"frequency_hours": 4, "pause_weekends": True},
-    "notifications": {"daily_digest": True, "instant_telegram_alerts": False}
-}
-
 def get_current_user_id(authorization: str = Header(None)) -> str:
     """Strictly validate Supabase JWT or Telegram Mini App session token."""
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Unauthorized: Missing or invalid token format")
 
     token = authorization.split(" ")[1]
-    if token == "guest-demo-token":
-        return DEMO_USER_ID
     now = time.time()
 
     # Fast cache lookup
@@ -574,17 +332,6 @@ def _fetch_stats_sync(user_id: str):
 @app.get("/api/stats")
 async def get_stats(user_id: str = Depends(get_current_user_id)):
     """Real-time pipeline stats with non-blocking fast in-memory cache."""
-    if user_id == DEMO_USER_ID:
-        return JSONResponse({
-            "hot": 2, "warm": 2, "cold": 1, "discovered": 3,
-            "tailored": 1, "applied": 1, "dismissed": 0, "total": 5,
-            "interviews": 1, "approved": 1, "offers": 1,
-            "sources": {"Himalayas": 2, "Remotive": 2, "HackerNews": 1},
-            "scores": [96, 91, 88, 84, 93],
-            "weekly_applications": [0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1],
-            "credits": 1000, "max_credits": 1000
-        })
-
     now = time.time()
     if user_id in _STATS_CACHE and _STATS_CACHE[user_id]["expires"] > now:
         return JSONResponse(_STATS_CACHE[user_id]["data"])
@@ -647,14 +394,6 @@ async def get_leads(
     user_id: str = Depends(get_current_user_id),
 ):
     """Fetch job leads with cursor-based pagination and async thread pool."""
-    if user_id == DEMO_USER_ID:
-        res = list(DEMO_LEADS)
-        if status:
-            res = [l for l in res if l.get("status") == status]
-        if band:
-            res = [l for l in res if l.get("score_band") == band.upper()]
-        return res
-
     cache_key = f"{user_id}:{band}:{status}:{limit}:{cursor}"
     now = time.time()
     if cache_key in _LEADS_CACHE and _LEADS_CACHE[cache_key]["expires"] > now:
@@ -685,11 +424,6 @@ async def change_lead_status(
     ]
     if request.status not in valid:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid}")
-    if user_id == DEMO_USER_ID:
-        for l in DEMO_LEADS:
-            if l.get("id") == job_id or l.get("job_id") == job_id:
-                l["status"] = request.status
-        return {"status": "ok"}
     updated = update_job_lead(job_id, {"status": request.status}, user_id=user_id)
     if not updated:
         raise HTTPException(status_code=404, detail="Lead not found or update failed.")
@@ -760,21 +494,11 @@ async def generate_lead_resume(job_id: str, user_id: str = Depends(get_current_u
 @app.post("/api/harvest")
 async def trigger_pipeline(request: HarvestRequest, user_id: str = Depends(get_current_user_id)):
     """Trigger the full pipeline run scoped to the authenticated user only."""
-    if user_id == DEMO_USER_ID:
-        global DEMO_LEADS
-        DEMO_LEADS = generate_demo_leads(request.query)
-        q = (request.query or "").strip()
-        return {
-            "status": "ok",
-            "message": f"PhantmOS v3.0 pipeline harvested opportunities for '{q or 'All Roles'}'.",
-            "stages": ["harvest", "scoring", "tailoring", "pdf", "delivery"],
-        }
-
     asyncio.get_running_loop().run_in_executor(
         process_pool,
         _run_pipeline,
         request.query or None,
-        user_id,  # ← KEY FIX: scope harvest to the requesting user only
+        user_id,
     )
     return {
         "status": "ok",
@@ -792,29 +516,15 @@ async def trigger_digest(user_id: str = Depends(get_current_user_id)):
 
 @app.get("/api/profile")
 async def fetch_profile(user_id: str = Depends(get_current_user_id)):
-    if user_id == DEMO_USER_ID:
-        return DEMO_PROFILE
     profile = get_profile(user_id)
     if not profile:
-        return DEMO_PROFILE
-    return profile.get("resume_data") or DEMO_PROFILE
+        return {}
+    return profile.get("resume_data") or {}
 
 
 @app.post("/api/profile")
 async def save_profile(request: ProfileUpdateRequest, user_id: str = Depends(get_current_user_id)):
-    """Save updated resume JSON for this user. Also invalidates the embedding cache and updates discovery leads."""
-    target_role = request.resume_data.get("target_role") or ""
-    if not target_role and "sections" in request.resume_data.get("cv", {}):
-        exp = request.resume_data["cv"]["sections"].get("experience", [])
-        if exp and exp[0].get("position"):
-            target_role = exp[0]["position"]
-
-    if user_id == DEMO_USER_ID:
-        global DEMO_PROFILE, DEMO_LEADS
-        DEMO_PROFILE = request.resume_data
-        if target_role:
-            DEMO_LEADS = generate_demo_leads(target_role)
-        return {"status": "ok", "message": "Profile saved and discovery leads updated."}
+    """Save updated resume JSON for this user. Also invalidates the embedding cache."""
     updated = update_profile({"resume_data": request.resume_data}, user_id=user_id)
     if not updated:
         raise HTTPException(status_code=500, detail="Failed to update profile.")
@@ -830,13 +540,6 @@ async def save_profile(request: ProfileUpdateRequest, user_id: str = Depends(get
 @app.get("/api/byok")
 async def fetch_byok(user_id: str = Depends(get_current_user_id)):
     """Retrieve decrypted credentials masking values for security."""
-    if user_id == DEMO_USER_ID:
-        return {
-            "GEMINI_API_KEY": "***",
-            "GROQ_API_KEY":   "***",
-            "HF_API_KEY":     "",
-            "credits":        28,
-        }
     profile = get_profile(user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found.")
@@ -1130,13 +833,6 @@ async def phantm_writer_followup(
     request: PhantmWriterRequest, user_id: str = Depends(get_current_user_id)
 ):
     """Generate a highly professional follow-up email."""
-    if user_id == DEMO_USER_ID:
-        return {
-            "status": "ok",
-            "email": f"Subject: Following up on {request.role} Application\n\nDear {request.company} Hiring Team,\n\nI recently applied for the {request.role} role at {request.company} and wanted to briefly follow up. Given my background in Python, autonomous AI pipelines, and distributed backends, I am very excited about the opportunity to contribute to your team.\n\nPlease let me know if you would like any additional portfolio or code samples.\n\nWarm regards,\nAli Ahmad",
-            "target_email": f"hiring@{request.company.lower().replace(' ', '')}.com"
-        }
-
     # Fetch user preferences for BYOK
     profile = get_profile(user_id) or {}
     prefs = profile.get("preferences") or {}
@@ -1222,8 +918,6 @@ class SendEmailRequest(BaseModel):
 async def send_followup_email(
     request: SendEmailRequest, user_id: str = Depends(get_current_user_id)
 ):
-    if user_id == DEMO_USER_ID:
-        return {"status": "ok", "message": "Email simulated successfully in Demo Mode."}
     profile = get_profile(user_id) or {}
     prefs = profile.get("preferences") or {}
 
@@ -1270,8 +964,6 @@ async def send_followup_email(
 @app.get("/api/settings")
 async def get_settings(user_id: str = Depends(get_current_user_id)):
     """Retrieve settings from DB for the current user."""
-    if user_id == DEMO_USER_ID:
-        return DEMO_SETTINGS
     try:
         profile = get_profile(user_id)
         if not profile:
@@ -1317,8 +1009,6 @@ async def get_settings(user_id: str = Depends(get_current_user_id)):
 @app.post("/api/settings")
 async def update_settings(request: Request, user_id: str = Depends(get_current_user_id)):
     """Update user preferences in DB for the current user."""
-    if user_id == DEMO_USER_ID:
-        return {"status": "ok", "updated_user": user_id}
     try:
         data = await request.json()
 
