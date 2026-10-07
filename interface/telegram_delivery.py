@@ -49,7 +49,7 @@ _TELEGRAM_ENDPOINTS: list[str] = list(
 app = FastAPI(title="PhantmOS Webhook")
 
 # Telegram bot + application
-if TELEGRAM_BOT_TOKEN:
+if TELEGRAM_BOT_TOKEN and "your-" not in TELEGRAM_BOT_TOKEN and "placeholder" not in TELEGRAM_BOT_TOKEN:
     base_url = f"{TELEGRAM_API_BASE_URL}/bot"
     bot = Bot(token=TELEGRAM_BOT_TOKEN, base_url=base_url)
     application = Application.builder().bot(bot).build()

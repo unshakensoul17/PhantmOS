@@ -15,18 +15,26 @@ load_dotenv(override=True)
 # ─────────────────────────────────────────────────────────
 SUPABASE_URL: str = os.getenv("SUPABASE_URL", "").strip()
 SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "").strip()
-SERVICE_ROLE_KEY: str = os.getenv("SERVICE_ROLE_KEY", "").strip()
+_raw_srv_key = (
+    os.getenv("SERVICE_ROLE_KEY", "").strip()
+    or os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+    or os.getenv("SUPABASE_SERVICE_KEY", "").strip()
+)
+SERVICE_ROLE_KEY: str = "" if (_raw_srv_key.startswith("your-") or "placeholder" in _raw_srv_key) else _raw_srv_key
 
 # ─────────────────────────────────────────────────────────
 #  LLM PROVIDERS
 # ─────────────────────────────────────────────────────────
-GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "").strip()
+_raw_groq = os.getenv("GROQ_API_KEY", "").strip()
+GROQ_API_KEY: str = "" if (_raw_groq.startswith("your-") or "placeholder" in _raw_groq) else _raw_groq
 GROQ_MODEL: str = "openai/gpt-oss-120b"
 
-GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "").strip()
+_raw_gemini = os.getenv("GEMINI_API_KEY", "").strip()
+GEMINI_API_KEY: str = "" if (_raw_gemini.startswith("your-") or "placeholder" in _raw_gemini) else _raw_gemini
 GEMINI_MODEL: str = "gemini-2.5-flash"
 
-HF_API_KEY: str = os.getenv("HF_API_KEY", "").strip()
+_raw_hf = os.getenv("HF_API_KEY", "").strip()
+HF_API_KEY: str = "" if (_raw_hf.startswith("your-") or "placeholder" in _raw_hf) else _raw_hf
 HF_MODEL: str = "mistralai/Mistral-7B-Instruct-v0.3"
 
 # ─────────────────────────────────────────────────────────

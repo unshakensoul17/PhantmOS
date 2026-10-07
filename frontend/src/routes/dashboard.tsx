@@ -23,10 +23,11 @@ function PhantmOSDashboard() {
     queryKey: ["dashboard-stats"],
     queryFn: async () => {
       const res = await apiFetch("/api/stats");
-      if (!res.ok) return { total: 0, hot: 0, warm: 0, applied: 0, interviews: 0, approved: 0 };
+      if (!res.ok) return { total: 0, hot: 0, warm: 0, applied: 0, interviews: 0, approved: 0, found: 0, resumes_ready: 0 };
       return res.json();
     },
-    staleTime: 30000,
+    refetchInterval: 5000,
+    staleTime: 3000,
   });
 
   const { data: profile } = useQuery({
@@ -36,7 +37,7 @@ function PhantmOSDashboard() {
       if (!res.ok) return null;
       return res.json();
     },
-    staleTime: 30000,
+    staleTime: 10000,
   });
 
   const { data: leads = [] } = useQuery({
@@ -46,13 +47,17 @@ function PhantmOSDashboard() {
       if (!res.ok) return [];
       return res.json();
     },
-    staleTime: 30000,
+    refetchInterval: 5000,
+    staleTime: 3000,
   });
 
   const candidateName = profile?.cv?.name || "there";
   const targetRole = profile?.target_role || profile?.cv?.target_role || "Software Engineer";
 
-  const totalMatches = (stats?.hot || 0) + (stats?.warm || 0) || stats?.total || 14;
+  // Dynamic Real-Time Stats
+  const totalMatches = stats?.total ?? ((stats?.hot || 0) + (stats?.warm || 0) + (stats?.found || 0));
+  const hasResume = Boolean(profile?.resume_data && Object.keys(profile.resume_data).length > 0) || Boolean(profile?.cv?.name);
+  const resumesReady = stats?.resumes_ready ?? stats?.approved ?? (hasResume ? 1 : 0);
   const appliedCount = stats?.applied || 0;
   const interviewCount = stats?.interviews || 0;
 
@@ -87,25 +92,25 @@ function PhantmOSDashboard() {
 
         {/* 4 Simple Metrics Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-zinc-950 rounded-2xl p-5">
+          <div className="bg-zinc-950 rounded-2xl p-5 border border-zinc-900/60">
             <span className="text-xs text-zinc-400">Jobs Found</span>
             <div className="text-3xl font-bold text-white font-mono mt-1">{totalMatches}</div>
             <p className="text-xs text-zinc-500 mt-1">Jobs that match you</p>
           </div>
 
-          <div className="bg-zinc-950 rounded-2xl p-5">
+          <div className="bg-zinc-950 rounded-2xl p-5 border border-zinc-900/60">
             <span className="text-xs text-zinc-400">Resume Ready</span>
-            <div className="text-3xl font-bold text-white font-mono mt-1">{stats?.approved || 1}</div>
+            <div className="text-3xl font-bold text-white font-mono mt-1">{resumesReady}</div>
             <p className="text-xs text-zinc-500 mt-1">Resumes ready to use</p>
           </div>
 
-          <div className="bg-zinc-950 rounded-2xl p-5">
+          <div className="bg-zinc-950 rounded-2xl p-5 border border-zinc-900/60">
             <span className="text-xs text-zinc-400">Applied</span>
             <div className="text-3xl font-bold text-white font-mono mt-1">{appliedCount}</div>
             <p className="text-xs text-zinc-500 mt-1">Jobs you applied to</p>
           </div>
 
-          <div className="bg-zinc-950 rounded-2xl p-5">
+          <div className="bg-zinc-950 rounded-2xl p-5 border border-zinc-900/60">
             <span className="text-xs text-zinc-400">Interviews</span>
             <div className="text-3xl font-bold text-white font-mono mt-1">{interviewCount}</div>
             <p className="text-xs text-zinc-500 mt-1">Active interviews</p>

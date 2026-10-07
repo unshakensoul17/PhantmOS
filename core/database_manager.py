@@ -49,6 +49,14 @@ def get_profile(user_id: str | None = None) -> dict | None:
             q = q.eq("id", user_id)
         resp = q.limit(1).execute()
         if not resp.data:
+            if user_id:
+                try:
+                    init_data = {"id": user_id, "credits": 1000, "preferences": {}}
+                    get_client().table("user_profiles").upsert(init_data).execute()
+                    return {"id": user_id, "credits": 1000, "preferences": {}, "resume_data": {}}
+                except Exception as create_err:
+                    logger.warning(f"Could not auto-create profile for {user_id}: {create_err}")
+                    return {"id": user_id, "credits": 1000, "preferences": {}, "resume_data": {}}
             return None
 
         profile = resp.data[0]
@@ -86,6 +94,8 @@ def get_profile(user_id: str | None = None) -> dict | None:
         return profile
     except Exception as e:
         logger.error(f"Error fetching profile: {e}")
+        if user_id:
+            return {"id": user_id, "credits": 1000, "preferences": {}, "resume_data": {}}
         return None
 
 
@@ -93,7 +103,8 @@ def update_profile(updates: dict, user_id: str | None = None) -> dict | None:
     """Update user profile by user_id, supporting partitioned resume table."""
     try:
         profile = get_profile(user_id)
-        if not profile:
+        target_id = profile["id"] if profile else user_id
+        if not target_id:
             return None
 
         client = get_client()
@@ -101,15 +112,29 @@ def update_profile(updates: dict, user_id: str | None = None) -> dict | None:
 
         # 1. Update core profile if there are core updates
         if updates:
-            client.table("user_profiles").update(updates).eq("id", profile["id"]).execute()
+            client.table("user_profiles").upsert({**updates, "id": target_id}).execute()
+        else:
+            # Ensure base row exists in user_profiles to satisfy foreign keys
+            client.table("user_profiles").upsert({
+                "id": target_id,
+                "full_name": profile.get("full_name") or (profile.get("cv") or {}).get("name") or "Candidate",
+            }).execute()
 
         # 2. Upsert resume data into partitioned table if provided
         if resume_data is not None:
-            client.table("user_resumes").upsert(
-                {"user_id": profile["id"], "resume_data": resume_data}
-            ).execute()
+            try:
+                client.table("user_resumes").upsert(
+                    {"user_id": target_id, "resume_data": resume_data}
+                ).execute()
+            except Exception as res_err:
+                logger.warning(f"user_resumes table upsert fallback: {res_err}")
+                # Also try saving directly to user_profiles if column exists
+                try:
+                    client.table("user_profiles").update({"resume_data": resume_data}).eq("id", target_id).execute()
+                except Exception:
+                    pass
 
-        return get_profile(profile["id"])
+        return get_profile(target_id)
     except Exception as e:
         logger.error(f"Error updating profile: {e}")
         return None
@@ -468,24 +493,30 @@ def _fallback_get_all_stats(user_id: str) -> dict:
             "warm": 0,
             "cold": 0,
             "interviews": 0,
+            "offers": 0,
+            "rejected": 0,
             "sources": {},
             "scores": [0] * 20,  # 20 buckets for score histogram
         }
         for lead in leads:
             s = (lead.get("status") or "").lower()
             b = (lead.get("score_band") or "").lower()
-            if s == "found":
+            if s in ("found", "saved", "discovered", "new"):
                 stats["found"] += 1
-            elif s == "tailored":
+            elif s in ("tailored", "ready"):
                 stats["tailored"] += 1
-            elif s == "approved":
+            elif s in ("approved", "ready to apply"):
                 stats["approved"] += 1
             elif s == "applied":
                 stats["applied"] += 1
             elif s == "dismissed":
                 stats["dismissed"] += 1
-            elif s in ["interviewing", "offer"]:
+            elif s in ("interviewing", "interview"):
                 stats["interviews"] += 1
+            elif s in ("offer", "offers"):
+                stats["offers"] += 1
+            elif s == "rejected":
+                stats["rejected"] += 1
 
             if b in ("hot", "a"):
                 stats["hot"] += 1

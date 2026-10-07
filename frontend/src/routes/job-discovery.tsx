@@ -69,18 +69,23 @@ function JobDiscoveryPage() {
 
   const leads = data?.pages.flatMap(page => page) || [];
   const savedProfileRole = profile?.target_role || profile?.cv?.target_role || profile?.cv?.sections?.experience?.[0]?.position || "";
-  const effectiveQuery = searchQuery.trim() || activeRoleQuery.trim() || savedProfileRole.trim();
+  const filterText = searchQuery.trim().toLowerCase();
 
   let rawLeads = leads;
-  if (effectiveQuery) {
+  if (filterText) {
+    const searchTerms = filterText.split(/\s+/).filter(t => t.length > 1);
     rawLeads = leads.filter((job: any) => {
-      const q = effectiveQuery.toLowerCase();
       const title = (job.title || "").toLowerCase();
       const company = (job.company || "").toLowerCase();
       const justification = (job.justification || "").toLowerCase();
-      if (title.includes(q) || company.includes(q) || justification.includes(q)) return true;
-      const words = q.split(/\s+/).filter(w => w.length > 2);
-      return words.some(w => title.includes(w) || company.includes(w) || justification.includes(w));
+      const location = (job.location || "").toLowerCase();
+      
+      if (title.includes(filterText) || company.includes(filterText) || justification.includes(filterText)) {
+        return true;
+      }
+      return searchTerms.some(term => 
+        title.includes(term) || company.includes(term) || location.includes(term) || justification.includes(term)
+      );
     });
   }
 
@@ -115,14 +120,18 @@ function JobDiscoveryPage() {
       const res = await apiFetch("/api/harvest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ query: query || savedProfileRole || "Developer" }),
       });
       if (!res.ok) throw new Error("Failed to trigger harvest");
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["leads"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      // Poll a few times as background pipeline saves leads
+      const interval = setInterval(() => {
+        queryClient.invalidateQueries({ queryKey: ["leads"] });
+        queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      }, 3000);
+      setTimeout(() => clearInterval(interval), 20000);
     },
     onSettled: () => {
       setTimeout(() => setShowPipeline(false), 15000);

@@ -1,7 +1,7 @@
 import { apiFetch } from "../lib/api";
 import { createFileRoute } from "@tanstack/react-router";
 import { Layout } from "../components/Layout";
-import { Upload, Loader2, Save, Plus, Trash2, Code } from "lucide-react";
+import { Upload, Loader2, Save, Plus, Trash2, Code, LayoutTemplate, Check, FileText } from "lucide-react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
@@ -24,6 +24,19 @@ const EMPTY_PROFILE = {
     }
   }
 };
+
+const TEMPLATE_NAMES: Record<string, { name: string; short: string }> = {
+  sb2nov: { name: "SB2Nov (Standard Tech)", short: "SB2Nov" },
+  classic: { name: "Classic (Academic)", short: "Classic" },
+  engineeringresumes: { name: "Engineering Resumes", short: "Engineering Resumes" },
+  moderncv: { name: "ModernCV (Two-Column)", short: "ModernCV" },
+};
+
+function getTemplateDisplayName(id: string, short = false): string {
+  const entry = TEMPLATE_NAMES[id?.toLowerCase()];
+  if (entry) return short ? entry.short : entry.name;
+  return id ? id.charAt(0).toUpperCase() + id.slice(1) : "SB2Nov";
+}
 
 function ResumeStudioPage() {
   const queryClient = useQueryClient();
@@ -157,26 +170,35 @@ function ResumeStudioPage() {
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+      const selectedFile = e.target.files[0];
+      if (selectedFile.type !== "application/pdf" && !selectedFile.name.toLowerCase().endsWith(".pdf")) {
+        toast.error("Please select a PDF file (.pdf)");
+        return;
+      }
+      setFile(selectedFile);
       setIsUploading(true);
       const formData = new FormData();
-      formData.append("resume", e.target.files[0]);
+      formData.append("resume", selectedFile);
       try {
         const res = await apiFetch("/api/profile/upload", { method: "POST", body: formData });
+        const data = await res.json().catch(() => null);
         if (!res.ok) {
-            const errData = await res.json().catch(() => null);
-            throw new Error(errData?.detail || "Failed to upload");
+          throw new Error(data?.detail || "Failed to upload and parse resume.");
         }
-        const data = await res.json();
-        if (data.status === "success" && data.profile) {
-            setProfile(data.profile);
-            toast.success("Resume parsed successfully!");
+        if (data?.status === "success" && data.profile) {
+          setProfile(data.profile);
+          queryClient.invalidateQueries({ queryKey: ["profile"] });
+          queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+          toast.success("Resume uploaded and parsed successfully!");
+        } else {
+          throw new Error(data?.detail || "Invalid resume response.");
         }
-        setIsUploading(false);
       } catch (err: any) {
-        console.error(err);
+        console.error("Resume upload error:", err);
+        toast.error(err.message || "Failed to parse resume.");
+      } finally {
         setIsUploading(false);
-        toast.error(err.message || "Parsing failed.");
+        e.target.value = "";
       }
     }
   };
@@ -200,14 +222,33 @@ function ResumeStudioPage() {
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">My Resume</h1>
             <p className="text-sm text-zinc-400 mt-1">
-              Create a resume that fits the jobs you want.
+              Create and customize a high-impact resume tailored for your target roles.
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <label className="h-10 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-200 text-xs font-medium cursor-pointer inline-flex items-center gap-2 transition shrink-0">
+          <div className="flex items-center flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveTab("appearance")}
+              className="h-10 px-3.5 rounded-xl bg-zinc-900/90 hover:bg-zinc-800 text-zinc-300 text-xs font-medium border border-zinc-800 inline-flex items-center gap-2 transition"
+            >
+              <LayoutTemplate className="w-4 h-4 text-emerald-400" />
+              <span>Format:</span>
+              <span className="font-semibold text-white">{getTemplateDisplayName(resumeTemplate, true)}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setViewMode(viewMode === "visual" ? "json" : "visual")}
+              className="h-10 px-3.5 rounded-xl bg-zinc-900/90 hover:bg-zinc-800 text-zinc-300 text-xs font-medium border border-zinc-800 inline-flex items-center gap-2 transition"
+            >
+              <Code className="w-4 h-4 text-zinc-400" />
+              <span>{viewMode === "visual" ? "JSON Mode" : "Visual Mode"}</span>
+            </button>
+
+            <label className="h-10 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-200 text-xs font-medium cursor-pointer inline-flex items-center gap-2 transition shrink-0 border border-zinc-800">
               <input type="file" className="hidden" accept=".pdf" onChange={handleUpload} />
               {isUploading ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <Upload className="w-4 h-4 text-white" />}
-              <span>{isUploading ? "Reading resume..." : "Upload Resume"}</span>
+              <span>{isUploading ? "Reading resume..." : "Upload PDF"}</span>
             </label>
             <button 
               onClick={handleSave}
@@ -215,7 +256,7 @@ function ResumeStudioPage() {
               className="h-10 px-5 rounded-xl bg-white hover:bg-zinc-200 text-black font-semibold text-xs inline-flex items-center gap-1.5 shadow-sm transition disabled:opacity-50"
             >
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              Save
+              Save Changes
             </button>
           </div>
         </div>
@@ -228,8 +269,11 @@ function ResumeStudioPage() {
               {readinessPct >= 80 ? "Your resume has enough information for finding good jobs." : "Fill in your job title and work experience to get better matches."}
             </div>
           </div>
-          <div className="font-mono text-sm font-bold text-white bg-black px-3.5 py-1.5 rounded-lg">
-            {readinessPct}% Complete
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-zinc-400">Template: <span className="font-semibold text-white">{getTemplateDisplayName(resumeTemplate, true)}</span></span>
+            <div className="font-mono text-sm font-bold text-white bg-black px-3.5 py-1.5 rounded-lg border border-zinc-800">
+              {readinessPct}% Complete
+            </div>
           </div>
         </div>
 
@@ -238,24 +282,30 @@ function ResumeStudioPage() {
           {/* Navigation Tabs */}
           <div className="lg:col-span-1 space-y-2">
             {viewMode === "visual" && (
-              <div className="bg-zinc-950 rounded-2xl p-2 flex flex-col gap-1">
+              <div className="bg-zinc-950 rounded-2xl p-2 flex flex-col gap-1 border border-zinc-900">
                 {[
                   { id: "basics", label: "Basic Information" },
                   { id: "experience", label: "Work Experience" },
                   { id: "education", label: "Education" },
                   { id: "projects", label: "Projects" },
                   { id: "skills", label: "Skills" },
+                  { id: "appearance", label: "Format & Template" },
                 ].map(tab => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`text-left px-3.5 py-2.5 rounded-xl text-xs font-medium transition ${
+                    className={`flex items-center justify-between text-left px-3.5 py-2.5 rounded-xl text-xs font-medium transition ${
                       activeTab === tab.id
                         ? "bg-white text-black font-semibold shadow-sm"
                         : "text-zinc-400 hover:bg-zinc-900 hover:text-white"
                     }`}
                   >
-                    {tab.label}
+                    <span>{tab.label}</span>
+                    {tab.id === "appearance" && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${activeTab === tab.id ? "bg-black/10 text-black" : "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"}`}>
+                        {getTemplateDisplayName(resumeTemplate, true)}
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>
@@ -263,14 +313,20 @@ function ResumeStudioPage() {
           </div>
 
           {/* Form Content */}
-          <div className="bg-zinc-950 rounded-2xl p-6 lg:col-span-3 min-h-[480px]">
+          <div className="bg-zinc-950 rounded-2xl p-6 lg:col-span-3 min-h-[480px] border border-zinc-900">
             {viewMode === "json" ? (
-              <textarea 
-                value={jsonText} 
-                onChange={e => setJsonText(e.target.value)}
-                className="w-full h-full min-h-[480px] p-4 rounded-xl bg-black text-zinc-200 text-xs focus:outline-none font-mono leading-relaxed" 
-                spellCheck={false}
-              />
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-xs text-zinc-400">
+                  <span>Direct JSON Schema Editor</span>
+                  <button onClick={() => setViewMode("visual")} className="text-white hover:underline">Switch to Visual Form</button>
+                </div>
+                <textarea 
+                  value={jsonText} 
+                  onChange={e => setJsonText(e.target.value)}
+                  className="w-full min-h-[520px] p-4 rounded-xl bg-black text-zinc-200 text-xs focus:outline-none font-mono leading-relaxed border border-zinc-800" 
+                  spellCheck={false}
+                />
+              </div>
             ) : (
               <div className="space-y-6">
                 {activeTab === "basics" && (
@@ -386,42 +442,134 @@ function ResumeStudioPage() {
                   />
                 )}
 
-                {/* RESUME APPEARANCE TAB */}
+                {/* RESUME FORMAT & TEMPLATES TAB */}
                 {activeTab === "appearance" && (
                   <div className="space-y-6">
                     <div>
-                      <h3 className="text-base font-semibold text-white">Resume Appearance & PDF Template</h3>
-                      <p className="text-xs text-zinc-400 mt-0.5">
-                        Choose the RenderCV template used to format and style all tailored PDF resumes.
+                      <div className="flex items-center gap-2">
+                        <LayoutTemplate className="w-5 h-5 text-emerald-400" />
+                        <h3 className="text-base font-semibold text-white">Select Resume Format & Template</h3>
+                      </div>
+                      <p className="text-xs text-zinc-400 mt-1">
+                        Choose the layout format for your generated PDF resumes. Click any format to select and preview it.
                       </p>
                     </div>
 
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-xs font-medium text-zinc-400 mb-2">Select Template</label>
-                        <select 
-                          className="w-full bg-black rounded-xl px-4 py-3 text-white focus:outline-none font-mono text-xs"
-                          value={resumeTemplate}
-                          onChange={(e) => setResumeTemplate(e.target.value)}
+                    {/* Format Grid Cards */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {[
+                        {
+                          id: "sb2nov",
+                          name: "SB2Nov",
+                          subtitle: "Standard Tech & Clean",
+                          description: "Clean single-column layout with high ATS compatibility. Standard across tech & engineering.",
+                          tag: "Recommended",
+                          badgeColor: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+                        },
+                        {
+                          id: "classic",
+                          name: "Classic",
+                          subtitle: "Traditional & Academic",
+                          description: "Traditional serif typography with formal sectioning. Ideal for research and corporate roles.",
+                          tag: "Academic",
+                          badgeColor: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+                        },
+                        {
+                          id: "engineeringresumes",
+                          name: "Engineering Resumes",
+                          subtitle: "Dense & High Impact",
+                          description: "High density format designed to fit extensive technical stack and project highlights.",
+                          tag: "Technical",
+                          badgeColor: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+                        },
+                        {
+                          id: "moderncv",
+                          name: "ModernCV",
+                          subtitle: "Contemporary Two-Column",
+                          description: "Modern split layout with a structured sidebar for skills, contact, and certifications.",
+                          tag: "Creative",
+                          badgeColor: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+                        },
+                      ].map((fmt) => {
+                        const isSelected = resumeTemplate === fmt.id;
+                        return (
+                          <div
+                            key={fmt.id}
+                            onClick={() => setResumeTemplate(fmt.id)}
+                            className={`group relative rounded-2xl p-4 cursor-pointer transition-all duration-200 border text-left ${
+                              isSelected
+                                ? "bg-zinc-900 border-white ring-1 ring-white/20 shadow-lg shadow-white/5"
+                                : "bg-black/60 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/50"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h4 className="text-sm font-semibold text-white">{fmt.name}</h4>
+                                  <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${fmt.badgeColor}`}>
+                                    {fmt.tag}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-zinc-400 mt-0.5">{fmt.subtitle}</p>
+                              </div>
+                              <div
+                                className={`w-5 h-5 rounded-full flex items-center justify-center transition ${
+                                  isSelected ? "bg-white text-black" : "border border-zinc-700 text-transparent"
+                                }`}
+                              >
+                                <Check className="w-3 h-3 stroke-[3]" />
+                              </div>
+                            </div>
+
+                            <p className="text-xs text-zinc-400 mb-3 line-clamp-2">{fmt.description}</p>
+
+                            {/* Thumbnail preview */}
+                            <div className="w-full h-36 rounded-xl overflow-hidden bg-white/5 border border-zinc-800/80 relative">
+                              <img
+                                src={`/templates/${fmt.id}.png`}
+                                alt={`${fmt.name} preview`}
+                                className="w-full h-full object-cover object-top transition duration-200 group-hover:scale-105"
+                                loading="lazy"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition flex items-end p-2">
+                                <span className="text-[10px] font-medium text-white/90 bg-black/70 px-2 py-0.5 rounded-md backdrop-blur">
+                                  Click to Select
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Selected Template Live Preview Panel */}
+                    <div className="mt-6 p-6 rounded-2xl bg-black border border-zinc-800/80">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <div className="text-xs font-semibold text-white uppercase tracking-wider">
+                            Active Format Preview: <span className="text-emerald-400 font-bold normal-case">{getTemplateDisplayName(resumeTemplate)}</span>
+                          </div>
+                          <p className="text-xs text-zinc-400 mt-0.5">
+                            This layout format will be used whenever you generate or export tailored PDF resumes.
+                          </p>
+                        </div>
+                        <button
+                          onClick={handleSave}
+                          disabled={isSaving}
+                          className="h-8 px-4 rounded-xl bg-white hover:bg-zinc-200 text-black font-semibold text-xs inline-flex items-center gap-1.5 transition shrink-0"
                         >
-                          <option value="sb2nov">SB2Nov (Standard Tech Clean)</option>
-                          <option value="classic">Classic (Standard Academic)</option>
-                          <option value="engineeringresumes">Engineering Resumes (Dense)</option>
-                          <option value="moderncv">ModernCV (Two-column layout)</option>
-                        </select>
-                        <p className="text-[11px] text-zinc-500 mt-1.5">This template layout will be applied when exporting tailored resumes.</p>
+                          {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                          Save Format
+                        </button>
                       </div>
 
-                      <div className="mt-4 p-5 rounded-xl bg-black">
-                        <h4 className="text-xs font-semibold text-white uppercase tracking-wider mb-3">Template Preview</h4>
-                        <div className="w-full max-w-sm mx-auto rounded-xl shadow-2xl overflow-hidden bg-white">
-                          <img 
-                            src={`/templates/${resumeTemplate || 'sb2nov'}.png`} 
-                            alt={`${resumeTemplate} preview`} 
-                            className="w-full h-auto object-cover"
-                            loading="lazy"
-                          />
-                        </div>
+                      <div className="w-full max-w-md mx-auto rounded-xl shadow-2xl overflow-hidden bg-white border border-zinc-800">
+                        <img 
+                          src={`/templates/${resumeTemplate || 'sb2nov'}.png`} 
+                          alt={`${resumeTemplate} full preview`} 
+                          className="w-full h-auto object-cover"
+                          loading="lazy"
+                        />
                       </div>
                     </div>
                   </div>

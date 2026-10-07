@@ -21,8 +21,9 @@ function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen?: boolean; setMobil
       if (!res.ok) return { discovered: 0, applied: 0, credits: 1000, max_credits: 1000, total: 0 };
       return res.json();
     },
-    staleTime: 30000,
-    refetchOnWindowFocus: false,
+    staleTime: 5000,
+    refetchInterval: 10000,
+    refetchOnWindowFocus: true,
   });
 
   const appsCount = (stats?.applied || 0) + (stats?.approved || 0) + (stats?.interviews || 0);

@@ -48,6 +48,10 @@ function AuthComponent() {
         provider: 'google',
         options: { 
           redirectTo: window.location.origin + '/auth',
+          queryParams: {
+            prompt: 'select_account',
+            access_type: 'offline',
+          },
         }
       });
       if (error) throw error;
