@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { Loader2, Sparkles } from 'lucide-react';
 
@@ -38,19 +38,21 @@ function AuthComponent() {
   }, [user, mode, navigate]);
 
   const handleGoogleLogin = async () => {
+    setError(null);
+    if (!isSupabaseConfigured()) {
+      setError("Google Login setup: Please enter your real Supabase URL and Anon Key in frontend/.env (currently set to your-project-ref placeholder).");
+      return;
+    }
     try {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: { 
           redirectTo: window.location.origin + '/auth',
-          skipBrowserRedirect: true
         }
       });
       if (error) throw error;
       if (data?.url) {
-        // Hugging Face iframe sandbox blocks 'allow-top-navigation'
-        // We MUST open OAuth in a new tab to bypass Google's iframe block.
-        window.open(data.url, '_blank', 'noopener,noreferrer');
+        window.location.href = data.url;
       }
     } catch (err: any) {
       setError(err.message || 'Error initializing Google login');
