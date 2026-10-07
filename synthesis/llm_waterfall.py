@@ -77,9 +77,9 @@ async def run_waterfall(
 
     # Add default fallbacks just in case
     if "gemini" not in p_provider and "gemini" not in s_provider and gemini_key:
-        providers.append(("Gemini Flash (Default)", call_gemini, gemini_key, "gemini-flash-latest"))
+        providers.append(("Gemini Flash (Default)", call_gemini, gemini_key, "gemini-2.5-flash"))
     if "groq" not in p_provider and "groq" not in s_provider and groq_key:
-        providers.append(("Groq (Default)", call_groq, groq_key, "llama-3.1-8b-instant"))
+        providers.append(("Groq (Default)", call_groq, groq_key, "openai/gpt-oss-120b"))
 
     if hf_key:
         providers.append(("HuggingFace", call_hf, hf_key, None))
