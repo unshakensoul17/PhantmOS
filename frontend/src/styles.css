@@ -43,151 +43,129 @@
 }
 
 :root {
-  --radius: 0.5rem;
+  --radius: 0.625rem;
 
-  --background: #0A0A0A;
-  --foreground: #FAFAFA;
+  /* Borderless Clean Black & White Monochrome Palette */
+  --background: #000000;
+  --foreground: #FFFFFF;
 
-  --card: rgba(20, 20, 20, 0.7);
-  --card-foreground: #FAFAFA;
-  --popover: #141414;
-  --popover-foreground: #FAFAFA;
+  --card: #0A0A0C;
+  --card-foreground: #FFFFFF;
+  --popover: #0A0A0C;
+  --popover-foreground: #FFFFFF;
 
   --primary: #FFFFFF;
   --primary-foreground: #000000;
-  --secondary: #18181B;
-  --secondary-foreground: #FAFAFA;
+  --secondary: #121215;
+  --secondary-foreground: #FFFFFF;
 
-  --muted: #18181B;
+  --muted: #121215;
   --muted-foreground: #A1A1AA;
 
-  --accent: #27272A;
-  --accent-foreground: #FAFAFA;
+  --accent: #18181B;
+  --accent-foreground: #FFFFFF;
 
-  --destructive: #7F1D1D;
-  --destructive-foreground: #FEF2F2;
+  --destructive: #FFFFFF;
+  --destructive-foreground: #000000;
 
-  --border: #27272A;
-  --input: #27272A;
-  --ring: #FFFFFF;
+  --border: transparent;
+  --input: rgba(255, 255, 255, 0.05);
+  --ring: transparent;
 
-  --neon-blue: #FAFAFA;
-  --neon-purple: #D4D4D8;
+  --neon-blue: #FFFFFF;
+  --neon-purple: #E4E4E7;
   --neon-cyan: #FFFFFF;
-  --neon-pink: #A1A1AA;
+  --neon-pink: #D4D4D8;
   --neon-green: #FFFFFF;
-  --neon-amber: #D4D4D8;
+  --neon-amber: #A1A1AA;
 
-  --glass: rgba(24, 24, 27, 0.5);
-  --glass-border: #27272A;
+  --glass: #0A0A0C;
+  --glass-border: transparent;
 
-  --sidebar: #0A0A0A;
-  --sidebar-foreground: #FAFAFA;
+  --sidebar: #000000;
+  --sidebar-foreground: #FFFFFF;
   --sidebar-primary: #FFFFFF;
   --sidebar-primary-foreground: #000000;
-  --sidebar-accent: #27272A;
-  --sidebar-accent-foreground: #FAFAFA;
-  --sidebar-border: #27272A;
-  --sidebar-ring: #FFFFFF;
+  --sidebar-accent: #121215;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: transparent;
+  --sidebar-ring: transparent;
 }
 
-
 @layer base {
-  * {
-    border-color: var(--color-border);
+  *, ::before, ::after {
+    border-color: transparent !important;
   }
 
   html, body {
-    background-color: var(--background);
-    color: var(--color-foreground);
+    background-color: #000000;
+    color: #FFFFFF;
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
   }
 
   body {
     background-image: none;
-    background-attachment: fixed;
     min-height: 100vh;
   }
 
   ::selection {
-    background: oklch(1 0 0 / 0.25);
+    background: rgba(255, 255, 255, 0.25);
+    color: #000000;
   }
 
-
-  ::-webkit-scrollbar { width: 10px; height: 10px; }
-  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #000000; }
   ::-webkit-scrollbar-thumb {
-    background: oklch(1 0 0 / 0.08);
+    background: rgba(255, 255, 255, 0.15);
     border-radius: 999px;
   }
-  ::-webkit-scrollbar-thumb:hover { background: oklch(1 0 0 / 0.16); }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25); }
 }
 
 @utility glass {
-  background: var(--card);
-  backdrop-filter: blur(16px);
-  border: none;
-  box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.05), inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+  background: #0A0A0C;
 }
 
 @utility glass-strong {
-  background: #121212;
-  backdrop-filter: blur(20px);
-  border: none;
-  box-shadow: 0 8px 32px -8px rgba(0, 0, 0, 0.6), inset 0 1px 0 0 rgba(255, 255, 255, 0.08), inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+  background: #0E0E12;
 }
 
 @utility glow-blue {
-  box-shadow:
-    0 0 0 1px oklch(1 0 0 / 0.25),
-    0 0 24px -4px oklch(1 0 0 / 0.35),
-    0 0 60px -20px oklch(1 0 0 / 0.3);
+  box-shadow: none;
 }
 
 @utility glow-purple {
-  box-shadow:
-    0 0 0 1px oklch(1 0 0 / 0.25),
-    0 0 24px -4px oklch(1 0 0 / 0.35),
-    0 0 60px -20px oklch(1 0 0 / 0.3);
+  box-shadow: none;
 }
 
 @utility glow-cyan {
-  box-shadow:
-    0 0 0 1px oklch(1 0 0 / 0.25),
-    0 0 24px -4px oklch(1 0 0 / 0.35),
-    0 0 60px -20px oklch(1 0 0 / 0.3);
+  box-shadow: none;
 }
 
 @utility glow-green {
-  box-shadow:
-    0 0 0 1px oklch(1 0 0 / 0.25),
-    0 0 24px -4px oklch(1 0 0 / 0.35);
+  box-shadow: none;
 }
 
 @utility text-glow-cyan {
-  text-shadow: 0 0 24px oklch(1 0 0 / 0.5);
+  text-shadow: none;
 }
 
 @utility text-glow-blue {
-  text-shadow: 0 0 24px oklch(1 0 0 / 0.5);
+  text-shadow: none;
 }
 
-
 @utility grid-bg {
-  background-image:
-    linear-gradient(oklch(1 0 0 / 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, oklch(1 0 0 / 0.04) 1px, transparent 1px);
-  background-size: 40px 40px;
+  background-image: none;
 }
 
 @keyframes pulse-glow {
   0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.6; transform: scale(0.92); }
+  50% { opacity: 0.5; transform: scale(0.94); }
 }
 @keyframes ping-soft {
-  0% { transform: scale(1); opacity: 0.7; }
-  80%, 100% { transform: scale(2.4); opacity: 0; }
+  0% { transform: scale(1); opacity: 0.6; }
+  80%, 100% { transform: scale(2.2); opacity: 0; }
 }
 @keyframes shimmer {
   0% { background-position: -400px 0; }
@@ -200,25 +178,25 @@
 }
 @keyframes float-y {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
+  50% { transform: translateY(-4px); }
 }
 @keyframes scan-x {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(100%); }
 }
 @keyframes fade-up {
-  0% { opacity: 0; transform: translateY(12px); }
+  0% { opacity: 0; transform: translateY(8px); }
   100% { opacity: 1; transform: translateY(0); }
 }
 
 @utility animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
 @utility animate-ping-soft { animation: ping-soft 2s cubic-bezier(0,0,0.2,1) infinite; }
 @utility animate-shimmer {
-  background: linear-gradient(90deg, transparent, oklch(1 0 0 / 0.08), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
   background-size: 800px 100%;
   animation: shimmer 2.4s linear infinite;
 }
 @utility animate-flow-down { animation: flow-down 2.4s ease-in-out infinite; }
 @utility animate-float-y { animation: float-y 4s ease-in-out infinite; }
 @utility animate-scan-x { animation: scan-x 3s linear infinite; }
-@utility animate-fade-up { animation: fade-up 0.6s ease-out both; }
+@utility animate-fade-up { animation: fade-up 0.4s ease-out both; }

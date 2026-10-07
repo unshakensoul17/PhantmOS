@@ -3,21 +3,22 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Layout } from "../components/Layout";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
-  Building2, MapPin, DollarSign, Loader2, ArrowRight, Clock, 
-  Send, Sparkles, CheckCircle2, XCircle, FileText, ChevronRight, ArrowUpRight
+  Building2, MapPin, DollarSign, Loader2, ArrowRight, 
+  Send, Sparkles, CheckCircle2, XCircle, FileText, ArrowUpRight,
+  Inbox
 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/applications")({
   component: ApplicationsPage,
 });
 
 const COLUMNS = [
-  { id: "Approved", label: "To Apply", color: "text-neon-blue", border: "border-neon-blue/30" },
-  { id: "Applied", label: "Applied", color: "text-neon-cyan", border: "border-neon-cyan/30" },
-  { id: "Interviewing", label: "Interviewing", color: "text-neon-purple", border: "border-neon-purple/30" },
-  { id: "Offer", label: "Offer Received", color: "text-neon-green", border: "border-neon-green/30" },
-  { id: "Rejected", label: "Rejected", color: "text-neon-pink", border: "border-neon-pink/30" },
+  { id: "Approved", label: "To Apply" },
+  { id: "Applied", label: "Applied" },
+  { id: "Interviewing", label: "Interviewing" },
+  { id: "Offer", label: "Offer Received" },
 ];
 
 function ApplicationsPage() {
@@ -26,7 +27,6 @@ function ApplicationsPage() {
   const [emailDraft, setEmailDraft] = useState<string | null>(null);
   const [targetEmail, setTargetEmail] = useState("");
 
-  // Fetch all leads that have an application-related status
   const { data: leads = [], isLoading } = useQuery({
     queryKey: ["leads"],
     queryFn: async () => {
@@ -36,7 +36,6 @@ function ApplicationsPage() {
     },
   });
 
-  // Filter only application-related statuses
   const apps = leads.filter((l: any) => 
     ["Approved", "Applied", "Interviewing", "Offer", "Rejected"].includes(l.status)
   );
@@ -53,6 +52,7 @@ function ApplicationsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leads"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
     },
   });
 
@@ -97,136 +97,142 @@ function ApplicationsPage() {
       setEmailDraft(null);
       setSelectedJob(null);
       setTargetEmail("");
-      alert("Email sent successfully!");
+      toast.success("Follow-up email sent successfully!");
     },
     onError: (err: any) => {
-      alert(err.message);
+      toast.error(err.message);
     }
   });
 
   return (
     <Layout>
-      <div className="space-y-6 animate-fade-up">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-2">
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="text-[13px] font-mono text-neon-blue mb-1">Pipeline Tracking</div>
-            <h2 className="text-3xl font-bold tracking-tight">Active Applications</h2>
+            <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Applications</h1>
+            <p className="text-sm text-zinc-400 mt-1">
+              Track your active job applications across every stage of the hiring pipeline.
+            </p>
           </div>
-          <div className="flex gap-4">
-            <div className="text-right">
-              <div className="text-2xl font-bold font-mono text-neon-cyan">{apps.length}</div>
-              <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Active</div>
+          <div className="flex items-center gap-3">
+            <div className="bg-zinc-950 px-4 py-2 rounded-xl text-center">
+              <span className="text-xl font-bold text-white block font-mono">{apps.length}</span>
+              <span className="text-[10px] uppercase font-semibold text-zinc-500">Total Tracked</span>
             </div>
-            <div className="w-px h-10 bg-white/10" />
-            <div className="text-right">
-              <div className="text-2xl font-bold font-mono text-neon-green">{apps.filter((a: any) => a.status === 'Offer').length}</div>
-              <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Offers</div>
+            <div className="bg-zinc-950 px-4 py-2 rounded-xl text-center">
+              <span className="text-xl font-bold text-white block font-mono">{apps.filter((a: any) => a.status === 'Offer').length}</span>
+              <span className="text-[10px] uppercase font-semibold text-zinc-500">Offers</span>
             </div>
           </div>
         </div>
 
+        {/* 4-Column Pipeline Tracker */}
         {isLoading ? (
-          <div className="py-20 flex flex-col items-center justify-center text-muted-foreground">
-            <Loader2 className="w-8 h-8 animate-spin text-neon-blue mb-3" />
-            <p className="font-mono text-sm">Loading application pipeline...</p>
+          <div className="py-20 flex flex-col items-center justify-center text-zinc-500">
+            <Loader2 className="w-8 h-8 animate-spin text-white mb-2" />
+            <p className="text-sm">Loading applications...</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 items-start">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
             {COLUMNS.map((col) => {
               const colApps = apps.filter((a: any) => a.status === col.id);
               
               return (
-                <div key={col.id} className="glass-strong rounded-2xl border border-white/5 p-4 min-h-[60vh] flex flex-col">
-                  <div className={`flex items-center justify-between mb-4 pb-3 border-b ${col.border}`}>
-                    <h3 className={`font-bold font-mono uppercase tracking-wide text-sm ${col.color}`}>{col.label}</h3>
-                    <span className="text-xs px-2 py-0.5 rounded bg-white/10 font-mono">{colApps.length}</span>
+                <div key={col.id} className="bg-zinc-950 rounded-2xl p-4 min-h-[500px] flex flex-col">
+                  {/* Column Header */}
+                  <div className="flex items-center justify-between pb-3 mb-3">
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-zinc-900 text-white">
+                      {col.label}
+                    </span>
+                    <span className="text-xs font-mono font-medium text-zinc-500">{colApps.length}</span>
                   </div>
                   
+                  {/* Cards List */}
                   <div className="space-y-3 flex-1">
                     {colApps.map((job: any) => (
-                      <div key={job.job_id} className="glass rounded-xl p-4 hover:scale-[1.02] hover:bg-[#1A1A1A] transition-all duration-200 group">
-                        <div className="flex items-start justify-between mb-2">
-                          <h4 className="font-semibold text-sm leading-snug line-clamp-2 pr-4">{job.title}</h4>
-                          <Building2 className="w-4 h-4 text-muted-foreground shrink-0" />
+                      <div key={job.job_id || job.id} className="bg-black hover:bg-zinc-900/60 rounded-xl p-3.5 transition-all">
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <h4 className="font-semibold text-sm text-white leading-snug line-clamp-2">{job.title}</h4>
                         </div>
-                        <div className="text-xs text-muted-foreground mb-3">{job.company}</div>
+                        <div className="text-xs font-medium text-zinc-300 mb-2">{job.company}</div>
                         
-                        <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground mb-4">
-                          <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {job.location || 'Remote'}</span>
-                          <span className="flex items-center gap-1"><DollarSign className="w-3 h-3" /> {job.salary || 'N/A'}</span>
+                        <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-400 mb-3">
+                          <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-zinc-500" /> {job.location || 'Remote'}</span>
+                          {job.salary && (
+                            <>
+                              <span>•</span>
+                              <span className="flex items-center gap-1 font-mono text-zinc-300">{job.salary}</span>
+                            </>
+                          )}
                         </div>
 
                         {/* Stage Specific Actions */}
-                        <div className="pt-3 border-t border-white/5 space-y-2">
-                          
-                          {/* Tailored Resume Link */}
-                          {job.resume_url && (
-                            <a 
-                              href={job.resume_url}
-                              target="_blank" rel="noreferrer"
-                              className="w-full h-8 rounded-lg bg-white/5 border border-white/10 text-white text-xs font-semibold hover:bg-white/10 transition flex items-center justify-center gap-1.5"
-                            >
-                              <FileText className="w-3 h-3" /> View Tailored Resume
-                            </a>
-                          )}
-
-                          {/* App Stage -> Phantm Writer */}
+                        <div className="pt-2.5 space-y-2">
                           {job.status === 'Applied' && (
                             <button 
                               onClick={() => phantmWriterMutation.mutate(job)}
                               disabled={phantmWriterMutation.isPending}
-                              className="w-full h-8 rounded-lg bg-gradient-to-r from-neon-blue/20 to-neon-purple/20 border border-neon-blue/30 text-neon-blue text-xs font-semibold hover:bg-neon-blue/30 transition flex items-center justify-center gap-1.5 disabled:opacity-50"
+                              className="w-full h-8 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-200 text-xs font-medium transition flex items-center justify-center gap-1.5"
                             >
-                              {phantmWriterMutation.isPending && selectedJob?.job_id === job.job_id ? (
-                                <Loader2 className="w-3 h-3 animate-spin" />
-                              ) : (
-                                <Sparkles className="w-3 h-3" />
-                              )}
-                              Draft Follow-up (Phantm Writer)
+                              <Sparkles className="w-3.5 h-3.5 text-white" />
+                              Draft Follow-up
                             </button>
                           )}
 
-                          {/* Interview Stage -> Playbook */}
                           {job.status === 'Interviewing' && (
                             <Link 
                               to="/company-research" 
                               search={{ company: job.company }}
-                              className="w-full h-8 rounded-lg bg-neon-cyan/20 border border-neon-cyan/30 text-neon-cyan text-xs font-semibold hover:bg-neon-cyan/30 transition flex items-center justify-center gap-1.5"
+                              className="w-full h-8 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-200 text-xs font-medium transition flex items-center justify-center gap-1.5"
                             >
-                              <FileText className="w-3 h-3" /> Open Playbook
+                              <FileText className="w-3.5 h-3.5 text-white" /> Company Prep Guide
                             </Link>
                           )}
 
-                          {/* State Transition Actions */}
+                          {/* Stage Transition Action */}
                           <div className="flex items-center gap-1.5 justify-between">
                             {job.status === 'Approved' && (
-                              <button onClick={() => statusMutation.mutate({ id: job.job_id, status: 'Applied'})} className="flex-1 h-7 rounded bg-neon-cyan/10 hover:bg-neon-cyan/20 text-neon-cyan text-[10px] uppercase font-mono tracking-wider transition inline-flex items-center justify-center gap-1">
-                                Mark Applied <CheckCircle2 className="w-3 h-3" />
+                              <button 
+                                onClick={() => statusMutation.mutate({ id: job.job_id || job.id, status: 'Applied'})} 
+                                className="flex-1 h-7 rounded-lg bg-white hover:bg-zinc-200 text-black text-xs font-semibold transition inline-flex items-center justify-center gap-1"
+                              >
+                                Mark Applied <ArrowRight className="w-3 h-3" />
                               </button>
                             )}
                             {job.status === 'Applied' && (
-                              <button onClick={() => statusMutation.mutate({ id: job.job_id, status: 'Interviewing'})} className="flex-1 h-7 rounded bg-white/5 hover:bg-white/10 text-[10px] uppercase font-mono tracking-wider transition inline-flex items-center justify-center gap-1">
+                              <button 
+                                onClick={() => statusMutation.mutate({ id: job.job_id || job.id, status: 'Interviewing'})} 
+                                className="flex-1 h-7 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-200 text-xs font-medium transition inline-flex items-center justify-center gap-1"
+                              >
                                 Interview <ArrowRight className="w-3 h-3" />
                               </button>
                             )}
                             {job.status === 'Interviewing' && (
                               <>
-                                <button onClick={() => statusMutation.mutate({ id: job.job_id, status: 'Offer'})} className="flex-1 h-7 rounded bg-neon-green/10 hover:bg-neon-green/20 text-neon-green text-[10px] uppercase font-mono tracking-wider transition inline-flex items-center justify-center gap-1">
-                                  <CheckCircle2 className="w-3 h-3" /> Offer
+                                <button 
+                                  onClick={() => statusMutation.mutate({ id: job.job_id || job.id, status: 'Offer'})} 
+                                  className="flex-1 h-7 rounded-lg bg-white hover:bg-zinc-200 text-black text-xs font-semibold transition inline-flex items-center justify-center gap-1"
+                                >
+                                  <CheckCircle2 className="w-3 h-3" /> Got Offer
                                 </button>
-                                <button onClick={() => statusMutation.mutate({ id: job.job_id, status: 'Rejected'})} className="flex-1 h-7 rounded bg-neon-pink/10 hover:bg-neon-pink/20 text-neon-pink text-[10px] uppercase font-mono tracking-wider transition inline-flex items-center justify-center gap-1">
-                                  <XCircle className="w-3 h-3" /> Reject
+                                <button 
+                                  onClick={() => statusMutation.mutate({ id: job.job_id || job.id, status: 'Rejected'})} 
+                                  className="h-7 px-2 rounded-lg hover:bg-zinc-900 text-zinc-500 hover:text-white text-xs transition"
+                                  title="Mark as rejected"
+                                >
+                                  <XCircle className="w-3.5 h-3.5" />
                                 </button>
                               </>
                             )}
-                            {job.status === 'Applied' && (
-                              <button onClick={() => statusMutation.mutate({ id: job.job_id, status: 'Rejected'})} className="w-7 h-7 shrink-0 rounded bg-neon-pink/10 hover:bg-neon-pink/20 text-neon-pink flex items-center justify-center transition">
-                                <XCircle className="w-3.5 h-3.5" />
-                              </button>
-                            )}
                             {job.status === 'Approved' && (
-                              <a href={job.source_url} target="_blank" rel="noreferrer" className="w-7 h-7 shrink-0 rounded bg-white/5 hover:bg-white/10 text-white flex items-center justify-center transition">
-                                <ArrowUpRight className="w-3.5 h-3.5" />
+                              <a 
+                                href={job.source_url || job.url || "#"} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                className="h-7 px-2.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-medium inline-flex items-center gap-1 transition"
+                              >
+                                Link <ArrowUpRight className="w-3 h-3" />
                               </a>
                             )}
                           </div>
@@ -235,9 +241,9 @@ function ApplicationsPage() {
                     ))}
                     
                     {colApps.length === 0 && (
-                      <div className="py-10 text-center border-2 border-dashed border-white/5 rounded-xl text-muted-foreground">
-                        <Clock className="w-6 h-6 mx-auto mb-2 opacity-30" />
-                        <span className="text-xs font-mono">Empty Pipeline</span>
+                      <div className="py-12 text-center text-zinc-500 bg-zinc-900/30 rounded-xl">
+                        <Inbox className="w-6 h-6 mx-auto mb-1.5 opacity-40 text-zinc-600" />
+                        <span className="text-xs">No applications here</span>
                       </div>
                     )}
                   </div>
@@ -248,67 +254,64 @@ function ApplicationsPage() {
         )}
       </div>
 
-      {/* Phantm Writer Modal */}
+      {/* Follow-up Note Modal */}
       {emailDraft && selectedJob && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#0B1020] border border-white/10 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl glass-strong">
-            <div className="flex items-center justify-between p-4 border-b border-white/5">
-              <h3 className="font-bold flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-neon-blue" />
-                AI Phantm Writer
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-zinc-950 rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between p-4">
+              <h3 className="font-semibold text-white flex items-center gap-2 text-sm">
+                <Sparkles className="w-4 h-4 text-white" />
+                Draft Follow-Up Email
               </h3>
               <button 
                 onClick={() => { setEmailDraft(null); setSelectedJob(null); }}
-                className="p-1 hover:bg-white/10 rounded-lg transition"
+                className="p-1 hover:bg-zinc-900 rounded-lg text-zinc-400 hover:text-white transition"
               >
-                <XCircle className="w-5 h-5 text-muted-foreground" />
+                <XCircle className="w-5 h-5" />
               </button>
             </div>
             
-            <div className="p-6">
-              <div className="mb-4">
-                <div className="text-xs font-mono text-muted-foreground mb-1 uppercase tracking-wider">Drafted Follow-up For</div>
-                <div className="font-semibold text-lg">{selectedJob.company}</div>
-                <div className="text-sm text-neon-cyan">{selectedJob.title}</div>
+            <div className="p-5 space-y-3">
+              <div>
+                <span className="text-xs text-zinc-400 block mb-0.5">Role & Company</span>
+                <span className="font-medium text-sm text-white">{selectedJob.title} @ {selectedJob.company}</span>
               </div>
 
-              <div className="mb-4">
-                <div className="text-xs font-mono text-muted-foreground mb-1 uppercase tracking-wider">Recruiter / Target Email</div>
+              <div>
+                <label className="text-xs font-medium text-zinc-400 block mb-1">Target Recruiter Email</label>
                 <input 
                   type="email"
                   value={targetEmail}
                   onChange={(e) => setTargetEmail(e.target.value)}
                   placeholder="recruiter@company.com"
-                  className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-sm focus:outline-none focus:border-neon-blue/50 transition font-sans"
+                  className="w-full h-9 px-3 rounded-lg bg-black text-white text-xs focus:outline-none"
                 />
               </div>
 
-              <div className="relative">
-                <div className="absolute top-3 right-3 flex gap-2">
-                  <button className="text-[11px] font-mono px-2 py-1 bg-white/10 hover:bg-white/20 rounded transition">Copy to Clipboard</button>
-                </div>
+              <div>
+                <label className="text-xs font-medium text-zinc-400 block mb-1">Generated Note</label>
                 <textarea 
-                  className="w-full h-64 p-4 rounded-xl bg-black/40 border border-white/10 text-sm leading-relaxed focus:outline-none focus:border-neon-blue/50 transition font-sans resize-none"
+                  className="w-full h-48 p-3 rounded-lg bg-black text-zinc-200 text-xs leading-relaxed focus:outline-none resize-none"
                   value={emailDraft}
                   onChange={(e) => setEmailDraft(e.target.value)}
                 />
               </div>
             </div>
 
-            <div className="p-4 border-t border-white/5 bg-white/5 flex justify-end gap-3">
+            <div className="p-4 bg-black/40 flex justify-end gap-2">
               <button 
                 onClick={() => { setEmailDraft(null); setSelectedJob(null); setTargetEmail(""); }}
-                className="px-4 py-2 rounded-lg text-sm font-medium hover:bg-white/10 transition"
+                className="px-4 py-2 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-900 transition"
               >
                 Cancel
               </button>
               <button 
                 onClick={() => sendEmailMutation.mutate()}
                 disabled={sendEmailMutation.isPending || !targetEmail}
-                className="px-5 py-2 rounded-lg bg-gradient-to-r from-neon-blue to-neon-purple text-black text-sm font-semibold flex items-center gap-2 hover:scale-[1.02] transition shadow-lg shadow-neon-blue/20 disabled:opacity-50 disabled:hover:scale-100"
+                className="px-4 py-2 rounded-lg bg-white hover:bg-zinc-200 text-black text-xs font-semibold flex items-center gap-1.5 transition disabled:opacity-50"
               >
-                {sendEmailMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                {sendEmailMutation.isPending ? "Sending..." : "Send Email via Gmail Integration"}
+                {sendEmailMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                Send Email
               </button>
             </div>
           </div>

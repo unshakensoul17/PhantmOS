@@ -1,14 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "../lib/api";
-import { Radar, Brain, Microscope, FileEdit, ShieldCheck, Rocket, ChevronRight } from "lucide-react";
-
-const COLOR_MAP: Record<string, { text: string; glow: string; ring: string; stroke: string }> = {
-  blue:   { text: "text-neon-blue",   glow: "glow-blue",   ring: "from-neon-blue/40",   stroke: "stroke-neon-blue" },
-  cyan:   { text: "text-neon-cyan",   glow: "glow-cyan",   ring: "from-neon-cyan/40",   stroke: "stroke-neon-cyan" },
-  purple: { text: "text-neon-purple", glow: "glow-purple", ring: "from-neon-purple/40", stroke: "stroke-neon-purple" },
-  pink:   { text: "text-neon-pink",   glow: "glow-purple", ring: "from-neon-pink/40",   stroke: "stroke-neon-pink" },
-  green:  { text: "text-neon-green",  glow: "glow-green",  ring: "from-neon-green/40",  stroke: "stroke-neon-green" },
-};
+import { Search, Sparkles, Building, FileCheck, CheckCircle2, Send, ChevronRight } from "lucide-react";
 
 export function AgentPipeline({ inline = false }: { inline?: boolean }) {
   const { data: stats } = useQuery({
@@ -21,39 +13,34 @@ export function AgentPipeline({ inline = false }: { inline?: boolean }) {
   });
 
   const AGENTS = [
-    { name: "Discovery", icon: Radar, tasks: stats?.total || 0, status: "active", desc: "Scanning 240 sources", color: "cyan" },
-    { name: "Ranking",   icon: Brain, tasks: stats?.total || 0,  status: "active", desc: "Neural match scoring", color: "blue" },
-    { name: "Research",  icon: Microscope, tasks: (stats?.hot || 0) + (stats?.warm || 0), status: "active", desc: "Deep company intel", color: "purple" },
-    { name: "Resume",    icon: FileEdit, tasks: stats?.tailored || 0, status: stats?.tailored > 0 ? "active" : "idle", desc: "Tailoring & ATS pass", color: "pink" },
-    { name: "ATS",       icon: ShieldCheck, tasks: stats?.tailored || 0, status: stats?.tailored > 0 ? "active" : "idle", desc: "Keyword optimization", color: "cyan" },
-    { name: "Application", icon: Rocket, tasks: stats?.applied || 0, status: stats?.applied > 0 ? "active" : "idle", desc: "Auto-submission queue", color: "green" },
+    { name: "Discovery", icon: Search, tasks: stats?.total || 0, status: "active", desc: "Scanning 240+ verified sources" },
+    { name: "Match Scoring", icon: Sparkles, tasks: stats?.total || 0, status: "active", desc: "Evaluating fit with your resume" },
+    { name: "Company Intel", icon: Building, tasks: (stats?.hot || 0) + (stats?.warm || 0), status: "active", desc: "Researching culture & tech stack" },
+    { name: "Resume Tailoring", icon: FileCheck, tasks: stats?.tailored || 0, status: stats?.tailored > 0 ? "active" : "idle", desc: "Customizing bullets & keywords" },
+    { name: "ATS Verification", icon: CheckCircle2, tasks: stats?.tailored || 0, status: stats?.tailored > 0 ? "active" : "idle", desc: "Passing automated filters" },
+    { name: "Application Queue", icon: Send, tasks: stats?.applied || 0, status: stats?.applied > 0 ? "active" : "idle", desc: "Ready for your review & sending" },
   ];
 
   const content = (
     <>
-      <div className="relative flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
-          <div className="text-[13px] font-mono text-neon-purple mb-1">Multi-Agent Runtime</div>
-          <h2 className="text-xl font-bold">Autonomous Workflow</h2>
+          <div className="text-xs font-mono uppercase tracking-wider text-zinc-400 mb-0.5">Automated System</div>
+          <h3 className="text-sm font-semibold text-white">Multi-Agent Workflow</h3>
         </div>
-        <div className="flex items-center gap-2 text-xs">
-          <span className="w-2 h-2 rounded-full bg-neon-green animate-pulse-glow" />
-          <span className="font-mono text-muted-foreground">6 agents online</span>
+        <div className="flex items-center gap-2 text-xs text-zinc-300 bg-zinc-900 px-3 py-1 rounded-full border border-zinc-800">
+          <span className="w-1.5 h-1.5 rounded-full bg-white" />
+          <span>6 agents active</span>
         </div>
       </div>
 
-      <div className="relative grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 xl:gap-2">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
         {AGENTS.map((a, i) => (
           <div key={a.name} className="relative">
             <AgentNode {...a} index={i} />
             {i < AGENTS.length - 1 && (
-              <div className="hidden xl:block absolute top-1/2 -right-1 -translate-y-1/2 z-10">
-                <div className="relative w-4 h-6 overflow-hidden">
-                  <ChevronRight className="w-4 h-4 text-neon-cyan/40" />
-                  <div className="absolute inset-0 animate-scan-x">
-                    <ChevronRight className="w-4 h-4 text-neon-cyan text-glow-cyan" />
-                  </div>
-                </div>
+              <div className="hidden xl:block absolute top-1/2 -right-2 -translate-y-1/2 z-10 text-zinc-700">
+                <ChevronRight className="w-3.5 h-3.5" />
               </div>
             )}
           </div>
@@ -64,56 +51,37 @@ export function AgentPipeline({ inline = false }: { inline?: boolean }) {
 
   if (inline) {
     return (
-      <div className="relative mt-6 pt-6 border-t border-white/5 animate-fade-up">
+      <div className="mt-6 pt-6 border-t border-zinc-800/80 animate-fade-up">
         {content}
       </div>
     );
   }
 
   return (
-    <section className="glass-strong rounded-2xl p-6 relative overflow-hidden">
-      <div className="absolute inset-0 grid-bg opacity-40 pointer-events-none" />
+    <section className="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-5 mb-6">
       {content}
     </section>
   );
 }
 
-function AgentNode({ name, icon: Icon, tasks, status, desc, color, index }: any) {
-  const c = COLOR_MAP[color];
-  const statusColor =
-    status === "active" ? "bg-neon-green text-neon-green" :
-    status === "processing" ? "bg-neon-amber text-neon-amber" :
-    "bg-muted-foreground text-muted-foreground";
+function AgentNode({ name, icon: Icon, tasks, desc, index }: any) {
   return (
     <div
-      className="group relative glass rounded-xl p-4 hover:bg-white/[0.07] transition-all animate-fade-up"
-      style={{ animationDelay: `${index * 80}ms` }}
+      className="bg-black border border-zinc-800/90 hover:border-zinc-700 rounded-xl p-3.5 transition-all"
+      style={{ animationDelay: `${index * 60}ms` }}
     >
-      <div className="flex items-center justify-between mb-3">
-        <div className={`relative w-10 h-10 rounded-lg glass grid place-items-center ${c.text}`}>
-          <Icon className="w-4.5 h-4.5" />
-          {status !== "idle" && (
-            <span className="absolute -top-0.5 -right-0.5">
-              <span className={`absolute inset-0 rounded-full ${statusColor.split(" ")[0]} animate-ping-soft`} />
-              <span className={`relative block w-2 h-2 rounded-full ${statusColor.split(" ")[0]}`} />
-            </span>
-          )}
+      <div className="flex items-center justify-between mb-2">
+        <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-700 grid place-items-center text-white">
+          <Icon className="w-4 h-4" />
         </div>
-        <div className="text-[13px] font-mono text-muted-foreground">
-          A0{index + 1}
-        </div>
+        <span className="text-[11px] font-mono text-zinc-500">0{index + 1}</span>
       </div>
-      <div className="text-sm font-bold">{name} Agent</div>
-      <div className="text-[12px] text-muted-foreground mt-0.5 leading-tight">{desc}</div>
-      <div className="mt-3 pt-3 border-t border-white/5 flex items-baseline justify-between">
-        <span className={`font-mono font-bold ${c.text}`}>{tasks.toLocaleString()}</span>
-        <span className="text-[13px] font-mono text-muted-foreground">tasks</span>
+      <div className="text-xs font-semibold text-white truncate">{name}</div>
+      <div className="text-[11px] text-zinc-400 mt-0.5 leading-tight h-7 overflow-hidden line-clamp-2">{desc}</div>
+      <div className="mt-2.5 pt-2 border-t border-zinc-800/80 flex items-center justify-between text-xs">
+        <span className="font-mono font-semibold text-white">{tasks.toLocaleString()}</span>
+        <span className="text-[11px] text-zinc-500">items</span>
       </div>
-      {status === "processing" && (
-        <div className="mt-2 h-0.5 bg-white/5 rounded-full overflow-hidden">
-          <div className="h-full w-1/2 bg-gradient-to-r from-transparent via-neon-amber to-transparent animate-scan-x" />
-        </div>
-      )}
     </div>
   );
 }

@@ -358,13 +358,13 @@ async def get_stats(user_id: str = Depends(get_current_user_id)):
     """Real-time pipeline stats — includes v2 band counts."""
     if user_id == DEMO_USER_ID:
         return JSONResponse({
-            "hot": 16, "warm": 22, "cold": 10, "discovered": 48,
-            "tailored": 12, "applied": 10, "dismissed": 2, "total": 48,
-            "interviews": 3, "approved": 6,
-            "sources": {"Himalayas": 18, "Remotive": 15, "HackerNews": 9, "Arbeitnow": 6},
-            "scores": [96, 93, 91, 88, 84, 82, 79, 75, 72, 68],
-            "weekly_applications": [1, 2, 4, 3, 5, 2, 6, 7, 4, 8, 9, 3],
-            "credits": 28, "max_credits": 1000
+            "hot": 2, "warm": 2, "cold": 1, "discovered": 3,
+            "tailored": 1, "applied": 1, "dismissed": 0, "total": 5,
+            "interviews": 1, "approved": 1, "offers": 1,
+            "sources": {"Himalayas": 2, "Remotive": 2, "HackerNews": 1},
+            "scores": [96, 91, 88, 84, 93],
+            "weekly_applications": [0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1],
+            "credits": 1000, "max_credits": 1000
         })
     try:
         stats = get_all_stats(user_id)
