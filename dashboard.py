@@ -266,8 +266,6 @@ class EnvUpdateRequest(BaseModel):
     GEMINI_API_KEY: str = ""
     HF_API_KEY: str = ""
     GROQ_API_KEY: str = ""
-    CALLMEBOT_API_KEY: str = ""
-    CALLMEBOT_PHONE: str = ""
     TARGET_ROLES: str = ""
     TELEGRAM_BOT_TOKEN: str = ""
     GMAIL_USER: str = ""

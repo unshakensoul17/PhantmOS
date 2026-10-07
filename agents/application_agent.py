@@ -3,7 +3,7 @@ agents/application_agent.py — PhantmOS Multi-Agent Architecture
 
 Purpose:
     Handles all outbound communication: PDF generation, Telegram delivery,
-    email dispatch, WhatsApp fallback, and delivery queue processing.
+    email dispatch, and delivery queue processing.
 
 Responsibilities:
     - PDF generation (Jinja2 + WeasyPrint)

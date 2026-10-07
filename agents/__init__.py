@@ -10,7 +10,7 @@ Agents:
     research_agent    — Company context research & caching
     resume_agent      — LLM-based resume tailoring & cold email generation
     ats_agent         — ATS score evaluation & interview prep
-    application_agent — PDF generation, delivery (Telegram/Email/WhatsApp)
+    application_agent — PDF generation, delivery (Telegram/Email)
     feedback_agent    — User feedback recording & weight adjustment
     analytics_agent   — Pipeline stats, daily digest, dashboards
 """
