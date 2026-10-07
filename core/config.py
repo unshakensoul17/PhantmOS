@@ -15,7 +15,12 @@ load_dotenv(override=True)
 # ─────────────────────────────────────────────────────────
 SUPABASE_URL: str = os.getenv("SUPABASE_URL", "").strip()
 SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "").strip()
-SERVICE_ROLE_KEY: str = os.getenv("SERVICE_ROLE_KEY", "").strip()
+_raw_srv_key = (
+    os.getenv("SERVICE_ROLE_KEY", "").strip()
+    or os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+    or os.getenv("SUPABASE_SERVICE_KEY", "").strip()
+)
+SERVICE_ROLE_KEY: str = "" if (_raw_srv_key.startswith("your-") or "placeholder" in _raw_srv_key) else _raw_srv_key
 
 # ─────────────────────────────────────────────────────────
 #  LLM PROVIDERS
