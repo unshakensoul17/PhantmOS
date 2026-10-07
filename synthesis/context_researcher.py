@@ -6,7 +6,9 @@ Cached DuckDuckGo company research.
 - Only scrapes if missing or stale
 - Stores result back to cache
 """
+
 import warnings
+
 from core.config import COMPANY_CONTEXT_MAX_AGE_DAYS
 from core.database_manager import get_company_context, store_company_context
 from core.logger import get_logger
@@ -27,15 +29,11 @@ async def get_cached_company_context(company_name: str) -> str:
     if cached:
         age = cached.get("age_days", 99)
         if age is not None and int(age) < COMPANY_CONTEXT_MAX_AGE_DAYS:
-            logger.info(
-                f"Context: cache HIT for '{company_name}' "
-                f"(age={age} days)."
-            )
+            logger.info(f"Context: cache HIT for '{company_name}' (age={age} days).")
             return cached.get("context", "")
         else:
             logger.info(
-                f"Context: cache STALE for '{company_name}' "
-                f"(age={age} days) — re-scraping."
+                f"Context: cache STALE for '{company_name}' (age={age} days) — re-scraping."
             )
 
     # Scrape fresh context
@@ -50,13 +48,16 @@ async def get_cached_company_context(company_name: str) -> str:
 def _scrape_ddg(company_name: str) -> str:
     """DuckDuckGo text search for recent company info."""
     query = (
-        f'"{company_name}" AI engineering team OR hiring OR '
-        f"recent news OR product launch 2024 2025"
+        f'"{company_name}" AI engineering team OR hiring OR recent news OR product launch 2024 2025'
     )
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            from duckduckgo_search import DDGS
+            try:
+                from duckduckgo_search import DDGS
+            except ImportError:
+                from ddgs import DDGS
+
             with DDGS() as ddgs:
                 results = list(ddgs.text(query, max_results=4))
                 snippets = [r.get("body", "") for r in results if r.get("body")]
