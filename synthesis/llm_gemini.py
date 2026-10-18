@@ -34,9 +34,7 @@ async def call_gemini(
     url = GEMINI_URL.format(model=model or GEMINI_MODEL, key=key)
 
     payload = {
-        "systemInstruction": {
-            "parts": [{"text": system_prompt}]
-        },
+        "systemInstruction": {"parts": [{"text": system_prompt}]},
         "contents": [
             {
                 "parts": [{"text": user_prompt}],

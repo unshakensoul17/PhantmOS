@@ -1,9 +1,7 @@
 import { apiFetch } from "../lib/api";
 import { createFileRoute } from "@tanstack/react-router";
 import { Layout } from "../components/Layout";
-import {
-  Sparkles, Building2, ShieldCheck, Check, BookOpen, Search, Loader2
-} from "lucide-react";
+import { Sparkles, Building2, ShieldCheck, Check, BookOpen, Search, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 
@@ -25,7 +23,7 @@ function CompanyResearchPage() {
     onSuccess: (data) => {
       setResearchData(data);
       setPlaybookData(null);
-    }
+    },
   });
 
   const playbookMutation = useMutation({
@@ -34,7 +32,7 @@ function CompanyResearchPage() {
       if (!res.ok) throw new Error("Failed to fetch playbook");
       return res.json();
     },
-    onSuccess: (data) => setPlaybookData(data)
+    onSuccess: (data) => setPlaybookData(data),
   });
 
   return (
@@ -42,9 +40,12 @@ function CompanyResearchPage() {
       <div className="space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Company Intel</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
+            Company Intel
+          </h1>
           <p className="text-sm text-zinc-400 mt-1">
-            Research tech stacks, company stability, and interview prep guides for your target employers.
+            Research tech stacks, company stability, and interview prep guides for your target
+            employers.
           </p>
         </div>
 
@@ -66,12 +67,16 @@ function CompanyResearchPage() {
                 className="w-full h-11 pl-10 pr-4 rounded-xl bg-black text-white text-sm placeholder:text-zinc-500 focus:outline-none"
               />
             </div>
-            <button 
+            <button
               onClick={() => researchMutation.mutate(searchQuery)}
               disabled={!searchQuery || researchMutation.isPending}
               className="h-11 px-6 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-semibold inline-flex items-center justify-center gap-2 transition disabled:opacity-50 shrink-0 shadow-sm"
             >
-              {researchMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Building2 className="w-4 h-4" />}
+              {researchMutation.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Building2 className="w-4 h-4" />
+              )}
               {researchMutation.isPending ? "Researching..." : "Search Intel"}
             </button>
           </div>
@@ -80,7 +85,9 @@ function CompanyResearchPage() {
         {researchMutation.isPending && (
           <div className="py-20 flex flex-col items-center justify-center text-zinc-500">
             <Loader2 className="w-8 h-8 animate-spin text-white mb-2" />
-            <p className="text-sm">Gathering company intelligence, tech stack, and stability data...</p>
+            <p className="text-sm">
+              Gathering company intelligence, tech stack, and stability data...
+            </p>
           </div>
         )}
 
@@ -105,10 +112,15 @@ function CompanyResearchPage() {
               </div>
 
               <div>
-                <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2 font-mono">Detected Tech Stack</h3>
+                <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2 font-mono">
+                  Detected Tech Stack
+                </h3>
                 <div className="flex flex-wrap gap-1.5">
                   {researchData.stack.map((t: string) => (
-                    <span key={t} className="text-xs px-2.5 py-1 rounded-lg bg-black text-zinc-300 font-mono">
+                    <span
+                      key={t}
+                      className="text-xs px-2.5 py-1 rounded-lg bg-black text-zinc-300 font-mono"
+                    >
                       {t}
                     </span>
                   ))}
@@ -116,7 +128,9 @@ function CompanyResearchPage() {
               </div>
 
               <div className="space-y-2">
-                <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2 font-mono">Recent Timeline & News</h3>
+                <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2 font-mono">
+                  Recent Timeline & News
+                </h3>
                 <div className="space-y-2 pl-2">
                   {researchData.news_timeline.map((n: string, j: number) => (
                     <div key={j} className="text-xs text-zinc-300 leading-relaxed">
@@ -143,12 +157,16 @@ function CompanyResearchPage() {
                   Interview Playbook
                 </h3>
                 {!playbookData && (
-                  <button 
+                  <button
                     onClick={() => playbookMutation.mutate(researchData.name)}
                     disabled={playbookMutation.isPending}
                     className="h-8 px-3 rounded-lg bg-white hover:bg-zinc-200 text-black text-xs font-semibold transition flex items-center gap-1.5 disabled:opacity-50"
                   >
-                    {playbookMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                    {playbookMutation.isPending ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-3.5 h-3.5" />
+                    )}
                     Generate Guide
                   </button>
                 )}
@@ -159,7 +177,8 @@ function CompanyResearchPage() {
                   <div>
                     <BookOpen className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
                     <p className="text-xs text-zinc-400 max-w-xs leading-relaxed">
-                      Click "Generate Guide" to synthesize company culture, technical interview questions, and key product launches.
+                      Click "Generate Guide" to synthesize company culture, technical interview
+                      questions, and key product launches.
                     </p>
                   </div>
                 </div>
@@ -169,7 +188,9 @@ function CompanyResearchPage() {
                 <div className="flex-1 grid place-items-center text-center p-8">
                   <div>
                     <Loader2 className="w-8 h-8 animate-spin text-white mx-auto mb-2" />
-                    <p className="text-xs text-zinc-400">Mining interview intel and historical questions...</p>
+                    <p className="text-xs text-zinc-400">
+                      Mining interview intel and historical questions...
+                    </p>
                   </div>
                 </div>
               )}
@@ -177,7 +198,9 @@ function CompanyResearchPage() {
               {playbookData && (
                 <div className="space-y-4">
                   <div>
-                    <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2 font-mono">Company Values & Culture</h4>
+                    <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2 font-mono">
+                      Company Values & Culture
+                    </h4>
                     <ul className="space-y-1.5">
                       {playbookData.cultural_values.map((v: string, i: number) => (
                         <li key={i} className="text-xs flex items-start gap-2 text-zinc-300">
@@ -189,11 +212,15 @@ function CompanyResearchPage() {
                   </div>
 
                   <div>
-                    <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2 font-mono">Historical Technical Questions</h4>
+                    <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2 font-mono">
+                      Historical Technical Questions
+                    </h4>
                     <div className="space-y-2">
                       {playbookData.technical_questions.map((q: any, i: number) => (
                         <div key={i} className="bg-black rounded-lg p-2.5">
-                          <span className="text-[10px] font-mono text-zinc-400 uppercase block mb-0.5">{q.stage}</span>
+                          <span className="text-[10px] font-mono text-zinc-400 uppercase block mb-0.5">
+                            {q.stage}
+                          </span>
                           <span className="text-xs text-zinc-200">{q.question}</span>
                         </div>
                       ))}
@@ -201,10 +228,15 @@ function CompanyResearchPage() {
                   </div>
 
                   <div>
-                    <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2 font-mono">Recent Launches (Mention in interview)</h4>
+                    <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2 font-mono">
+                      Recent Launches (Mention in interview)
+                    </h4>
                     <div className="flex flex-wrap gap-1.5">
                       {playbookData.product_launches.map((p: string, i: number) => (
-                        <span key={i} className="text-xs px-2.5 py-1 rounded-lg bg-zinc-900 text-zinc-300 font-mono">
+                        <span
+                          key={i}
+                          className="text-xs px-2.5 py-1 rounded-lg bg-zinc-900 text-zinc-300 font-mono"
+                        >
                           {p}
                         </span>
                       ))}
@@ -219,7 +251,9 @@ function CompanyResearchPage() {
         {!researchData && !researchMutation.isPending && (
           <div className="py-20 text-center text-zinc-600 bg-zinc-900/30 rounded-2xl">
             <Building2 className="w-10 h-10 mx-auto mb-2 opacity-30" />
-            <p className="text-sm font-medium text-zinc-400">Search any company to generate technical & cultural interview intelligence.</p>
+            <p className="text-sm font-medium text-zinc-400">
+              Search any company to generate technical & cultural interview intelligence.
+            </p>
           </div>
         )}
       </div>

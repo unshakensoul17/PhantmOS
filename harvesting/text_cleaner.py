@@ -17,6 +17,7 @@ import re
 
 try:
     import trafilatura
+
     HAS_TRAFILATURA = True
 except ImportError:
     HAS_TRAFILATURA = False
@@ -62,7 +63,7 @@ def clean_job_description(raw_text_or_html: str, max_chars: int = 4500) -> str:
                 include_links=False,
                 include_images=False,
                 include_tables=True,
-                no_fallback=False
+                no_fallback=False,
             )
             if extracted and len(extracted) > 100:
                 text = extracted
@@ -89,7 +90,7 @@ def clean_job_description(raw_text_or_html: str, max_chars: int = 4500) -> str:
         # Match only if it occurs in the lower portion (>30%) of the document
         match = re.search(pattern, text, flags=re.DOTALL)
         if match and match.start() > len(text) * 0.30:
-            text = text[:match.start()].strip()
+            text = text[: match.start()].strip()
 
     # 5. Remove inline legal boilerplate
     for pattern in INLINE_JUNK_PATTERNS:

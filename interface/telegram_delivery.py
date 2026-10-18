@@ -710,7 +710,6 @@ async def _on_triage_tailor(context, chat_id: int, payload: str, query):
         return
 
     company_name = lead.get("company", "Company")
-    title_name = lead.get("title", "Role")
 
     # Acknowledge immediately so UI doesn't hang
     await query.answer(f"⚡ Tailoring resume for {company_name}...", show_alert=False)
@@ -749,13 +748,20 @@ async def _on_triage_tailor(context, chat_id: int, payload: str, query):
                     pass
                 resume_data = notes.get("updated_resume_json") or master_resume
                 url = await generate_and_upload_pdf(
-                    job_id=job_id, resume_data=resume_data, user_id=user_id, company_name=company_name
+                    job_id=job_id,
+                    resume_data=resume_data,
+                    user_id=user_id,
+                    company_name=company_name,
                 )
                 if url:
-                    update_job_lead(job_id, {"resume_url": url, "status": "Tailored"}, user_id=user_id)
+                    update_job_lead(
+                        job_id, {"resume_url": url, "status": "Tailored"}, user_id=user_id
+                    )
                     updated_lead["resume_url"] = url
                     updated_lead["status"] = "Tailored"
-                    _update_lead_in_cache(chat_id, job_id, {"resume_url": url, "status": "Tailored"})
+                    _update_lead_in_cache(
+                        chat_id, job_id, {"resume_url": url, "status": "Tailored"}
+                    )
                     try:
                         get_client().table("delivery_queue").delete().eq("job_id", job_id).execute()
                     except Exception:
@@ -776,7 +782,8 @@ async def _on_triage_tailor(context, chat_id: int, payload: str, query):
                 else:
                     try:
                         await query.edit_message_text(
-                            text=format_triage_card(lead, idx, total_count) + "\n\n⚠️ _PDF compilation failed. Please try again._",
+                            text=format_triage_card(lead, idx, total_count)
+                            + "\n\n⚠️ _PDF compilation failed. Please try again._",
                             parse_mode="Markdown",
                             reply_markup=_build_triage_keyboard(lead, idx, total_count),
                             disable_web_page_preview=True,
@@ -786,7 +793,8 @@ async def _on_triage_tailor(context, chat_id: int, payload: str, query):
             else:
                 try:
                     await query.edit_message_text(
-                        text=format_triage_card(lead, idx, total_count) + "\n\n⚠️ _Resume tailoring failed. Please try again._",
+                        text=format_triage_card(lead, idx, total_count)
+                        + "\n\n⚠️ _Resume tailoring failed. Please try again._",
                         parse_mode="Markdown",
                         reply_markup=_build_triage_keyboard(lead, idx, total_count),
                         disable_web_page_preview=True,
@@ -796,7 +804,13 @@ async def _on_triage_tailor(context, chat_id: int, payload: str, query):
         except Exception as e:
             logger.error(f"Error in async tailoring task: {e}")
             try:
-                await progress_msg.edit_text(f"❌ Error generating resume for {company_name}: {e}")
+                await query.edit_message_text(
+                    text=format_triage_card(lead, idx, total_count)
+                    + f"\n\n❌ _Error generating resume for {company_name}: {e}_",
+                    parse_mode="Markdown",
+                    reply_markup=_build_triage_keyboard(lead, idx, total_count),
+                    disable_web_page_preview=True,
+                )
             except Exception:
                 pass
 

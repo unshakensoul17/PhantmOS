@@ -60,7 +60,19 @@ def normalize_company(company: str) -> str:
 def normalize_location(location: str) -> str:
     """Collapse all remote location variations to 'remote'."""
     loc = (location or "").lower().strip()
-    if any(k in loc for k in ["remote", "anywhere", "worldwide", "global", "wfh", "telecommute", "work from home", "virtual"]):
+    if any(
+        k in loc
+        for k in [
+            "remote",
+            "anywhere",
+            "worldwide",
+            "global",
+            "wfh",
+            "telecommute",
+            "work from home",
+            "virtual",
+        ]
+    ):
         return "remote"
     return re.sub(r"[^\w\s]", "", loc).strip()
 
@@ -74,7 +86,7 @@ def make_dedup_hash(company: str, title: str, location: str = "") -> str:
     c_title = normalize_title(title)
     c_loc = normalize_location(location)
 
-    key = f"{c_comp}:{c_title}:{c_loc}".encode("utf-8")
+    key = f"{c_comp}:{c_title}:{c_loc}".encode()
     return hashlib.sha256(key).hexdigest()
 
 
@@ -100,9 +112,7 @@ def filter_new_jobs(jobs: list[dict], user_id: str | None = None) -> list[dict]:
     # Attach canonical hashes
     for job in jobs:
         job["dedup_hash"] = make_dedup_hash(
-            job.get("company", ""),
-            job.get("title", ""),
-            job.get("location", "")
+            job.get("company", ""), job.get("title", ""), job.get("location", "")
         )
 
     all_hashes = [j["dedup_hash"] for j in jobs]
@@ -121,6 +131,8 @@ def filter_new_jobs(jobs: list[dict], user_id: str | None = None) -> list[dict]:
 
     skipped = len(jobs) - len(unique_batch_jobs)
     if skipped:
-        logger.info(f"Deduplicator: filtered {skipped} duplicate listings, retaining {len(unique_batch_jobs)} canonical jobs.")
+        logger.info(
+            f"Deduplicator: filtered {skipped} duplicate listings, retaining {len(unique_batch_jobs)} canonical jobs."
+        )
 
     return unique_batch_jobs

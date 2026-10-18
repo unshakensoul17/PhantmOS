@@ -23,11 +23,15 @@ def validate_output(llm_response: dict, master_resume: dict) -> dict | None:
         return None
 
     # Auto-unwrap if LLM returned the resume directly at root (contains 'cv' or 'sections')
-    if "updated_resume_json" not in llm_response and ("sections" in llm_response or "cv" in llm_response):
+    if "updated_resume_json" not in llm_response and (
+        "sections" in llm_response or "cv" in llm_response
+    ):
         llm_response = {
             "updated_resume_json": llm_response,
             "cold_email": llm_response.get("cold_email") or llm_response.get("email") or "",
-            "changes_made": llm_response.get("changes_made", ["Aligned skills and experience with JD"]),
+            "changes_made": llm_response.get(
+                "changes_made", ["Aligned skills and experience with JD"]
+            ),
             "rationale": llm_response.get("rationale", "Tailored to job description keywords."),
         }
 

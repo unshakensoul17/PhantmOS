@@ -22,6 +22,7 @@ logger = get_logger(__name__)
 #  Stage 2A: Ultra-Fast BM25 Lexical Engine (Zero-dependency)
 # ─────────────────────────────────────────────────────────
 
+
 class FastBM25:
     """
     Lightweight, high-speed BM25Okapi implementation.
@@ -88,9 +89,9 @@ class FastBM25:
 #  Reciprocal Rank Fusion (RRF)
 # ─────────────────────────────────────────────────────────
 
+
 def reciprocal_rank_fusion(
-    ranked_lists: list[list[tuple[Any, float]]],
-    k: int = 60
+    ranked_lists: list[list[tuple[Any, float]]], k: int = 60
 ) -> list[tuple[Any, float]]:
     """
     Combine multiple ranked candidate lists into a single fused ranking.
@@ -112,6 +113,7 @@ def reciprocal_rank_fusion(
 # ─────────────────────────────────────────────────────────
 #  Compact Representation Generator (Token budget: 128-192 tokens)
 # ─────────────────────────────────────────────────────────
+
 
 def build_compact_job_repr(job: dict, max_tokens: int = 192) -> str:
     """
@@ -137,17 +139,21 @@ def build_compact_job_repr(job: dict, max_tokens: int = 192) -> str:
     if desc_snippet:
         parts.append(f"| Context: {desc_snippet}")
 
-    return " ".join(parts)[:max_tokens * 4]
+    return " ".join(parts)[: max_tokens * 4]
 
 
-def build_compact_candidate_repr(profile: dict, resume_skills: list[str], max_tokens: int = 192) -> str:
+def build_compact_candidate_repr(
+    profile: dict, resume_skills: list[str], max_tokens: int = 192
+) -> str:
     """
     Generate a deterministic compact representation of candidate skills and profile.
     """
     resume_data = profile.get("resume_data") or {}
     cv = resume_data.get("cv", {})
     name = cv.get("name", "Candidate")
-    target_role = profile.get("preferences", {}).get("scoring", {}).get("target_roles", ["Software Engineer"])
+    target_role = (
+        profile.get("preferences", {}).get("scoring", {}).get("target_roles", ["Software Engineer"])
+    )
     role_str = ", ".join(target_role) if isinstance(target_role, list) else str(target_role)
 
     top_skills = ", ".join(resume_skills[:15]) if resume_skills else ""
@@ -157,16 +163,16 @@ def build_compact_candidate_repr(profile: dict, resume_skills: list[str], max_to
         f"| Target Role: {role_str}",
         f"| Key Skills: {top_skills}",
     ]
-    return " ".join(parts)[:max_tokens * 4]
+    return " ".join(parts)[: max_tokens * 4]
 
 
 # ─────────────────────────────────────────────────────────
 #  Hard Constraints Engine (Eligibility Filtering)
 # ─────────────────────────────────────────────────────────
 
+
 def apply_hard_constraints(
-    candidates: list[dict],
-    preferences: dict | None = None
+    candidates: list[dict], preferences: dict | None = None
 ) -> tuple[list[dict], list[dict]]:
     """
     Apply non-negotiable eligibility checks outside the semantic scoring equation.
@@ -176,8 +182,12 @@ def apply_hard_constraints(
         return candidates, []
 
     scoring_pref = preferences.get("scoring", {})
-    blacklist_companies = [c.lower().strip() for c in scoring_pref.get("blacklist_companies", []) if c]
-    blacklist_keywords = [k.lower().strip() for k in scoring_pref.get("blacklist_keywords", []) if k]
+    blacklist_companies = [
+        c.lower().strip() for c in scoring_pref.get("blacklist_companies", []) if c
+    ]
+    blacklist_keywords = [
+        k.lower().strip() for k in scoring_pref.get("blacklist_keywords", []) if k
+    ]
     remote_only = scoring_pref.get("remote_only", False)
 
     eligible = []
@@ -233,6 +243,7 @@ def get_reranker():
     # 1. Try FlashRank (Ultra-lightweight ~4MB, pure ONNX/CPU)
     try:
         from flashrank import Ranker
+
         logger.info("Initializing ultra-low RAM FlashRank (ms-marco-TinyBERT-L-2-v2)...")
         _ranker_instance = Ranker(model_name="ms-marco-TinyBERT-L-2-v2")
         _ranker_type = "flashrank"
@@ -244,6 +255,7 @@ def get_reranker():
     # 2. Try SentenceTransformers CrossEncoder
     try:
         from sentence_transformers import CrossEncoder
+
         logger.info("Loading SentenceTransformers CrossEncoder (ms-marco-TinyBERT-L-2-v2)...")
         _ranker_instance = CrossEncoder("cross-encoder/ms-marco-TinyBERT-L-2-v2", max_length=256)
         _ranker_type = "sentence_transformers"
@@ -252,21 +264,20 @@ def get_reranker():
     except Exception:
         try:
             from sentence_transformers import CrossEncoder
+
             _ranker_instance = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2", max_length=256)
             _ranker_type = "sentence_transformers"
             return _ranker_instance, _ranker_type
         except Exception as e:
-            logger.warning(f"No local cross-encoder available ({e}). Using cosine/RRF ranking (0MB RAM).")
+            logger.warning(
+                f"No local cross-encoder available ({e}). Using cosine/RRF ranking (0MB RAM)."
+            )
             _ranker_instance = None
             _ranker_type = "none"
             return None, "none"
 
 
-def rerank_candidates(
-    candidate_repr: str,
-    candidates: list[dict],
-    top_n: int = 20
-) -> list[dict]:
+def rerank_candidates(candidate_repr: str, candidates: list[dict], top_n: int = 20) -> list[dict]:
     """
     Stage 2B Precision Reranker (Ultra-Low Memory):
     Takes Top 30-40 candidates, runs compact representations through FlashRank/TinyBERT,
@@ -281,9 +292,9 @@ def rerank_candidates(
     if r_type == "flashrank" and ranker:
         try:
             from flashrank import RerankRequest
+
             passages = [
-                {"id": str(i), "text": build_compact_job_repr(c)}
-                for i, c in enumerate(rerank_pool)
+                {"id": str(i), "text": build_compact_job_repr(c)} for i, c in enumerate(rerank_pool)
             ]
             req = RerankRequest(query=candidate_repr, passages=passages)
             results = ranker.rerank(req)
@@ -302,12 +313,18 @@ def rerank_candidates(
             pairs = [[candidate_repr, build_compact_job_repr(c)] for c in rerank_pool]
             scores = ranker.predict(pairs)
             for cand, score in zip(rerank_pool, scores, strict=False):
-                cand["rerank_score"] = float(1.0 / (1.0 + math.exp(-score))) if isinstance(score, (int, float)) else float(score)
+                cand["rerank_score"] = (
+                    float(1.0 / (1.0 + math.exp(-score)))
+                    if isinstance(score, (int, float))
+                    else float(score)
+                )
             ranked = sorted(rerank_pool, key=lambda x: x.get("rerank_score", 0.0), reverse=True)
             return ranked[:top_n]
         except Exception as e:
             logger.error(f"SentenceTransformers CrossEncoder failed: {e}")
 
     # Fallback to existing RRF / match score (0 MB additional RAM)
-    ranked = sorted(rerank_pool, key=lambda x: x.get("rrf_score", x.get("match_score", 0.0)), reverse=True)
+    ranked = sorted(
+        rerank_pool, key=lambda x: x.get("rrf_score", x.get("match_score", 0.0)), reverse=True
+    )
     return ranked[:top_n]

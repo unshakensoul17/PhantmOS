@@ -65,6 +65,7 @@ def _put_in_mem_cache(key: str, vec: list[float]) -> None:
 
 # ── Local synchronous embedding ─────────────────────────────────────────────
 
+
 def _embed_local_sync(text: str) -> list[float]:
     """Synchronous FastEmbed model encoding."""
     model = _get_local_model()
@@ -120,6 +121,7 @@ def embed_text(text: str) -> list[float]:
 
 # ── Cosine similarity ───────────────────────────────────────────────────────
 
+
 def cosine_similarity(vec1: list[float], vec2: list[float]) -> float:
     """Compute cosine similarity between two normalized embedding vectors."""
     v1 = np.array(vec1, dtype=np.float32)
@@ -132,6 +134,7 @@ def cosine_similarity(vec1: list[float], vec2: list[float]) -> float:
 
 
 # ── Master resume embedding (cached in Supabase) ────────────────────────────
+
 
 async def get_master_embedding(resume_text: str, user_id: str) -> list[float]:
     """

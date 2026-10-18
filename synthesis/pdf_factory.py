@@ -252,18 +252,26 @@ def _sanitize_cv_data(cv: dict) -> dict:
                 cv["phone"] = safe_phone
             elif len(digits) == 10:
                 loc = str(cv.get("location", "")).upper()
-                if any(k in loc for k in ["US", "USA", "UNITED STATES", "CA", "NY", "SF", "TX", "WA"]):
+                if any(
+                    k in loc for k in ["US", "USA", "UNITED STATES", "CA", "NY", "SF", "TX", "WA"]
+                ):
                     cv["phone"] = f"+1{digits}"
                 elif any(
-                    k in loc for k in ["INDIA", "IN", "BANGALORE", "HYDERABAD", "DELHI", "MUMBAI", "INDORE", "PUNE"]
+                    k in loc
+                    for k in [
+                        "INDIA",
+                        "IN",
+                        "BANGALORE",
+                        "HYDERABAD",
+                        "DELHI",
+                        "MUMBAI",
+                        "INDORE",
+                        "PUNE",
+                    ]
                 ):
                     cv["phone"] = f"+91{digits}"
                 else:
                     cv["phone"] = f"+91{digits}"
-            elif digits.startswith("91") and len(digits) == 12:
-                cv["phone"] = f"+{digits}"
-            elif digits.startswith("1") and len(digits) == 11:
-                cv["phone"] = f"+{digits}"
             else:
                 cv["phone"] = f"+{digits}"
 
@@ -293,7 +301,11 @@ def _adapt_and_render_sync(resume_data: dict, theme: str) -> bytes:
         import shutil
         import sys
 
-        cmd = ["rendercv", "render", str(tmp_path)] if shutil.which("rendercv") else [sys.executable, "-m", "rendercv", "render", str(tmp_path)]
+        cmd = (
+            ["rendercv", "render", str(tmp_path)]
+            if shutil.which("rendercv")
+            else [sys.executable, "-m", "rendercv", "render", str(tmp_path)]
+        )
 
         res = subprocess.run(
             cmd,

@@ -830,7 +830,9 @@ function CompactDecisionCard({
                 <Loader2 className="w-4 h-4 animate-spin text-neon-cyan shrink-0" />
                 <div className="text-[11px] text-neon-cyan font-mono leading-tight">
                   <span className="font-bold">Tailoring ATS resume in background...</span>
-                  <div className="text-[10px] text-white/70">You can continue deciding on other jobs!</div>
+                  <div className="text-[10px] text-white/70">
+                    You can continue deciding on other jobs!
+                  </div>
                 </div>
               </div>
             )}

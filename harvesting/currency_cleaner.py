@@ -29,7 +29,9 @@ def parse_single_number(token: str) -> float | None:
         return None
 
 
-def format_amount(num: float, currency_sym: str = "$", currency_code: str = "USD", is_inr: bool = False) -> str:
+def format_amount(
+    num: float, currency_sym: str = "$", currency_code: str = "USD", is_inr: bool = False
+) -> str:
     """Format numeric salary cleanly into $150k or ₹25L."""
     if is_inr:
         lakhs = num / 100000.0 if num >= 100000 else num
@@ -66,7 +68,11 @@ def normalize_salary(salary_input: str | dict | None, fallback_desc: str = "") -
             n1 = parse_single_number(str(min_val))
             n2 = parse_single_number(str(max_val))
             if n1 and n2:
-                sym = "$" if currency == "USD" else ("€" if currency == "EUR" else ("£" if currency == "GBP" else "₹"))
+                sym = (
+                    "$"
+                    if currency == "USD"
+                    else ("€" if currency == "EUR" else ("£" if currency == "GBP" else "₹"))
+                )
                 suffix = "/ hr" if "hour" in interval else "/ yr"
                 return f"{format_amount(n1, sym, currency)} - {format_amount(n2, sym, currency)} {currency} {suffix}"
         elif min_val:
@@ -82,7 +88,10 @@ def normalize_salary(salary_input: str | dict | None, fallback_desc: str = "") -
         return ""
 
     # Check for LPA / Indian Lakhs format (e.g. 25 - 40 LPA or ₹25L - ₹40L)
-    lpa_match = re.search(r"(?i)(?:₹|INR|Rs\.?|\b)\s*(\d{1,3}(?:\.\d+)?)\s*(?:-|–|to)\s*(\d{1,3}(?:\.\d+)?)\s*(?:LPA|Lakhs|L\b)", raw)
+    lpa_match = re.search(
+        r"(?i)(?:₹|INR|Rs\.?|\b)\s*(\d{1,3}(?:\.\d+)?)\s*(?:-|–|to)\s*(\d{1,3}(?:\.\d+)?)\s*(?:LPA|Lakhs|L\b)",
+        raw,
+    )
     if lpa_match:
         return f"₹{lpa_match.group(1)}L - ₹{lpa_match.group(2)}L INR / yr"
 

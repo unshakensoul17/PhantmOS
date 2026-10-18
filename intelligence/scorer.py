@@ -12,9 +12,6 @@ Final score is 0–100. Band assigned as HOT / WARM / COLD / REJECT.
 import asyncio
 import json
 
-from core.config import (
-    SCORE_WEIGHTS,
-)
 from core.database_manager import (
     get_leads_by_status,
     log_stage_failure,
@@ -27,6 +24,7 @@ from intelligence.embedding_engine import (
     get_job_embedding,
     get_master_embedding,
 )
+from intelligence.hybrid_retriever import FastBM25
 
 logger = get_logger(__name__)
 
@@ -36,10 +34,9 @@ logger = get_logger(__name__)
 # ─────────────────────────────────────────────────────────
 
 
-from intelligence.hybrid_retriever import FastBM25, reciprocal_rank_fusion, rerank_candidates
-
-
-def _keyword_score(job_description: str, resume_skills: list[str], bm25_engine: FastBM25 | None = None) -> float:
+def _keyword_score(
+    job_description: str, resume_skills: list[str], bm25_engine: FastBM25 | None = None
+) -> float:
     """
     Combines BM25 lexical relevance and direct exact skill overlap.
     Guarantees exact matching on mandatory tools (PyTorch, PostgreSQL, FastAPI).
@@ -260,7 +257,9 @@ async def run_scoring(profile: dict, manual_query: str = None) -> dict:
     # Stage 2A Fast Recall: Vectorized BM25 indexing across candidate job descriptions
     bm25_corpus = [lead.get("raw_description", "") for lead in filtered_leads]
     bm25_engine = FastBM25(bm25_corpus)
-    bm25_scores = bm25_engine.get_scores(resume_skills) if resume_skills else [0.0] * len(filtered_leads)
+    bm25_scores = (
+        bm25_engine.get_scores(resume_skills) if resume_skills else [0.0] * len(filtered_leads)
+    )
 
     # Score all jobs concurrently (each embed call is async)
     tasks = [

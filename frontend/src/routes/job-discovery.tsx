@@ -212,7 +212,14 @@ function JobDiscoveryPage() {
           ) : (
             <div className="space-y-3">
               {leads?.map((job: any, index: number) => {
-                const rawScore = job.score_total ?? job.score ?? (typeof job.match_score === "number" ? (job.match_score <= 1.0 ? job.match_score * 100 : job.match_score) : 0);
+                const rawScore =
+                  job.score_total ??
+                  job.score ??
+                  (typeof job.match_score === "number"
+                    ? job.match_score <= 1.0
+                      ? job.match_score * 100
+                      : job.match_score
+                    : 0);
                 const score = Math.round(Number(rawScore) || 0);
                 const s = scoreStyle(score);
                 const circ = 2 * Math.PI * 20;

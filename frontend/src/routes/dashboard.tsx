@@ -2,9 +2,17 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Layout } from "../components/Layout";
 import { apiFetch } from "../lib/api";
-import { 
-  Sparkles, Target, Send, Calendar, ArrowUpRight, 
-  MapPin, DollarSign, FileEdit, ChevronRight, Clock
+import {
+  Sparkles,
+  Target,
+  Send,
+  Calendar,
+  ArrowUpRight,
+  MapPin,
+  DollarSign,
+  FileEdit,
+  ChevronRight,
+  Clock,
 } from "lucide-react";
 
 export const Route = createFileRoute("/dashboard")({
@@ -35,7 +43,7 @@ function PhantmOSDashboard() {
       const res = await apiFetch("/api/profile");
       if (!res.ok) return null;
       return res.json();
-    }
+    },
   });
 
   const { data: leads = [], isLoading: leadsLoading } = useQuery({
@@ -62,13 +70,17 @@ function PhantmOSDashboard() {
           <div>
             <div className="flex items-center gap-2 text-xs font-mono text-zinc-400 mb-2">
               <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-              <span>Job Agent Active · Targeted: <span className="text-white font-medium">{targetRole}</span></span>
+              <span>
+                Job Agent Active · Targeted:{" "}
+                <span className="text-white font-medium">{targetRole}</span>
+              </span>
             </div>
             <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
               {getGreeting()}, {candidateName}
             </h1>
             <p className="text-sm text-zinc-400 mt-1 max-w-xl leading-relaxed">
-              PhantmOS is continuously scanning job boards, matching roles against your resume, and preparing applications for your review.
+              PhantmOS is continuously scanning job boards, matching roles against your resume, and
+              preparing applications for your review.
             </p>
           </div>
           <div className="flex items-center gap-2.5 shrink-0">
@@ -91,40 +103,49 @@ function PhantmOSDashboard() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-zinc-950 rounded-2xl p-5">
             <div className="flex items-center justify-between text-zinc-400 mb-3">
-              <span className="text-xs font-mono uppercase tracking-wider text-zinc-500">Top Matches</span>
+              <span className="text-xs font-mono uppercase tracking-wider text-zinc-500">
+                Top Matches
+              </span>
               <div className="w-8 h-8 rounded-lg bg-zinc-900 text-white grid place-items-center">
                 <Target className="w-4 h-4" />
               </div>
             </div>
             <div className="text-3xl font-bold text-white font-mono">{totalMatches}</div>
             <p className="text-xs text-zinc-400 mt-2 flex items-center gap-1.5">
-              <span className="text-white font-medium">Ready for review</span> · High score fit with your resume
+              <span className="text-white font-medium">Ready for review</span> · High score fit with
+              your resume
             </p>
           </div>
 
           <div className="bg-zinc-950 rounded-2xl p-5">
             <div className="flex items-center justify-between text-zinc-400 mb-3">
-              <span className="text-xs font-mono uppercase tracking-wider text-zinc-500">Applications Sent</span>
+              <span className="text-xs font-mono uppercase tracking-wider text-zinc-500">
+                Applications Sent
+              </span>
               <div className="w-8 h-8 rounded-lg bg-zinc-900 text-white grid place-items-center">
                 <Send className="w-4 h-4" />
               </div>
             </div>
             <div className="text-3xl font-bold text-white font-mono">{appliedCount}</div>
             <p className="text-xs text-zinc-400 mt-2 flex items-center gap-1.5">
-              <span className="text-white font-medium">{stats?.approved || 0} approved</span> · Tracked in your pipeline
+              <span className="text-white font-medium">{stats?.approved || 0} approved</span> ·
+              Tracked in your pipeline
             </p>
           </div>
 
           <div className="bg-zinc-950 rounded-2xl p-5">
             <div className="flex items-center justify-between text-zinc-400 mb-3">
-              <span className="text-xs font-mono uppercase tracking-wider text-zinc-500">Interviews</span>
+              <span className="text-xs font-mono uppercase tracking-wider text-zinc-500">
+                Interviews
+              </span>
               <div className="w-8 h-8 rounded-lg bg-zinc-900 text-white grid place-items-center">
                 <Calendar className="w-4 h-4" />
               </div>
             </div>
             <div className="text-3xl font-bold text-white font-mono">{interviewCount}</div>
             <p className="text-xs text-zinc-400 mt-2 flex items-center gap-1.5">
-              <span className="text-white font-medium">Active conversations</span> · Ready for interview prep
+              <span className="text-white font-medium">Active conversations</span> · Ready for
+              interview prep
             </p>
           </div>
         </div>
@@ -136,7 +157,9 @@ function PhantmOSDashboard() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-base font-semibold text-white">Recommended Opportunities</h2>
-                <p className="text-xs text-zinc-400">Selected based on your skills, experience, and target role</p>
+                <p className="text-xs text-zinc-400">
+                  Selected based on your skills, experience, and target role
+                </p>
               </div>
               <Link
                 to="/job-discovery"
@@ -148,11 +171,15 @@ function PhantmOSDashboard() {
 
             <div className="space-y-3">
               {leadsLoading ? (
-                <div className="py-12 text-center text-sm text-zinc-500">Loading recommendations...</div>
+                <div className="py-12 text-center text-sm text-zinc-500">
+                  Loading recommendations...
+                </div>
               ) : leads.length === 0 ? (
                 <div className="py-10 text-center text-zinc-400 bg-zinc-900/40 rounded-xl">
                   <p className="text-sm font-medium text-zinc-300">No active leads found yet.</p>
-                  <p className="text-xs mt-1 text-zinc-500">Visit Job Discovery to run a new search.</p>
+                  <p className="text-xs mt-1 text-zinc-500">
+                    Visit Job Discovery to run a new search.
+                  </p>
                   <Link
                     to="/job-discovery"
                     className="mt-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-white text-black text-xs font-semibold hover:bg-zinc-200 transition"
@@ -195,7 +222,8 @@ function PhantmOSDashboard() {
 
                           {job.justification && (
                             <p className="mt-2 text-xs text-zinc-400 bg-zinc-900/60 rounded-lg p-2.5 line-clamp-2 leading-relaxed">
-                              <span className="font-medium text-zinc-200">Why this fits:</span> {job.justification}
+                              <span className="font-medium text-zinc-200">Why this fits:</span>{" "}
+                              {job.justification}
                             </p>
                           )}
                         </div>
@@ -236,7 +264,8 @@ function PhantmOSDashboard() {
                 Review your top matching roles
               </h3>
               <p className="text-xs text-zinc-400 leading-relaxed mb-4">
-                You have {totalMatches} opportunities scored above 80%. Approving roles helps the AI fine-tune future recommendations.
+                You have {totalMatches} opportunities scored above 80%. Approving roles helps the AI
+                fine-tune future recommendations.
               </p>
               <Link
                 to="/job-discovery"
@@ -262,7 +291,9 @@ function PhantmOSDashboard() {
                     <span className="w-1.5 h-1.5 rounded-full bg-white mt-1.5 shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="text-zinc-300 leading-snug">{item.text}</p>
-                      <span className="text-[11px] text-zinc-500 mt-0.5 block font-mono">{item.time}</span>
+                      <span className="text-[11px] text-zinc-500 mt-0.5 block font-mono">
+                        {item.time}
+                      </span>
                     </div>
                   </div>
                 ))}
