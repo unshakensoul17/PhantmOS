@@ -159,9 +159,11 @@ async def process_pipeline(manual_query: str = None, target_user_id: str = None)
             # Use manual query if provided, otherwise fallback to profile's target role
             query = manual_query
             if not query:
-                prefs = profile.get("preferences", {})
-                target_roles = prefs.get("scoring", {}).get("target_roles", [])
-                resume_role = profile.get("resume_data", {}).get("target_role")
+                prefs = profile.get("preferences") or {}
+                scoring_prefs = prefs.get("scoring") or {}
+                target_roles = scoring_prefs.get("target_roles") or []
+                resume_dict = profile.get("resume_data") or {}
+                resume_role = resume_dict.get("target_role")
                 if target_roles:
                     query = target_roles[0]
                 elif resume_role:
