@@ -725,21 +725,22 @@ def _parse_resume_heuristically(text: str) -> dict:
     edu_m = re.search(r'(?:EDUCATION|ACADEMIC BACKGROUND)\s*\n+(.*?)(?=\n+[A-Z\s]{4,}|\Z)', cleaned_text, re.DOTALL | re.I)
     if edu_m:
         edu_lines = [el.strip() for el in edu_m.group(1).splitlines() if el.strip()]
-        inst = edu_lines[0] if len(edu_lines) > 0 else "University / College"
-        deg = edu_lines[1] if len(edu_lines) > 1 else "Bachelor of Computer Applications"
-        date_str = "2024 - 2027"
+        inst = edu_lines[0] if len(edu_lines) > 0 else ""
+        deg = edu_lines[1] if len(edu_lines) > 1 else ""
+        date_str = ""
         for el in edu_lines:
             if re.search(r'\d{4}', el):
                 date_str = el
                 break
-        education.append({
-            "institution": inst,
-            "degree": deg,
-            "area": "Computer Science & Engineering",
-            "date": date_str,
-            "location": location or "India",
-            "highlights": [],
-        })
+        if inst or deg:
+            education.append({
+                "institution": inst or "University",
+                "degree": deg or "Degree",
+                "area": "Computer Science / Engineering",
+                "date": date_str,
+                "location": location,
+                "highlights": [],
+            })
 
     # Projects
     projects = []
@@ -753,9 +754,9 @@ def _parse_resume_heuristically(text: str) -> dict:
                 p_bullets = [re.sub(r'^[•\-\*\s]+', '', b) for b in blines[1:] if len(b) > 8]
                 projects.append({
                     "name": p_title[:60],
-                    "date": "2025 - 2026",
-                    "url": "https://github.com",
-                    "highlights": p_bullets if p_bullets else ["Developed core features and implemented key modules with high test coverage."],
+                    "date": "",
+                    "url": "",
+                    "highlights": p_bullets if p_bullets else [],
                 })
 
     # Skills
@@ -769,12 +770,6 @@ def _parse_resume_heuristically(text: str) -> dict:
                 skills.append({"label": cat.strip()[:25], "details": val.strip()})
             else:
                 skills.append({"label": "Technologies", "details": skl.strip()})
-    if not skills:
-        skills = [
-            {"label": "Languages", "details": "Python, TypeScript, JavaScript, SQL"},
-            {"label": "Frameworks", "details": "FastAPI, React, PyTorch, Node.js"},
-            {"label": "Tools", "details": "Docker, Git, PostgreSQL, Linux"},
-        ]
 
     return {
         "target_role": role,
@@ -884,20 +879,50 @@ Schema requirements:
             logger.warning(f"Resume parser: waterfall attempt failed ({wf_err}), trying direct fallback...")
 
         # 2. Try direct call_groq if waterfall didn't return
-        if not parsed_data or "cv" not in parsed_data:
+        if not parsed_data:
             try:
                 raw_groq = await call_groq(system_prompt, user_prompt)
                 if isinstance(raw_groq, str):
                     if raw_groq.startswith("```json"):
                         raw_groq = raw_groq[7:-3]
                     raw_groq = json.loads(raw_groq)
-                if isinstance(raw_groq, dict) and "cv" in raw_groq:
-                    parsed_data = raw_groq
+                if isinstance(raw_groq, dict):
+                    if raw_groq.get("error") == "invalid_resume":
+                        os.remove(file_path)
+                        raise HTTPException(
+                            status_code=400,
+                            detail="The uploaded PDF does not appear to be a resume or CV. Please upload a valid resume."
+                        )
+                    if "cv" in raw_groq:
+                        parsed_data = raw_groq
+            except HTTPException:
+                raise
             except Exception as groq_err:
                 logger.warning(f"Resume parser: call_groq attempt failed: {groq_err}")
 
-        # 3. If no LLM available or LLM parsing failed, use smart heuristic parser (100% resilient)
+        # 3. If LLM explicitly flagged the file as invalid, reject it
+        if isinstance(parsed_data, dict) and parsed_data.get("error") == "invalid_resume":
+            os.remove(file_path)
+            raise HTTPException(
+                status_code=400,
+                detail="The uploaded PDF does not appear to be a resume or CV. Please upload a valid resume."
+            )
+
+        # 4. Check if text has ANY resume keywords before heuristic fallback
+        resume_signals = [
+            "experience", "education", "skills", "projects", "work", "summary",
+            "developer", "engineer", "university", "college", "bachelor", "master"
+        ]
+        text_lower = text.lower()
+        signal_count = sum(1 for sig in resume_signals if sig in text_lower)
+
         if not parsed_data or "cv" not in parsed_data:
+            if signal_count < 2 and len(clean_text) < 100:
+                os.remove(file_path)
+                raise HTTPException(
+                    status_code=400,
+                    detail="The uploaded PDF does not appear to be a resume or CV. Please upload a valid resume."
+                )
             logger.info("Resume parser: using smart heuristic parser fallback.")
             parsed_data = _parse_resume_heuristically(text)
 
