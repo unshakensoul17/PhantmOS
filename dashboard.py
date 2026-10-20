@@ -497,10 +497,10 @@ async def generate_lead_resume(job_id: str, user_id: str = Depends(get_current_u
 async def trigger_pipeline(request: HarvestRequest, user_id: str = Depends(get_current_user_id)):
     """Trigger the full pipeline run scoped to the authenticated user only."""
     asyncio.get_running_loop().run_in_executor(
-        process_pool,
-        _run_pipeline,
-        request.query or None,
-        user_id,  # ← KEY FIX: scope harvest to the requesting user only
+            process_pool,
+            _run_pipeline,
+            request.query or None,
+            user_id,  # ← KEY FIX: scope harvest to the requesting user only
     )
     return {
         "status": "ok",
@@ -642,6 +642,27 @@ async def fetch_env():
 # ── Admin Routes ──────────────────────────────────────────────────────────────
 
 
+def _resolve_api_keys(profile: dict) -> dict:
+    """Extract and decrypt BYOK keys from user profile."""
+    from core.encryption import decrypt_key
+
+    enc_keys_raw = profile.get("encrypted_keys") or {}
+    if isinstance(enc_keys_raw, str):
+        try:
+            enc_keys = json.loads(enc_keys_raw)
+        except Exception:
+            enc_keys = {}
+    else:
+        enc_keys = enc_keys_raw
+
+    keys = {}
+    for env_name in ("GEMINI_API_KEY", "GROQ_API_KEY", "HF_API_KEY"):
+        decrypted = decrypt_key(enc_keys.get(env_name))
+        if decrypted:
+            keys[env_name] = decrypted
+    return keys
+
+
 def _parse_resume_heuristically(text: str) -> dict:
     import re
     cleaned_text = text.replace('\ufffd', ' • ').replace('\r', '')
@@ -691,8 +712,8 @@ def _parse_resume_heuristically(text: str) -> dict:
 
     # Extract Name (first clean line that isn't link/email)
     name = ""
-    for l in raw_lines[:4]:
-        clean_l = re.sub(r'^[•\-\*\s]+', '', l).strip()
+    for line_item in raw_lines[:4]:
+        clean_l = re.sub(r'^[•\-\*\s]+', '', line_item).strip()
         if clean_l and not re.search(r'[@/\\:\|\d{4,}]', clean_l) and len(clean_l.split()) <= 6:
             name = clean_l
             break
@@ -701,11 +722,11 @@ def _parse_resume_heuristically(text: str) -> dict:
 
     # Target Role
     role = ""
-    for l in raw_lines[1:7]:
-        if (email and email in l) or (phone and phone in l) or "http" in l.lower() or "linkedin" in l.lower():
+    for line_item in raw_lines[1:7]:
+        if (email and email in line_item) or (phone and phone in line_item) or "http" in line_item.lower() or "linkedin" in line_item.lower():
             continue
-        if any(w in l.lower() for w in ["developer", "engineer", "architect", "designer", "scientist", "manager", "intern", "analyst", "consultant", "programmer", "full stack"]):
-            role = re.sub(r'^[•\-\*\s]+', '', l).strip()
+        if any(w in line_item.lower() for w in ["developer", "engineer", "architect", "designer", "scientist", "manager", "intern", "analyst", "consultant", "programmer", "full stack"]):
+            role = re.sub(r'^[•\-\*\s]+', '', line_item).strip()
             break
     if not role:
         role = "Software Engineer"
