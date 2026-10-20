@@ -221,28 +221,44 @@ function ResumeStudioPage() {
   };
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
-      setIsUploading(true);
-      const formData = new FormData();
-      formData.append("resume", e.target.files[0]);
-      try {
-        const res = await apiFetch("/api/profile/upload", { method: "POST", body: formData });
-        if (!res.ok) {
-          const errData = await res.json().catch(() => null);
-          throw new Error(errData?.detail || "Failed to upload");
-        }
-        const data = await res.json();
-        if (data.status === "success" && data.profile) {
-          setProfile(data.profile);
-          toast.success("Resume parsed successfully!");
-        }
-        setIsUploading(false);
-      } catch (err: any) {
-        console.error(err);
-        setIsUploading(false);
-        toast.error(err.message || "Parsing failed.");
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
+
+    setFile(selectedFile);
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append("resume", selectedFile);
+
+    try {
+      const res = await apiFetch("/api/profile/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.detail || `Server responded with status ${res.status}`);
       }
+
+      const data = await res.json();
+      if (data.status === "success" && data.profile) {
+        setProfile(data.profile);
+        queryClient.invalidateQueries({ queryKey: ["profile"] });
+        queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+        toast.success("Resume uploaded and parsed successfully!");
+      } else {
+        throw new Error("Invalid response format received from server.");
+      }
+    } catch (err: any) {
+      console.error("Resume upload error:", err);
+      const msg = err.message === "Failed to fetch"
+        ? "Network error connecting to backend. Please check your connection or try again."
+        : (err.message || "Parsing failed.");
+      toast.error(msg);
+    } finally {
+      setIsUploading(false);
+      // Reset input value so the same file can be uploaded again if needed
+      e.target.value = "";
     }
   };
 
