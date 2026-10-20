@@ -425,11 +425,10 @@ async def run_scoring(profile: dict, manual_query: str = None) -> dict:
             breakdown_obj = {}
 
         notes_dict["score_breakdown"] = breakdown_obj
-        if not notes_dict.get("rationale") and res.get("match_score"):
-            score_pct = res.get("match_score", 0) * 100
-            notes_dict["rationale"] = (
-                f"{band} match ({score_pct:.0f}%): strong role and technical skill alignment."
-            )
+        score_pct = res.get("match_score", 0) * 100
+        notes_dict["rationale"] = (
+            f"{band} match ({score_pct:.0f}%): strong role and technical skill alignment."
+        )
 
         pipeline_row = {
             "user_id": user_id,
