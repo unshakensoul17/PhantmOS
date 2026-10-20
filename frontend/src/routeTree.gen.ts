@@ -10,12 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as Resume_studioRouteImport } from './routes/resume_studio'
 import { Route as ResumeStudioRouteImport } from './routes/resume-studio'
+import { Route as ResumeRouteImport } from './routes/resume'
 import { Route as RadarRouteImport } from './routes/radar'
+import { Route as JobsRouteImport } from './routes/jobs'
+import { Route as Job_discoveryRouteImport } from './routes/job_discovery'
 import { Route as JobDiscoveryRouteImport } from './routes/job-discovery'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as Company_researchRouteImport } from './routes/company_research'
 import { Route as CompanyResearchRouteImport } from './routes/company-research'
+import { Route as CompaniesRouteImport } from './routes/companies'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ApplicationsRouteImport } from './routes/applications'
 import { Route as IndexRouteImport } from './routes/index'
@@ -25,14 +31,34 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const Resume_studioRoute = Resume_studioRouteImport.update({
+  id: '/resume_studio',
+  path: '/resume_studio',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResumeStudioRoute = ResumeStudioRouteImport.update({
   id: '/resume-studio',
   path: '/resume-studio',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ResumeRoute = ResumeRouteImport.update({
+  id: '/resume',
+  path: '/resume',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RadarRoute = RadarRouteImport.update({
   id: '/radar',
   path: '/radar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JobsRoute = JobsRouteImport.update({
+  id: '/jobs',
+  path: '/jobs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const Job_discoveryRoute = Job_discoveryRouteImport.update({
+  id: '/job_discovery',
+  path: '/job_discovery',
   getParentRoute: () => rootRouteImport,
 } as any)
 const JobDiscoveryRoute = JobDiscoveryRouteImport.update({
@@ -50,9 +76,19 @@ const ContactRoute = ContactRouteImport.update({
   path: '/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
+const Company_researchRoute = Company_researchRouteImport.update({
+  id: '/company_research',
+  path: '/company_research',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CompanyResearchRoute = CompanyResearchRouteImport.update({
   id: '/company-research',
   path: '/company-research',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CompaniesRoute = CompaniesRouteImport.update({
+  id: '/companies',
+  path: '/companies',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -75,24 +111,36 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/applications': typeof ApplicationsRoute
   '/auth': typeof AuthRoute
+  '/companies': typeof CompaniesRoute
   '/company-research': typeof CompanyResearchRoute
+  '/company_research': typeof Company_researchRoute
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/job-discovery': typeof JobDiscoveryRoute
+  '/job_discovery': typeof Job_discoveryRoute
+  '/jobs': typeof JobsRoute
   '/radar': typeof RadarRoute
+  '/resume': typeof ResumeRoute
   '/resume-studio': typeof ResumeStudioRoute
+  '/resume_studio': typeof Resume_studioRoute
   '/settings': typeof SettingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/applications': typeof ApplicationsRoute
   '/auth': typeof AuthRoute
+  '/companies': typeof CompaniesRoute
   '/company-research': typeof CompanyResearchRoute
+  '/company_research': typeof Company_researchRoute
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/job-discovery': typeof JobDiscoveryRoute
+  '/job_discovery': typeof Job_discoveryRoute
+  '/jobs': typeof JobsRoute
   '/radar': typeof RadarRoute
+  '/resume': typeof ResumeRoute
   '/resume-studio': typeof ResumeStudioRoute
+  '/resume_studio': typeof Resume_studioRoute
   '/settings': typeof SettingsRoute
 }
 export interface FileRoutesById {
@@ -100,12 +148,18 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/applications': typeof ApplicationsRoute
   '/auth': typeof AuthRoute
+  '/companies': typeof CompaniesRoute
   '/company-research': typeof CompanyResearchRoute
+  '/company_research': typeof Company_researchRoute
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/job-discovery': typeof JobDiscoveryRoute
+  '/job_discovery': typeof Job_discoveryRoute
+  '/jobs': typeof JobsRoute
   '/radar': typeof RadarRoute
+  '/resume': typeof ResumeRoute
   '/resume-studio': typeof ResumeStudioRoute
+  '/resume_studio': typeof Resume_studioRoute
   '/settings': typeof SettingsRoute
 }
 export interface FileRouteTypes {
@@ -114,36 +168,54 @@ export interface FileRouteTypes {
     | '/'
     | '/applications'
     | '/auth'
+    | '/companies'
     | '/company-research'
+    | '/company_research'
     | '/contact'
     | '/dashboard'
     | '/job-discovery'
+    | '/job_discovery'
+    | '/jobs'
     | '/radar'
+    | '/resume'
     | '/resume-studio'
+    | '/resume_studio'
     | '/settings'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/applications'
     | '/auth'
+    | '/companies'
     | '/company-research'
+    | '/company_research'
     | '/contact'
     | '/dashboard'
     | '/job-discovery'
+    | '/job_discovery'
+    | '/jobs'
     | '/radar'
+    | '/resume'
     | '/resume-studio'
+    | '/resume_studio'
     | '/settings'
   id:
     | '__root__'
     | '/'
     | '/applications'
     | '/auth'
+    | '/companies'
     | '/company-research'
+    | '/company_research'
     | '/contact'
     | '/dashboard'
     | '/job-discovery'
+    | '/job_discovery'
+    | '/jobs'
     | '/radar'
+    | '/resume'
     | '/resume-studio'
+    | '/resume_studio'
     | '/settings'
   fileRoutesById: FileRoutesById
 }
@@ -151,12 +223,18 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApplicationsRoute: typeof ApplicationsRoute
   AuthRoute: typeof AuthRoute
+  CompaniesRoute: typeof CompaniesRoute
   CompanyResearchRoute: typeof CompanyResearchRoute
+  Company_researchRoute: typeof Company_researchRoute
   ContactRoute: typeof ContactRoute
   DashboardRoute: typeof DashboardRoute
   JobDiscoveryRoute: typeof JobDiscoveryRoute
+  Job_discoveryRoute: typeof Job_discoveryRoute
+  JobsRoute: typeof JobsRoute
   RadarRoute: typeof RadarRoute
+  ResumeRoute: typeof ResumeRoute
   ResumeStudioRoute: typeof ResumeStudioRoute
+  Resume_studioRoute: typeof Resume_studioRoute
   SettingsRoute: typeof SettingsRoute
 }
 
@@ -169,6 +247,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/resume_studio': {
+      id: '/resume_studio'
+      path: '/resume_studio'
+      fullPath: '/resume_studio'
+      preLoaderRoute: typeof Resume_studioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/resume-studio': {
       id: '/resume-studio'
       path: '/resume-studio'
@@ -176,11 +261,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ResumeStudioRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/resume': {
+      id: '/resume'
+      path: '/resume'
+      fullPath: '/resume'
+      preLoaderRoute: typeof ResumeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/radar': {
       id: '/radar'
       path: '/radar'
       fullPath: '/radar'
       preLoaderRoute: typeof RadarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/jobs': {
+      id: '/jobs'
+      path: '/jobs'
+      fullPath: '/jobs'
+      preLoaderRoute: typeof JobsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/job_discovery': {
+      id: '/job_discovery'
+      path: '/job_discovery'
+      fullPath: '/job_discovery'
+      preLoaderRoute: typeof Job_discoveryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/job-discovery': {
@@ -204,11 +310,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContactRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/company_research': {
+      id: '/company_research'
+      path: '/company_research'
+      fullPath: '/company_research'
+      preLoaderRoute: typeof Company_researchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/company-research': {
       id: '/company-research'
       path: '/company-research'
       fullPath: '/company-research'
       preLoaderRoute: typeof CompanyResearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/companies': {
+      id: '/companies'
+      path: '/companies'
+      fullPath: '/companies'
+      preLoaderRoute: typeof CompaniesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -239,12 +359,18 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApplicationsRoute: ApplicationsRoute,
   AuthRoute: AuthRoute,
+  CompaniesRoute: CompaniesRoute,
   CompanyResearchRoute: CompanyResearchRoute,
+  Company_researchRoute: Company_researchRoute,
   ContactRoute: ContactRoute,
   DashboardRoute: DashboardRoute,
   JobDiscoveryRoute: JobDiscoveryRoute,
+  Job_discoveryRoute: Job_discoveryRoute,
+  JobsRoute: JobsRoute,
   RadarRoute: RadarRoute,
+  ResumeRoute: ResumeRoute,
   ResumeStudioRoute: ResumeStudioRoute,
+  Resume_studioRoute: Resume_studioRoute,
   SettingsRoute: SettingsRoute,
 }
 export const routeTree = rootRouteImport
