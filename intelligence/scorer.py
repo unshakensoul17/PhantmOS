@@ -24,7 +24,11 @@ from intelligence.embedding_engine import (
     get_job_embedding,
     get_master_embedding,
 )
-from intelligence.hybrid_retriever import FastBM25
+from intelligence.hybrid_retriever import (
+    FastBM25,
+    build_compact_candidate_repr,
+    rerank_candidates,
+)
 
 logger = get_logger(__name__)
 
@@ -71,17 +75,91 @@ def _title_score(job_title: str, target_titles: list[str]) -> float:
     return 1.0 if any(t.lower() in title_lower for t in target_titles) else 0.3
 
 
+def _calibrate_semantic_score(raw_cosine: float) -> float:
+    """
+    Calibrate raw embedding cosine similarity to full 0.0 - 1.0 range.
+    For BAAI/bge-small-en-v1.5:
+      - Raw cosine <= 0.50 -> 0.0 (irrelevant)
+      - Raw cosine == 0.70 -> ~0.67 (warm match)
+      - Raw cosine >= 0.82 -> 1.0 (strong/hot match)
+    """
+    if raw_cosine <= 0.50:
+        return 0.0
+    if raw_cosine >= 0.82:
+        return 1.0
+    # Linear projection from [0.50, 0.82] to [0.0, 1.0]
+    return (raw_cosine - 0.50) / (0.82 - 0.50)
+
+
 def _compute_final_score(
     semantic: float,
     keyword: float,
     title: float,
+    rerank_score: float | None = None,
 ) -> float:
     """
-    Weighted combination of semantic embedding similarity (45%),
-    BM25 lexical/skill match (35%), and title match (20%) -> final score 0-100.
+    Weighted combination of:
+      - Calibrated semantic similarity (40%)
+      - BM25 lexical/skill match (30%)
+      - Title match (15%)
+      - Cross-encoder rerank score (15% if available, else re-weighted across top 3)
     """
-    raw = (semantic * 0.45) + (keyword * 0.35) + (title * 0.20)
+    calibrated_semantic = _calibrate_semantic_score(semantic)
+
+    if rerank_score is not None:
+        raw = (
+            (calibrated_semantic * 0.35)
+            + (keyword * 0.30)
+            + (title * 0.15)
+            + (rerank_score * 0.20)
+        )
+    else:
+        raw = (calibrated_semantic * 0.45) + (keyword * 0.35) + (title * 0.20)
+
     return round(raw * 100, 2)
+
+
+def build_candidate_semantic_text(profile: dict, resume_skills: list[str]) -> str:
+    """
+    Synthesize high-signal candidate profile text for dense embedding.
+    Avoids json.dumps() syntax noise (brackets, dates, IDs, raw metadata).
+    """
+    resume_data = profile.get("resume_data") or {}
+    cv = resume_data.get("cv") or {}
+    sections = cv.get("sections") or {}
+
+    parts = []
+
+    # 1. Headline / Target Role
+    scoring_prefs = profile.get("preferences", {}).get("scoring", {})
+    target_roles = scoring_prefs.get("target_roles", [])
+    if target_roles:
+        parts.append(f"Target Role: {', '.join(target_roles)}")
+    elif resume_data.get("target_role"):
+        parts.append(f"Target Role: {resume_data['target_role']}")
+
+    # 2. Professional Summary
+    summary = resume_data.get("summary") or sections.get("summary") or ""
+    if summary and isinstance(summary, str):
+        parts.append(f"Summary: {summary.strip()[:300]}")
+
+    # 3. Core Tech Stack & Skills
+    if resume_skills:
+        parts.append(f"Technical Skills: {', '.join(resume_skills[:25])}")
+
+    # 4. Highlighted Experiences / Projects
+    experience = sections.get("experience") or []
+    if isinstance(experience, list):
+        for exp in experience[:3]:
+            if isinstance(exp, dict):
+                r_title = exp.get("position") or exp.get("title") or ""
+                r_comp = exp.get("company") or ""
+                r_high = exp.get("highlights") or []
+                high_str = " ".join(r_high[:2]) if isinstance(r_high, list) else str(r_high)[:150]
+                parts.append(f"Experience: {r_title} at {r_comp}. {high_str}")
+
+    result = " | ".join(parts).strip()
+    return result if len(result) > 20 else json.dumps(resume_data)
 
 
 def _assign_band(score: float, telegram_threshold: float) -> str:
@@ -174,23 +252,22 @@ async def score_job(
 async def run_scoring(profile: dict, manual_query: str = None) -> dict:
     """
     Score all leads with status='Found'.
-    manual_query: when provided (manual pipeline trigger), use it to build target_roles
-                  so the title signal reflects what was actually searched — not the
-                  user's saved profile preferences.
+    Stage 2A: Hybrid Recall (FastBM25 + BGE-small calibrated embedding)
+    Stage 2B: Precision Cross-Encoder Rerank (FlashRank TinyBERT on Top 40 candidates)
     """
 
     # 1. Fetch resume & skills
     resume_data = profile.get("resume_data") or {}
-    resume_text = json.dumps(resume_data)
-
-    # Extract skill keywords for keyword signal
     resume_skills = _extract_skills(resume_data)
     logger.info(f"Scoring with {len(resume_skills)} resume skill keywords.")
 
     user_id = profile.get("id")
 
+    # Generate high-signal semantic text for dense embedding (cleans json.dumps syntax noise)
+    semantic_profile_text = build_candidate_semantic_text(profile, resume_skills)
+
     # Get (or compute + cache) master embedding
-    master_embedding = await get_master_embedding(resume_text, user_id)
+    master_embedding = await get_master_embedding(semantic_profile_text, user_id)
 
     # Fetch all unscored leads for this user
     leads = get_leads_by_status("Found", limit=200, user_id=user_id)
@@ -220,16 +297,13 @@ async def run_scoring(profile: dict, manual_query: str = None) -> dict:
     blacklist_keywords = [k.lower() for k in blacklist_keywords if k]
 
     target_roles = scoring_settings.get("target_roles") or []
-    # KEY FIX: if a manual query was used (e.g. "cloud engineer"),
-    # override target_roles with the search terms so the title signal
-    # scores cloud jobs high, not the profile's saved ML/AI preferences.
     if manual_query:
         target_roles = [manual_query]
         logger.info(f"Scoring: title signal overridden by manual_query='{manual_query}'")
     elif not target_roles:
         target_roles = ["developer", "engineer"]  # safe fallback
 
-    logger.info("=== Stage 2: Embedding & Matching started ===")
+    logger.info("=== Stage 2: Hybrid Embedding & Precision Matching started ===")
     telegram_threshold = scoring_settings.get("telegram_threshold", 60.0)
 
     counts = {"hot": 0, "warm": 0, "cold": 0, "reject": 0}
@@ -254,6 +328,9 @@ async def run_scoring(profile: dict, manual_query: str = None) -> dict:
         else:
             filtered_leads.append(lead)
 
+    if not filtered_leads:
+        return {**counts, "total": len(leads)}
+
     # Stage 2A Fast Recall: Vectorized BM25 indexing across candidate job descriptions
     bm25_corpus = [lead.get("raw_description", "") for lead in filtered_leads]
     bm25_engine = FastBM25(bm25_corpus)
@@ -266,34 +343,62 @@ async def run_scoring(profile: dict, manual_query: str = None) -> dict:
         score_job(lead, master_embedding, resume_skills, target_roles, telegram_threshold, bm25_s)
         for lead, bm25_s in zip(filtered_leads, bm25_scores, strict=False)
     ]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+    preliminary_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    # Attach preliminary match score to candidates for rerank selection
+    scored_candidates = []
+    for lead, res in zip(filtered_leads, preliminary_results, strict=False):
+        if isinstance(res, dict) and res.get("match_score") is not None:
+            lead["match_score"] = res["match_score"]
+            lead["_prelim_res"] = res
+            scored_candidates.append(lead)
+
+    # Stage 2B: Precision Cross-Encoder Reranker on Top 40 Candidates
+    cand_repr = build_compact_candidate_repr(profile, resume_skills)
+    rerank_map = {}
+    if scored_candidates:
+        # Sort by initial hybrid score and pick top 40 for deep cross-attention
+        scored_candidates.sort(key=lambda x: x.get("match_score", 0), reverse=True)
+        top_recall = scored_candidates[:40]
+        try:
+            reranked = rerank_candidates(cand_repr, top_recall, top_n=40)
+            for item in reranked:
+                job_id = item.get("job_id")
+                if job_id and "rerank_score" in item:
+                    rerank_map[job_id] = item["rerank_score"]
+        except Exception as e:
+            logger.warning(f"Stage 2B Reranker warning (using Stage 2A fallback): {e}")
 
     # Bulk update all scored jobs in a single DB request
     upsert_batch = []
 
-    for lead, result in zip(filtered_leads, results, strict=False):
+    for lead in filtered_leads:
         job_id = lead.get("job_id", "")
+        res = lead.get("_prelim_res")
 
-        if isinstance(result, Exception):
-            logger.error(f"Scoring task error for {job_id}: {result}")
-            log_stage_failure(job_id, "scoring", str(result))
+        if not res:
             continue
 
-        if not result:
-            continue
+        # If reranked, recalculate final score incorporating cross-attention signal
+        if job_id in rerank_map:
+            bd = json.loads(res.get("score_breakdown", "{}"))
+            r_score = rerank_map[job_id]
+            updated_final = _compute_final_score(
+                semantic=bd.get("semantic", 0.0),
+                keyword=bd.get("keyword", 0.0),
+                title=bd.get("title", 0.0),
+                rerank_score=r_score,
+            )
+            band = _assign_band(updated_final, telegram_threshold)
+            bd["rerank"] = round(r_score, 4)
+            bd["final"] = updated_final
+            res["match_score"] = updated_final / 100.0
+            res["score_band"] = band
+            res["score_breakdown"] = json.dumps(bd)
 
-        band = result.get("score_band", "REJECT")
-
-        # Only pick pipeline-table columns — never pass global_jobs fields into user_job_pipelines upsert
-
-        # BUG FIX 1: Keep status as "Found" for HOT/WARM so Stage 3's
-        # get_leads_by_band(.eq("status","Found")) can find them.
-        # Only REJECT leads get status="Dismissed".
+        band = res.get("score_band", "REJECT")
         status = "Dismissed" if band == "REJECT" else "Found"
 
-        # BUG FIX 2: Do NOT queue_delivery here. Delivery is queued by
-        # _mark_tailored in Stage 3, AFTER the resume is actually tailored.
-        # Queueing here caused 100+ stale queue entries with no resume attached.
         if band == "REJECT":
             counts["reject"] += 1
         else:
@@ -311,7 +416,7 @@ async def run_scoring(profile: dict, manual_query: str = None) -> dict:
             except Exception:
                 notes_dict = {}
 
-        breakdown_str = result.get("score_breakdown", "{}")
+        breakdown_str = res.get("score_breakdown", "{}")
         try:
             breakdown_obj = (
                 json.loads(breakdown_str) if isinstance(breakdown_str, str) else breakdown_str
@@ -320,8 +425,8 @@ async def run_scoring(profile: dict, manual_query: str = None) -> dict:
             breakdown_obj = {}
 
         notes_dict["score_breakdown"] = breakdown_obj
-        if not notes_dict.get("rationale") and result.get("match_score"):
-            score_pct = result.get("match_score", 0) * 100
+        if not notes_dict.get("rationale") and res.get("match_score"):
+            score_pct = res.get("match_score", 0) * 100
             notes_dict["rationale"] = (
                 f"{band} match ({score_pct:.0f}%): strong role and technical skill alignment."
             )
@@ -330,7 +435,7 @@ async def run_scoring(profile: dict, manual_query: str = None) -> dict:
             "user_id": user_id,
             "job_id": job_id,
             "status": status,
-            "match_score": result.get("match_score", 0),
+            "match_score": res.get("match_score", 0),
             "score_band": band,
             "notes": json.dumps(notes_dict),
         }
