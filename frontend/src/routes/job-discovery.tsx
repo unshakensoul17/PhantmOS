@@ -16,6 +16,7 @@ import {
   Search,
   Globe,
   Building2,
+  ArrowUpDown,
 } from "lucide-react";
 import { useState } from "react";
 import { AgentPipeline } from "../components/AgentPipeline";
@@ -71,23 +72,38 @@ function JobDiscoveryPage() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [sortBy, setSortBy] = useState<"score_desc" | "score_asc" | "date_desc" | "date_asc">("score_desc");
   const [showPipeline, setShowPipeline] = useState(false);
 
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
-    queryKey: ["leads", filterStatus],
+    queryKey: ["leads", filterStatus, sortBy],
     initialPageParam: "",
     queryFn: async ({ pageParam = "" }) => {
       const url = new URL("/api/leads", window.location.origin);
       if (filterStatus) url.searchParams.set("status", filterStatus);
       if (pageParam) url.searchParams.set("cursor", pageParam);
-      url.searchParams.set("limit", "20");
+      url.searchParams.set("limit", "50");
+
+      if (sortBy === "score_desc") {
+        url.searchParams.set("sort_by", "score");
+        url.searchParams.set("sort_order", "desc");
+      } else if (sortBy === "score_asc") {
+        url.searchParams.set("sort_by", "score");
+        url.searchParams.set("sort_order", "asc");
+      } else if (sortBy === "date_desc") {
+        url.searchParams.set("sort_by", "created_at");
+        url.searchParams.set("sort_order", "desc");
+      } else if (sortBy === "date_asc") {
+        url.searchParams.set("sort_by", "created_at");
+        url.searchParams.set("sort_order", "asc");
+      }
 
       const res = await apiFetch(url.pathname + url.search);
       if (!res.ok) throw new Error("Failed to fetch leads");
       return res.json();
     },
     getNextPageParam: (lastPage) => {
-      if (!lastPage || lastPage.length < 20) return undefined;
+      if (!lastPage || lastPage.length < 50) return undefined;
       return lastPage[lastPage.length - 1].created_at;
     },
   });
@@ -181,20 +197,39 @@ function JobDiscoveryPage() {
         <div className="glass-strong rounded-2xl p-6">
           <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
             <h3 className="text-xl font-bold">High-Signal Opportunities</h3>
-            <div className="flex gap-1 p-1 rounded-lg glass text-xs">
-              {["All", "Found", "Tailored", "Approved", "Dismissed"].map((t) => {
-                const filterVal = t === "All" ? "" : t;
-                const isActive = filterStatus === filterVal;
-                return (
-                  <button
-                    key={t}
-                    onClick={() => setFilterStatus(filterVal)}
-                    className={`px-3 py-1.5 rounded-md font-medium transition ${isActive ? "bg-neon-blue/20 text-neon-cyan" : "text-muted-foreground hover:text-white"}`}
-                  >
-                    {t}
-                  </button>
-                );
-              })}
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* Sorting selector */}
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg glass text-xs text-muted-foreground border border-white/5">
+                <ArrowUpDown className="w-3.5 h-3.5 text-neon-cyan shrink-0" />
+                <span className="text-[11px] font-mono uppercase tracking-wider text-white/50">Sort:</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="bg-transparent text-white font-medium text-xs focus:outline-none cursor-pointer"
+                >
+                  <option value="score_desc" className="bg-[#0b0f19] text-white">Score: Highest first</option>
+                  <option value="score_asc" className="bg-[#0b0f19] text-white">Score: Lowest first</option>
+                  <option value="date_desc" className="bg-[#0b0f19] text-white">Date: Newest first</option>
+                  <option value="date_asc" className="bg-[#0b0f19] text-white">Date: Oldest first</option>
+                </select>
+              </div>
+
+              {/* Status filter pills */}
+              <div className="flex gap-1 p-1 rounded-lg glass text-xs">
+                {["All", "Found", "Tailored", "Approved", "Dismissed"].map((t) => {
+                  const filterVal = t === "All" ? "" : t;
+                  const isActive = filterStatus === filterVal;
+                  return (
+                    <button
+                      key={t}
+                      onClick={() => setFilterStatus(filterVal)}
+                      className={`px-3 py-1.5 rounded-md font-medium transition ${isActive ? "bg-neon-blue/20 text-neon-cyan" : "text-muted-foreground hover:text-white"}`}
+                    >
+                      {t}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 

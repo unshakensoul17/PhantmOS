@@ -360,17 +360,25 @@ async def get_leads(
     status: str = "",
     limit: int = 50,
     cursor: str = "",
+    sort_by: str = "score",
+    sort_order: str = "desc",
     user_id: str = Depends(get_current_user_id),
 ):
-    """Fetch job leads with cursor-based pagination."""
+    """Fetch job leads with cursor-based pagination and flexible sorting."""
     client = get_client()
     try:
+        is_desc = sort_order.lower() != "asc"
+        sort_column = "match_score" if sort_by.lower() in ("score", "match_score") else "created_at"
+
         q = (
             client.table("user_job_pipelines")
             .select("*, global_jobs(*)")
             .eq("user_id", user_id)
-            .order("created_at", desc=True)
+            .order(sort_column, desc=is_desc)
         )
+        if sort_column != "created_at":
+            q = q.order("created_at", desc=True)
+
         if band:
             q = q.eq("score_band", band.upper())
         if status:
