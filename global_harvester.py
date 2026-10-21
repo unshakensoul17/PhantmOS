@@ -71,6 +71,19 @@ async def run_global_harvest():
             saved = discovery.save_leads(raw_jobs, user_id=None)
             total_new += saved
             logger.info(f"Query '{query}' yielded {saved} new global jobs.")
+
+            # High-performance pre-embedding: embed newly harvested jobs in bulk
+            if raw_jobs:
+                try:
+                    from intelligence.embedding_engine import get_job_embeddings_bulk
+
+                    descs = [
+                        j.get("description") or j.get("raw_description") or "" for j in raw_jobs
+                    ]
+                    await get_job_embeddings_bulk(descs)
+                    logger.info(f"Pre-embedded {len(raw_jobs)} harvested jobs in bulk.")
+                except Exception as embed_err:
+                    logger.warning(f"Harvester pre-embedding warning: {embed_err}")
         except Exception as e:
             logger.error(f"Failed harvesting for '{query}': {e}")
 

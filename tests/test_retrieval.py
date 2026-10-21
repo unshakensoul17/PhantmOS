@@ -82,3 +82,34 @@ def test_hard_constraints():
     assert len(eligible) == 1
     assert eligible[0]["company"] == "RemoteTech"
     assert len(rejected) == 3
+
+
+def test_batch_cosine_similarity():
+    from intelligence.embedding_engine import batch_cosine_similarity
+
+    user_vec = [1.0, 0.0, 0.0]
+    job_vecs = [
+        [1.0, 0.0, 0.0],  # identical -> 1.0
+        [0.0, 1.0, 0.0],  # orthogonal -> 0.0
+        [-1.0, 0.0, 0.0],  # opposite -> -1.0
+        [0.7071, 0.7071, 0.0],  # ~45 deg -> ~0.707
+    ]
+    scores = batch_cosine_similarity(user_vec, job_vecs)
+    assert len(scores) == 4
+    assert abs(scores[0] - 1.0) < 1e-4
+    assert abs(scores[1] - 0.0) < 1e-4
+    assert abs(scores[2] - (-1.0)) < 1e-4
+    assert abs(scores[3] - 0.7071) < 1e-3
+
+
+async def test_get_job_embeddings_bulk():
+    from intelligence.embedding_engine import get_job_embeddings_bulk
+
+    descs = [
+        "Senior Backend Python Engineer proficient in FastAPI and PostgreSQL.",
+        "Frontend React Developer with TypeScript and modern Tailwind UI.",
+    ]
+    embeddings = await get_job_embeddings_bulk(descs)
+    assert len(embeddings) == 2
+    assert len(embeddings[0]) == 384
+    assert len(embeddings[1]) == 384

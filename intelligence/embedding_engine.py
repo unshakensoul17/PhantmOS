@@ -15,7 +15,12 @@ import threading
 import numpy as np
 
 from core.config import LOCAL_EMBED_MODEL
-from core.database_manager import get_cached_embedding, store_embedding
+from core.database_manager import (
+    get_cached_embedding,
+    get_cached_embeddings_bulk,
+    store_embedding,
+    store_embeddings_bulk,
+)
 from core.logger import get_logger
 
 logger = get_logger(__name__)
@@ -75,6 +80,27 @@ def _embed_local_sync(text: str) -> list[float]:
     return vec.tolist() if hasattr(vec, "tolist") else list(vec)
 
 
+def _embed_local_batch_sync(texts: list[str], batch_size: int = 64) -> list[list[float]]:
+    """Synchronous FastEmbed batch encoding (vectorized over CPU SIMD)."""
+    if not texts:
+        return []
+    model = _get_local_model()
+    truncated = [t[:2048] if t else " " for t in texts]
+    generator = model.embed(truncated, batch_size=batch_size)
+    results = []
+    for vec in generator:
+        results.append(vec.tolist() if hasattr(vec, "tolist") else list(vec))
+    return results
+
+
+async def embed_texts_batch_async(texts: list[str], batch_size: int = 64) -> list[list[float]]:
+    """Encode multiple texts in parallel batches off the main thread."""
+    if not texts:
+        return []
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, _embed_local_batch_sync, texts, batch_size)
+
+
 async def embed_text_async(text: str) -> list[float]:
     """
     Embed text asynchronously using local FastEmbed ONNX model.
@@ -131,6 +157,30 @@ def cosine_similarity(vec1: list[float], vec2: list[float]) -> float:
     if norm1 == 0.0 or norm2 == 0.0:
         return 0.0
     return float(np.dot(v1, v2) / (norm1 * norm2))
+
+
+def batch_cosine_similarity(user_vec: list[float], job_vecs: list[list[float]]) -> np.ndarray:
+    """
+    Compute cosine similarities between 1 user vector and N job vectors
+    in a single BLAS matrix-vector dot product (takes ~1-5ms for 1,000 jobs).
+    """
+    if not job_vecs or not user_vec:
+        return np.zeros(len(job_vecs), dtype=np.float32)
+
+    u = np.array(user_vec, dtype=np.float32)
+    u_norm = np.linalg.norm(u)
+    if u_norm == 0.0:
+        return np.zeros(len(job_vecs), dtype=np.float32)
+    u = u / u_norm
+
+    j = np.array(job_vecs, dtype=np.float32)
+    j_norms = np.linalg.norm(j, axis=1, keepdims=True)
+    j_norms[j_norms == 0.0] = 1.0
+    j_normalized = j / j_norms
+
+    # Matrix @ Vector product: (N, 384) @ (384,) -> (N,)
+    scores = np.dot(j_normalized, u)
+    return np.clip(scores, -1.0, 1.0)
 
 
 # ── Master resume embedding (cached in Supabase) ────────────────────────────
@@ -193,3 +243,76 @@ async def get_job_embedding(desc: str) -> list[float]:
     store_embedding(cache_key, embedding)
     _put_in_mem_cache(cache_key, embedding)
     return embedding
+
+
+async def get_job_embeddings_bulk(descs: list[str]) -> list[list[float]]:
+    """
+    Fetch/compute job description embeddings for hundreds/thousands of jobs in bulk.
+    Pipeline:
+      1. In-memory fast cache check
+      2. Single bulk DB lookup via get_cached_embeddings_bulk
+      3. Vectorized batch FastEmbed encoding for cache misses (batch_size=64)
+      4. Single bulk DB upsert via store_embeddings_bulk
+    Guarantees strict 1-to-1 index alignment with input descs.
+    """
+    if not descs:
+        return []
+
+    n = len(descs)
+    fallback_dim = 384
+    results: list[list[float] | None] = [None] * n
+    keys: list[str] = []
+    key_to_indices: dict[str, list[int]] = {}
+
+    for idx, desc in enumerate(descs):
+        clean = (desc or "").strip()
+        h = hashlib.md5(clean.encode("utf-8")).hexdigest()
+        cache_key = f"job_desc_{h}"
+        keys.append(cache_key)
+        key_to_indices.setdefault(cache_key, []).append(idx)
+
+    # 1. Check in-memory fast cache
+    miss_keys = []
+    for k, indices in key_to_indices.items():
+        mem = _get_from_mem_cache(k)
+        if mem is not None:
+            for idx in indices:
+                results[idx] = mem
+        else:
+            miss_keys.append(k)
+
+    # 2. Check DB persistent cache in single bulk query
+    if miss_keys:
+        db_cached = get_cached_embeddings_bulk(miss_keys)
+        still_missing = []
+        for k in miss_keys:
+            if k in db_cached:
+                vec = db_cached[k]
+                _put_in_mem_cache(k, vec)
+                for idx in key_to_indices[k]:
+                    results[idx] = vec
+            else:
+                still_missing.append(k)
+        miss_keys = still_missing
+
+    # 3. Batch embed genuinely missing texts with FastEmbed ONNX
+    if miss_keys:
+        missing_texts = []
+        for k in miss_keys:
+            rep_idx = key_to_indices[k][0]
+            missing_texts.append(descs[rep_idx])
+
+        new_embeddings = await embed_texts_batch_async(missing_texts, batch_size=64)
+
+        db_upserts = []
+        for k, vec in zip(miss_keys, new_embeddings, strict=False):
+            _put_in_mem_cache(k, vec)
+            db_upserts.append({"key": k, "embedding": vec})
+            for idx in key_to_indices[k]:
+                results[idx] = vec
+
+        # 4. Bulk store into DB in background
+        if db_upserts:
+            store_embeddings_bulk(db_upserts)
+
+    return [r if r is not None else [0.0] * fallback_dim for r in results]

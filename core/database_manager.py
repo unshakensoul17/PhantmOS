@@ -734,6 +734,52 @@ def store_embedding(key: str, embedding: list[float]) -> None:
         logger.error(f"Error storing embedding for {key}: {e}")
 
 
+def get_cached_embeddings_bulk(keys: list[str]) -> dict[str, list[float]]:
+    """Fetch multiple cached embeddings in batches via single SQL in_ queries."""
+    if not keys:
+        return {}
+    results = {}
+    client = get_client()
+    # Chunk into batches of 100 to stay well under query parameter limits
+    chunk_size = 100
+    for i in range(0, len(keys), chunk_size):
+        chunk = keys[i : i + chunk_size]
+        try:
+            resp = (
+                client.table("embedding_cache")
+                .select("key, embedding")
+                .in_("key", chunk)
+                .execute()
+            )
+            for row in resp.data or []:
+                k = row.get("key")
+                raw = row.get("embedding")
+                if isinstance(raw, str):
+                    try:
+                        raw = json.loads(raw)
+                    except Exception:
+                        pass
+                if k and isinstance(raw, list):
+                    results[k] = raw
+        except Exception as e:
+            logger.error(f"Error fetching bulk cached embeddings: {e}")
+    return results
+
+
+def store_embeddings_bulk(items: list[dict]) -> None:
+    """Store multiple embeddings in bulk chunks."""
+    if not items:
+        return
+    client = get_client()
+    chunk_size = 100
+    for i in range(0, len(items), chunk_size):
+        chunk = items[i : i + chunk_size]
+        try:
+            client.table("embedding_cache").upsert(chunk, on_conflict="key").execute()
+        except Exception as e:
+            logger.error(f"Error storing bulk embeddings: {e}")
+
+
 # ─────────────────────────────────────────────────────────
 #  STAGE LOGS
 # ─────────────────────────────────────────────────────────
