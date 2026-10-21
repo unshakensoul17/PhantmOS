@@ -67,8 +67,17 @@ async def process_pipeline(manual_query: str = None, target_user_id: str = None)
 
     # ── Fetch user profiles ───────────────────────────────────────────────────
     try:
-        resp = get_client().table("user_profiles").select("*").execute()
-        profiles = resp.data or []
+        resp = get_client().table("user_profiles").select("*, user_resumes(resume_data)").execute()
+        raw_profiles = resp.data or []
+        profiles = []
+        for p in raw_profiles:
+            resumes = p.pop("user_resumes", None)
+            if resumes:
+                resume_obj = resumes[0] if isinstance(resumes, list) else resumes
+                p["resume_data"] = resume_obj.get("resume_data", {})
+            elif "resume_data" not in p or p["resume_data"] is None:
+                p["resume_data"] = {}
+            profiles.append(p)
     except Exception as e:
         logger.error(f"Failed to fetch user profiles: {e}")
         return {"error": f"Failed to fetch profiles: {e}"}

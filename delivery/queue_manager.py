@@ -104,8 +104,13 @@ async def process_delivery_queue(profile: dict, send_fn) -> dict:
         else:
             logger.warning("Delivery: Cannot send digest. No telegram_chat_id in profile.")
             failed = len(to_deliver)
-            for i in to_deliver:
-                update_delivery_status(i["id"], "failed")
+            failed_ids = [i["id"] for i in to_deliver]
+            try:
+                get_client().table("delivery_queue").update({"status": "failed"}).in_(
+                    "id", failed_ids
+                ).execute()
+            except Exception as e:
+                logger.error(f"Failed to batch update delivery failure: {e}")
 
     logger.info(f"=== Delivery complete: sent={sent} failed={failed} skipped={len(to_skip)} ===")
     return {"sent": sent, "failed": failed, "skipped": len(to_skip), "total": len(pending)}

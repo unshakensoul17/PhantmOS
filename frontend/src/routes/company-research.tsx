@@ -2,15 +2,19 @@ import { apiFetch } from "../lib/api";
 import { createFileRoute } from "@tanstack/react-router";
 import { Layout } from "../components/Layout";
 import { Sparkles, Building2, ShieldCheck, Check, BookOpen, Search, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/company-research")({
+  validateSearch: (search: Record<string, unknown>): { company?: string } => ({
+    company: typeof search.company === "string" ? search.company : undefined,
+  }),
   component: CompanyResearchPage,
 });
 
 function CompanyResearchPage() {
-  const [searchQuery, setSearchQuery] = useState("");
+  const { company: initialCompany } = Route.useSearch();
+  const [searchQuery, setSearchQuery] = useState(initialCompany || "");
   const [researchData, setResearchData] = useState<any>(null);
   const [playbookData, setPlaybookData] = useState<any>(null);
 
@@ -34,6 +38,12 @@ function CompanyResearchPage() {
     },
     onSuccess: (data) => setPlaybookData(data),
   });
+
+  useEffect(() => {
+    if (initialCompany) {
+      researchMutation.mutate(initialCompany);
+    }
+  }, [initialCompany]);
 
   return (
     <Layout>

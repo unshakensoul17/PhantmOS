@@ -12,6 +12,7 @@ Final score is 0–100. Band assigned as HOT / WARM / COLD / REJECT.
 import asyncio
 import json
 
+from core.config import SCORE_WEIGHTS
 from core.database_manager import (
     get_leads_by_status,
     log_stage_failure,
@@ -99,10 +100,10 @@ def _compute_final_score(
 ) -> float:
     """
     Weighted combination of:
-      - Calibrated semantic similarity (40%)
-      - BM25 lexical/skill match (30%)
-      - Title match (15%)
-      - Cross-encoder rerank score (15% if available, else re-weighted across top 3)
+      - Calibrated semantic similarity (from SCORE_WEIGHTS or rerank split)
+      - BM25 lexical/skill match
+      - Title match
+      - Cross-encoder rerank score (if available)
     """
     calibrated_semantic = _calibrate_semantic_score(semantic)
 
@@ -114,7 +115,10 @@ def _compute_final_score(
             + (rerank_score * 0.20)
         )
     else:
-        raw = (calibrated_semantic * 0.45) + (keyword * 0.35) + (title * 0.20)
+        w_sem = SCORE_WEIGHTS.get("semantic", 0.50)
+        w_kw = SCORE_WEIGHTS.get("keyword", 0.30)
+        w_title = SCORE_WEIGHTS.get("title", 0.20)
+        raw = (calibrated_semantic * w_sem) + (keyword * w_kw) + (title * w_title)
 
     return round(raw * 100, 2)
 

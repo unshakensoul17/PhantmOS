@@ -9,7 +9,6 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   signOut: () => Promise<void>;
-  guestLogin: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -17,7 +16,6 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
   signOut: async () => {},
-  guestLogin: () => {},
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -103,24 +101,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     await supabase.auth.signOut();
   };
 
-  const guestLogin = () => {
-    const guestUser: any = {
-      id: "guest-demo-mode-user",
-      email: "guest@phantmos.ai",
-      user_metadata: { full_name: "Demo Guest User" },
-      aud: "authenticated",
-      role: "authenticated",
-    };
-    setUser(guestUser);
-    setSession({
-      access_token: "demo-guest-token",
-      user: guestUser,
-    } as any);
-    setGlobalAuthToken("demo-guest-token");
-  };
-
   return (
-    <AuthContext.Provider value={{ session, user, loading, signOut, guestLogin }}>
+    <AuthContext.Provider value={{ session, user, loading, signOut }}>
       {children}
     </AuthContext.Provider>
   );

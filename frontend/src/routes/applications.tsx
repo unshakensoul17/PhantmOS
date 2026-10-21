@@ -71,7 +71,11 @@ function ApplicationsPage() {
       const res = await apiFetch(`/api/applications/phantm-writer`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ job_id: job.job_id, company: job.company, role: job.title }),
+        body: JSON.stringify({
+          job_id: job.job_id || job.id,
+          company: job.company,
+          role: job.title,
+        }),
       });
       if (!res.ok) throw new Error("Failed to generate email");
       return res.json();
@@ -91,7 +95,7 @@ function ApplicationsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          job_id: selectedJob.job_id,
+          job_id: selectedJob.job_id || selectedJob.id,
           target_email: targetEmail,
           email_text: emailDraft,
         }),

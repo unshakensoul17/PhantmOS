@@ -13,6 +13,8 @@ DROP TABLE IF EXISTS global_jobs CASCADE;
 DROP TABLE IF EXISTS user_resumes CASCADE;
 DROP TABLE IF EXISTS auth_debug_logs CASCADE;
 DROP TABLE IF EXISTS user_profiles CASCADE;
+DROP TABLE IF EXISTS company_context CASCADE;
+DROP TABLE IF EXISTS embedding_cache CASCADE;
 
 -- =========================================================================
 -- 2. CREATE TABLES
@@ -108,6 +110,25 @@ CREATE TABLE auth_debug_logs (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
+CREATE TABLE company_context (
+    company_name TEXT PRIMARY KEY,
+    context TEXT NOT NULL,
+    age_days INTEGER DEFAULT 0,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE embedding_cache (
+    key TEXT PRIMARY KEY,
+    embedding JSONB NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Indexes for performance & deduplication
+CREATE INDEX IF NOT EXISTS idx_user_job_pipelines_user_status_score ON user_job_pipelines(user_id, status, match_score DESC);
+CREATE INDEX IF NOT EXISTS idx_user_job_pipelines_created_at ON user_job_pipelines(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_global_jobs_dedup_hash ON global_jobs(dedup_hash);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_delivery_queue_pending_unique ON delivery_queue(user_id, job_id) WHERE status = 'pending';
+
 -- =========================================================================
 -- 3. ROW LEVEL SECURITY (RLS) POLICIES
 -- =========================================================================
@@ -120,6 +141,8 @@ ALTER TABLE delivery_queue ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_feedback ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stage_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE auth_debug_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE company_context ENABLE ROW LEVEL SECURITY;
+ALTER TABLE embedding_cache ENABLE ROW LEVEL SECURITY;
 
 -- user_profiles
 CREATE POLICY "Users can read own profile" ON user_profiles FOR SELECT USING (auth.uid() = id);
@@ -149,6 +172,11 @@ CREATE POLICY "Feedback access" ON user_feedback FOR ALL USING (
 CREATE POLICY "Stage Logs access" ON stage_logs FOR ALL USING (
     auth.uid() IS NULL OR EXISTS (SELECT 1 FROM user_job_pipelines WHERE user_job_pipelines.job_id = stage_logs.job_id AND user_job_pipelines.user_id = auth.uid())
 );
+
+-- company_context and embedding_cache
+CREATE POLICY "Read company context" ON company_context FOR SELECT USING (true);
+CREATE POLICY "Upsert company context" ON company_context FOR ALL USING (auth.uid() IS NULL OR auth.role() = 'authenticated');
+CREATE POLICY "Cache access" ON embedding_cache FOR ALL USING (true);
 
 -- =========================================================================
 -- 4. TRIGGERS & RPC FUNCTIONS

@@ -42,6 +42,7 @@ def get_client() -> Client:
 
 def get_profile(user_id: str | None = None) -> dict | None:
     """Retrieve user profile by user_id, including external resume_data."""
+
     try:
         # OPTIMIZATION 2: Join with partitioned user_resumes table
         q = get_client().table("user_profiles").select("*, user_resumes(resume_data)")
@@ -604,7 +605,20 @@ def store_company_context(company_name: str, context: str) -> None:
 
 def queue_delivery(job_id: str, user_id: str) -> None:
     try:
-        get_client().table("delivery_queue").insert(
+        client = get_client()
+        existing = (
+            client.table("delivery_queue")
+            .select("id")
+            .eq("job_id", job_id)
+            .eq("user_id", user_id)
+            .eq("status", "pending")
+            .limit(1)
+            .execute()
+        )
+        if existing.data:
+            return
+
+        client.table("delivery_queue").insert(
             {"job_id": job_id, "user_id": user_id, "status": "pending", "attempts": 0}
         ).execute()
     except Exception as e:

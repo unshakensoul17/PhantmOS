@@ -58,7 +58,7 @@ function PhantmOSDashboard() {
   const candidateName = profile?.cv?.name || "there";
   const targetRole = profile?.target_role || profile?.cv?.target_role || "Software Engineer";
 
-  const totalMatches = (stats?.hot || 0) + (stats?.warm || 0) || stats?.total || 14;
+  const totalMatches = (stats?.hot || 0) + (stats?.warm || 0) || stats?.total || 0;
   const appliedCount = stats?.applied || 0;
   const interviewCount = stats?.interviews || 0;
 
@@ -189,7 +189,9 @@ function PhantmOSDashboard() {
                 </div>
               ) : (
                 leads.slice(0, 4).map((job: any) => {
-                  const score = job.score_total || job.score || 85;
+                  const score = Math.round(
+                    Number(job.score_total ?? job.score ?? job.match_score ?? 0),
+                  );
                   return (
                     <div
                       key={job.job_id || job.id}
@@ -281,22 +283,40 @@ function PhantmOSDashboard() {
                 <Clock className="w-4 h-4 text-zinc-400" /> Recent Activity
               </h3>
               <div className="space-y-3 text-xs">
-                {[
-                  { text: "Scanned 40+ fresh job listings", time: "10m ago" },
-                  { text: "Scored 12 new matches for " + targetRole, time: "25m ago" },
-                  { text: "Resume ready & ATS verified", time: "1h ago" },
-                  { text: "Background agent heartbeat healthy", time: "2h ago" },
-                ].map((item, i) => (
-                  <div key={i} className="flex items-start gap-2.5 pb-2.5 last:pb-0">
-                    <span className="w-1.5 h-1.5 rounded-full bg-white mt-1.5 shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-zinc-300 leading-snug">{item.text}</p>
-                      <span className="text-[11px] text-zinc-500 mt-0.5 block font-mono">
-                        {item.time}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                {leads.length > 0 ? (
+                  leads.slice(0, 4).map((item: any, i: number) => {
+                    const score = Math.round(
+                      Number(item.score_total ?? item.score ?? item.match_score ?? 0),
+                    );
+                    const timeAgo = item.created_at
+                      ? new Date(item.created_at).toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                        })
+                      : "Recently";
+                    return (
+                      <div
+                        key={item.job_id || item.id || i}
+                        className="flex items-start gap-2.5 pb-2.5 last:pb-0"
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-white mt-1.5 shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-zinc-300 leading-snug">
+                            Matched <span className="text-white font-medium">{item.title}</span> at{" "}
+                            <span className="text-zinc-400">{item.company}</span> ({score}% fit)
+                          </p>
+                          <span className="text-[11px] text-zinc-500 mt-0.5 block font-mono">
+                            {timeAgo} · {item.status || "Found"}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p className="text-zinc-500 text-xs py-2">
+                    No recent activity yet. Run Job Discovery to scan for roles.
+                  </p>
+                )}
               </div>
             </div>
           </div>

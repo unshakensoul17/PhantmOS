@@ -12,12 +12,15 @@ from intelligence.scorer import (
 
 
 def test_compute_final_score():
-    # Formula: (semantic * 0.45) + (keyword * 0.35) + (title * 0.20) * 100
+    # Full match (calibrated 1.0)
     assert _compute_final_score(1.0, 1.0, 1.0) == 100.0
     assert _compute_final_score(0.0, 0.0, 0.0) == 0.0
 
-    # 0.5 * 0.45 = 0.225; 0.5 * 0.35 = 0.175; 0.5 * 0.20 = 0.10 -> 0.50 -> 50.0%
-    assert _compute_final_score(0.5, 0.5, 0.5) == 50.0
+    # Raw cosine 0.66 calibrates to 0.50: (0.50 * 0.50) + (0.50 * 0.30) + (0.50 * 0.20) = 50.0%
+    assert _compute_final_score(0.66, 0.5, 0.5) == 50.0
+
+    # Raw cosine <= 0.50 cutoff calibrates to 0.0: (0.0 * 0.50) + (0.50 * 0.30) + (0.50 * 0.20) = 25.0%
+    assert _compute_final_score(0.50, 0.5, 0.5) == 25.0
 
 
 def test_title_score():

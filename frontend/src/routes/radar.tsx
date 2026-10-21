@@ -273,12 +273,14 @@ function RadarPage() {
     enabled: activeTab === "applications",
   });
 
-  const activeLead = leads[currentIndex] || null;
+  const clampedIndex = leads.length > 0 ? Math.min(Math.max(0, currentIndex), leads.length - 1) : 0;
+  const activeLead = leads[clampedIndex] || null;
 
   // Auto-advance helper
   const advanceToNext = (dir: number = 1) => {
     setTailoredLead(null);
-    setPageIndex([currentIndex + dir, dir]);
+    const nextIdx = Math.max(0, currentIndex + dir);
+    setPageIndex([nextIdx, dir]);
   };
 
   // Status mutation

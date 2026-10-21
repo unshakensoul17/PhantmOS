@@ -70,6 +70,10 @@ async def lifespan(app: FastAPI):
     if application:
         await application.stop()
         await application.shutdown()
+    try:
+        process_pool.shutdown(wait=False)
+    except Exception as e:
+        logger.warning(f"Error shutting down process pool: {e}")
 
 
 app = FastAPI(title="PhantmOS v3.0 SaaS Dashboard", lifespan=lifespan)
@@ -96,7 +100,17 @@ def _run_digest():
     asyncio.run(send_daily_digest())
 
 
-_TOKEN_CACHE = {}  # token -> {"user_id": id, "expires": time.time() + 300}
+_TOKEN_CACHE: dict[str, dict] = {}  # token -> {"user_id": id, "expires": time.time() + 300}
+_MAX_TOKEN_CACHE_SIZE = 2000
+
+
+def _prune_token_cache(now: float):
+    global _TOKEN_CACHE
+    if len(_TOKEN_CACHE) > _MAX_TOKEN_CACHE_SIZE:
+        _TOKEN_CACHE = {k: v for k, v in _TOKEN_CACHE.items() if v["expires"] > now}
+        if len(_TOKEN_CACHE) > _MAX_TOKEN_CACHE_SIZE:
+            for k in list(_TOKEN_CACHE.keys())[:200]:
+                _TOKEN_CACHE.pop(k, None)
 
 
 def get_current_user_id(authorization: str = Header(None)) -> str:
@@ -126,6 +140,7 @@ def get_current_user_id(authorization: str = Header(None)) -> str:
             if hmac.compare_digest(sig, expected_sig):
                 user_id, exp_str = payload_str.split(":")
                 if float(exp_str) > now:
+                    _prune_token_cache(now)
                     _TOKEN_CACHE[token] = {"user_id": user_id, "expires": float(exp_str)}
                     return user_id
         except Exception as e:
@@ -142,6 +157,7 @@ def get_current_user_id(authorization: str = Header(None)) -> str:
             raise HTTPException(status_code=401, detail="Unauthorized: Invalid token")
 
         user_id = user_res.user.id
+        _prune_token_cache(now)
         _TOKEN_CACHE[token] = {"user_id": user_id, "expires": now + 300}
         return user_id
     except Exception as e:
@@ -359,12 +375,13 @@ async def get_leads(
     band: str = "",
     status: str = "",
     limit: int = 50,
+    offset: int = 0,
     cursor: str = "",
     sort_by: str = "score",
     sort_order: str = "desc",
     user_id: str = Depends(get_current_user_id),
 ):
-    """Fetch job leads with cursor-based pagination and flexible sorting."""
+    """Fetch job leads with cursor/offset-based pagination and flexible sorting."""
     client = get_client()
     try:
         is_desc = sort_order.lower() != "asc"
@@ -383,14 +400,24 @@ async def get_leads(
             q = q.eq("score_band", band.upper())
         if status:
             q = q.eq("status", status)
-        if cursor:
-            # Decode the cursor if it was url-encoded, it should be an ISO timestamp
-            import urllib.parse
 
-            decoded_cursor = urllib.parse.unquote(cursor)
-            q = q.lt("created_at", decoded_cursor)
+        if offset > 0:
+            q = q.range(offset, offset + limit - 1)
+        elif cursor:
+            if cursor.isdigit():
+                num_offset = int(cursor)
+                q = q.range(num_offset, num_offset + limit - 1)
+            elif sort_column == "created_at":
+                import urllib.parse
 
-        resp = q.limit(limit).execute()
+                decoded_cursor = urllib.parse.unquote(cursor)
+                q = q.lt("created_at", decoded_cursor)
+            else:
+                q = q.limit(limit)
+        else:
+            q = q.limit(limit)
+
+        resp = q.execute()
 
         leads = []
         for row in resp.data or []:
@@ -1114,7 +1141,7 @@ Output ONLY valid JSON in the following format, with no markdown or extra text:
         try:
             client = get_client()
             resp = (
-                client.table("global_jobs").select("description").eq("id", request.job_id).execute()
+                client.table("global_jobs").select("description").eq("job_id", request.job_id).execute()
             )
             if resp.data and len(resp.data) > 0:
                 job_desc = resp.data[0].get("description", "")
@@ -1311,13 +1338,6 @@ async def update_settings(request: Request, user_id: str = Depends(get_current_u
 
         # Update user profile with all changes
         get_client().table("user_profiles").update(profile_updates).eq("id", user_id).execute()
-
-        # Also sync to settings.json for legacy scripts until fully migrated
-        try:
-            with open("settings.json", "w") as f:
-                json.dump(data, f, indent=2)
-        except Exception as e:
-            logger.error(f"Warning: failed to sync legacy settings.json: {e}")
 
         return {"status": "ok", "updated_user": user_id}
     except Exception as e:

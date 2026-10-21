@@ -77,12 +77,12 @@ function JobDiscoveryPage() {
 
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ["leads", filterStatus, sortBy],
-    initialPageParam: "",
-    queryFn: async ({ pageParam = "" }) => {
+    initialPageParam: 0,
+    queryFn: async ({ pageParam = 0 }) => {
       const url = new URL("/api/leads", window.location.origin);
       if (filterStatus) url.searchParams.set("status", filterStatus);
-      if (pageParam) url.searchParams.set("cursor", pageParam);
       url.searchParams.set("limit", "50");
+      url.searchParams.set("offset", String(pageParam));
 
       if (sortBy === "score_desc") {
         url.searchParams.set("sort_by", "score");
@@ -102,9 +102,9 @@ function JobDiscoveryPage() {
       if (!res.ok) throw new Error("Failed to fetch leads");
       return res.json();
     },
-    getNextPageParam: (lastPage) => {
+    getNextPageParam: (lastPage, allPages) => {
       if (!lastPage || lastPage.length < 50) return undefined;
-      return lastPage[lastPage.length - 1].created_at;
+      return allPages.length * 50;
     },
   });
 
@@ -120,6 +120,10 @@ function JobDiscoveryPage() {
       });
       if (!res.ok) throw new Error("Failed to trigger harvest");
       return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
     },
     onSettled: () => {
       // Hide the pipeline 15 seconds after the harvest completes (or fails)

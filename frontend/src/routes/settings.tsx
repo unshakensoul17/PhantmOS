@@ -17,6 +17,7 @@ import {
   Mail,
 } from "lucide-react";
 import { apiFetch } from "../lib/api";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/settings")({
   component: SettingsPage,
@@ -90,6 +91,10 @@ function SettingsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["settings"] });
+      toast.success("Settings saved successfully!");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to save settings");
     },
   });
 
