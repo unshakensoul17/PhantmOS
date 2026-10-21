@@ -18,7 +18,7 @@ GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 
 async def call_groq(
-    system_prompt: str, user_prompt: str, api_key: str = None, model: str = None
+    system_prompt: str, user_prompt: str, api_key: str | None = None, model: str | None = None
 ) -> dict:
     """
     Call Groq API and return parsed JSON dict.

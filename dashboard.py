@@ -54,7 +54,7 @@ async def lifespan(app: FastAPI):
                 f"{TELEGRAM_API_BASE_URL}/bot{TELEGRAM_BOT_TOKEN}/setWebhook",
                 json={"url": webhook_url},
                 timeout=30,
-                proxies={"http": None, "https": None},
+                proxies={"http": "", "https": ""},
             )
             logger.info(f"Webhook registration response: {resp.text}")
         except Exception as e:
@@ -84,7 +84,7 @@ process_pool = ProcessPoolExecutor(max_workers=1)
 
 # Sync wrappers — ProcessPoolExecutor only accepts plain sync functions.
 # These bridge the gap between the async orchestrators and the executor.
-def _run_pipeline(query: str = None, user_id: str = None):
+def _run_pipeline(query: str | None = None, user_id: str | None = None):
     import asyncio
 
     from main_orchestrator import process_pipeline
@@ -162,7 +162,7 @@ def get_current_user_id(authorization: str = Header(None)) -> str:
         return user_id
     except Exception as e:
         logger.error(f"JWT Verification failed: {e}")
-        raise HTTPException(status_code=401, detail="Unauthorized: Token verification failed")
+        raise HTTPException(status_code=401, detail="Unauthorized: Token verification failed") from e
 
 
 # Static resumes dir (local fallback — Supabase Storage is primary in v2)
@@ -227,16 +227,16 @@ async def telegram_auth(req: TelegramAuthRequest):
         if allowed_chat and str(allowed_chat) == str(tg_user_id):
             client = get_client()
             res = client.table("user_profiles").select("*").limit(1).execute()
-            if res.data:
+            if res.data and isinstance(res.data[0], dict):
                 profile = res.data[0]
 
-    if not profile:
+    if not profile or not isinstance(profile, dict):
         raise HTTPException(
             status_code=404, detail="No PhantmOS account linked to this Telegram ID"
         )
 
-    user_id = profile["id"]
-    email = profile.get("email") or "telegram-user@phantmos.ai"
+    user_id = str(profile.get("id") or "")
+    email = str(profile.get("email") or "telegram-user@phantmos.ai")
 
     # 3. Mint signed session token valid for 30 days
     now = int(time.time())
@@ -248,13 +248,19 @@ async def telegram_auth(req: TelegramAuthRequest):
 
     _TOKEN_CACHE[access_token] = {"user_id": user_id, "expires": expires}
 
+    raw_resume = profile.get("resume_data")
+    resume_dict: dict = raw_resume if isinstance(raw_resume, dict) else {}
+    raw_cv = resume_dict.get("cv")
+    cv_dict: dict = raw_cv if isinstance(raw_cv, dict) else {}
+    user_name = str(cv_dict.get("name") or "Telegram User")
+
     return {
         "status": "ok",
         "access_token": access_token,
         "user_id": user_id,
         "email": email,
         "user_metadata": {
-            "name": (profile.get("resume_data") or {}).get("cv", {}).get("name", "Telegram User"),
+            "name": user_name,
             "telegram_chat_id": tg_user_id,
         },
     }
@@ -320,8 +326,13 @@ async def get_stats(user_id: str = Depends(get_current_user_id)):
 
         weeks_data = [0] * 12
         for row in app_resp.data or []:
+            if not isinstance(row, dict):
+                continue
             try:
-                dt_str = row["created_at"].replace("Z", "+00:00")
+                raw_dt = row.get("created_at")
+                if not isinstance(raw_dt, str):
+                    continue
+                dt_str = raw_dt.replace("Z", "+00:00")
                 if "." not in dt_str and "+" in dt_str:
                     pass
                 dt = datetime.datetime.fromisoformat(dt_str)
@@ -332,6 +343,7 @@ async def get_stats(user_id: str = Depends(get_current_user_id)):
             except Exception:
                 pass
 
+        prof = get_profile(user_id)
         return JSONResponse(
             {
                 "hot": stats.get("hot", 0),
@@ -347,7 +359,7 @@ async def get_stats(user_id: str = Depends(get_current_user_id)):
                 "scores": stats.get("scores", []),
                 "approved": stats.get("approved", 0),
                 "weekly_applications": weeks_data,
-                "credits": get_profile(user_id).get("credits", 0) if get_profile(user_id) else 0,
+                "credits": prof.get("credits", 0) if prof else 0,
                 "max_credits": 1000,
             }
         )
@@ -421,6 +433,8 @@ async def get_leads(
 
         leads = []
         for row in resp.data or []:
+            if not isinstance(row, dict):
+                continue
             flat = _flatten_lead(row)
             # Add score_total and score for frontend compatibility
             match_score = flat.get("match_score", 0) or 0
@@ -643,7 +657,7 @@ async def get_telegram_link(user_id: str = Depends(get_current_user_id)):
         resp = requests.get(
             f"{TELEGRAM_API_BASE_URL}/bot{TELEGRAM_BOT_TOKEN}/getMe",
             timeout=2,
-            proxies={"http": None, "https": None},
+            proxies={"http": "", "https": ""},
         ).json()
         if resp.get("ok"):
             _BOT_USERNAME_CACHE = resp["result"]["username"]
@@ -1001,7 +1015,7 @@ Schema requirements:
         return {"status": "success", "profile": parsed_data}
     except Exception as e:
         logger.error(f"Error processing resume upload: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/api/admin/users")
@@ -1016,18 +1030,20 @@ async def admin_list_users():
         )
         users = resp.data or []
         for u in users:
+            if not isinstance(u, dict):
+                continue
             enc = u.get("encrypted_keys") or {}
             if isinstance(enc, str):
                 try:
                     enc = json.loads(enc)
                 except Exception:
                     enc = {}
-            u["has_byok"] = any(enc.values())
+            u["has_byok"] = any(enc.values()) if isinstance(enc, dict) else False
             u.pop("encrypted_keys", None)
         return users
     except Exception as e:
         logger.error(f"Admin list users error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.post("/api/admin/users/{user_id}/credits")
@@ -1143,8 +1159,8 @@ Output ONLY valid JSON in the following format, with no markdown or extra text:
             resp = (
                 client.table("global_jobs").select("description").eq("job_id", request.job_id).execute()
             )
-            if resp.data and len(resp.data) > 0:
-                job_desc = resp.data[0].get("description", "")
+            if resp.data and len(resp.data) > 0 and isinstance(resp.data[0], dict):
+                job_desc = str(resp.data[0].get("description") or "")
         except Exception:
             pass
 
@@ -1176,7 +1192,7 @@ Job Context:
         return {"status": "ok", "email": email_text, "target_email": target_email or ""}
     except Exception as e:
         logger.error(f"Phantm Writer Error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to generate email")
+        raise HTTPException(status_code=500, detail="Failed to generate email") from e
 
 
 class SendEmailRequest(BaseModel):
@@ -1215,7 +1231,11 @@ async def send_followup_email(
         .eq("job_id", request.job_id)
         .execute()
     )
-    resume_url = resp.data[0].get("resume_url") if resp.data and len(resp.data) > 0 else None
+    resume_url: str | None = None
+    if resp.data and len(resp.data) > 0 and isinstance(resp.data[0], dict):
+        raw_url = resp.data[0].get("resume_url")
+        if isinstance(raw_url, str):
+            resume_url = raw_url
 
     from interface.email_dispatcher import send_cold_email
 
@@ -1342,7 +1362,7 @@ async def update_settings(request: Request, user_id: str = Depends(get_current_u
         return {"status": "ok", "updated_user": user_id}
     except Exception as e:
         logger.error(f"Error updating settings in DB: {e}")
-        raise HTTPException(status_code=500, detail="Failed to save settings to database")
+        raise HTTPException(status_code=500, detail="Failed to save settings to database") from e
 
 
 @app.get("/api/health")

@@ -7,6 +7,8 @@ Free tier: unlimited requests.
 Best for: Remote tech / AI / ML roles.
 """
 
+from typing import Any
+
 import httpx
 
 from core.logger import get_logger
@@ -16,7 +18,7 @@ logger = get_logger(__name__)
 BASE_URL = "https://remotive.com/api/remote-jobs"
 
 
-async def fetch_remotive(limit_per_term: int = 20, search_query: str = None) -> list[dict]:
+async def fetch_remotive(limit_per_term: int = 20, search_query: str | None = None) -> list[dict]:
     """
     Fetch jobs from Remotive across all target search terms or a specific query.
     Returns a normalised list of job dicts.
@@ -24,7 +26,7 @@ async def fetch_remotive(limit_per_term: int = 20, search_query: str = None) -> 
     results: list[dict] = []
 
     async with httpx.AsyncClient(timeout=20.0) as client:
-        params = {"limit": limit_per_term}
+        params: dict[str, Any] = {"limit": limit_per_term}
         if search_query and search_query.strip():
             params["search"] = search_query.strip()
 

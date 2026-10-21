@@ -21,7 +21,7 @@ GEMINI_URL = (
 
 
 async def call_gemini(
-    system_prompt: str, user_prompt: str, api_key: str = None, model: str = None
+    system_prompt: str, user_prompt: str, api_key: str | None = None, model: str | None = None
 ) -> dict:
     """
     Call Gemini Flash API and return parsed JSON dict.

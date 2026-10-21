@@ -51,6 +51,12 @@ GMAIL_USER: str = os.getenv("GMAIL_USER", "").strip()
 GMAIL_APP_PASSWORD: str = os.getenv("GMAIL_APP_PASSWORD", "").strip()
 
 # ─────────────────────────────────────────────────────────
+#  WHATSAPP (CallMeBot fallback)
+# ─────────────────────────────────────────────────────────
+CALLMEBOT_API_KEY: str = os.getenv("CALLMEBOT_API_KEY", "").strip()
+CALLMEBOT_PHONE: str = os.getenv("CALLMEBOT_PHONE", "").strip()
+
+# ─────────────────────────────────────────────────────────
 #  SCHEDULER
 # ─────────────────────────────────────────────────────────
 DEFAULT_TIMEZONE: str = os.getenv("DEFAULT_TIMEZONE", "Asia/Kolkata")

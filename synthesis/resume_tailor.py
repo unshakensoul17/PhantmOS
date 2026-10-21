@@ -24,7 +24,7 @@ from core.logger import get_logger
 logger = get_logger(__name__)
 
 
-async def run_tailoring(profile: dict, api_keys: dict = None) -> dict:
+async def run_tailoring(profile: dict, api_keys: dict | None = None) -> dict:
     """
     Stage 3: Queue HOT/WARM/COLD leads for Telegram delivery.
     NO resume tailoring or LLM calls happen here.
@@ -41,6 +41,8 @@ async def run_tailoring(profile: dict, api_keys: dict = None) -> dict:
 
         for lead in leads:
             job_id = lead.get("job_id")
+            if not job_id or not user_id:
+                continue
             # Mark as Tailored (with original resume) so it clears Stage 4
             # and gets picked up by Stage 5 delivery queue
             notes_raw = lead.get("notes") or "{}"
@@ -50,7 +52,7 @@ async def run_tailoring(profile: dict, api_keys: dict = None) -> dict:
                 pass
 
             # Queue for delivery. Leave status untouched (e.g. 'New') so Telegram displays the 'Create Resume' button.
-            queue_delivery(job_id, user_id)
+            queue_delivery(str(job_id), str(user_id))
             counts[band_key] += 1
             logger.info(f"Queued delivery for job {job_id}.")
 

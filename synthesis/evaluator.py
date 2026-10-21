@@ -31,7 +31,7 @@ Expected output JSON format:
 }"""
 
 
-async def evaluate_lead(master_resume: dict, jd_text: str, api_keys: dict = None) -> dict:
+async def evaluate_lead(master_resume: dict, jd_text: str, api_keys: dict | None = None) -> dict:
     """
     Score the resume and generate 3 interview prep questions.
     Returns a dict with ats_score, ats_feedback, and interview_prep.

@@ -251,9 +251,10 @@ function ResumeStudioPage() {
       }
     } catch (err: any) {
       console.error("Resume upload error:", err);
-      const msg = err.message === "Failed to fetch"
-        ? "Network error connecting to backend. Please check your connection or try again."
-        : (err.message || "Parsing failed.");
+      const msg =
+        err.message === "Failed to fetch"
+          ? "Network error connecting to backend. Please check your connection or try again."
+          : err.message || "Parsing failed.";
       toast.error(msg);
     } finally {
       setIsUploading(false);

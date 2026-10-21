@@ -35,7 +35,7 @@ logger = get_logger(__name__)
 class RankingAgent:
     """Owns the scoring & band classification pipeline (Stage 2)."""
 
-    async def run(self, profile: dict, manual_query: str = None) -> dict:
+    async def run(self, profile: dict, manual_query: str | None = None) -> dict:
         """
         Score all 'Found' leads for the given user profile.
         manual_query: if provided, overrides profile target_roles for the title signal.

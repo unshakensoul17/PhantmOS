@@ -25,12 +25,12 @@ from agents.research_agent import ResearchAgent
 from agents.resume_agent import ResumeAgent
 
 __all__ = [
+    "ATSAgent",
+    "AnalyticsAgent",
+    "ApplicationAgent",
     "DiscoveryAgent",
+    "FeedbackAgent",
     "RankingAgent",
     "ResearchAgent",
     "ResumeAgent",
-    "ATSAgent",
-    "ApplicationAgent",
-    "FeedbackAgent",
-    "AnalyticsAgent",
 ]

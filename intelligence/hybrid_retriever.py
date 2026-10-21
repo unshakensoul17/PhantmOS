@@ -311,7 +311,8 @@ def rerank_candidates(candidate_repr: str, candidates: list[dict], top_n: int = 
     elif r_type == "sentence_transformers" and ranker:
         try:
             pairs = [[candidate_repr, build_compact_job_repr(c)] for c in rerank_pool]
-            scores = ranker.predict(pairs)
+            st_ranker: Any = ranker
+            scores = st_ranker.predict(pairs)
             for cand, score in zip(rerank_pool, scores, strict=False):
                 cand["rerank_score"] = (
                     float(1.0 / (1.0 + math.exp(-score)))

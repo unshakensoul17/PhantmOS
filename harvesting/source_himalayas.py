@@ -3,6 +3,8 @@ harvesting/source_himalayas.py — PhantmOS v3.0
 Himalayas.app Remote Jobs API adapter.
 """
 
+from typing import Any
+
 import httpx
 
 from core.logger import get_logger
@@ -12,11 +14,11 @@ logger = get_logger(__name__)
 BASE_URL = "https://himalayas.app/jobs/api/search"
 
 
-async def fetch_himalayas(limit_per_term: int = 20, search_query: str = None) -> list[dict]:
+async def fetch_himalayas(limit_per_term: int = 20, search_query: str | None = None) -> list[dict]:
     """Fetch jobs from Himalayas Remote Jobs Search API."""
     results: list[dict] = []
     async with httpx.AsyncClient(timeout=20.0) as client:
-        params = {"limit": limit_per_term}
+        params: dict[str, Any] = {"limit": limit_per_term}
         if search_query and search_query.strip():
             params["q"] = search_query.strip()
         try:

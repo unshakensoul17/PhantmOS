@@ -76,7 +76,7 @@ def _embed_local_sync(text: str) -> list[float]:
     model = _get_local_model()
     # Truncate text to ~2000 chars for high-speed CPU encoding
     generator = model.embed([text[:2048]])
-    vec = list(generator)[0]
+    vec = next(iter(generator))
     return vec.tolist() if hasattr(vec, "tolist") else list(vec)
 
 
@@ -186,13 +186,14 @@ def batch_cosine_similarity(user_vec: list[float], job_vecs: list[list[float]]) 
 # ── Master resume embedding (cached in Supabase) ────────────────────────────
 
 
-async def get_master_embedding(resume_text: str, user_id: str) -> list[float]:
+async def get_master_embedding(resume_text: str, user_id: str | None = None) -> list[float]:
     """
     Return the master resume embedding for a specific user.
     - First call: embed locally → store in Supabase → return
     - Subsequent calls: load from Supabase / memory cache
     """
-    cache_key = f"master_resume_{user_id}"
+    uid = user_id or "default"
+    cache_key = f"master_resume_{uid}"
     cached = get_cached_embedding(cache_key)
     if cached:
         logger.info(f"Master resume embedding loaded from cache for user {user_id}.")

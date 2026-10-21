@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 HF_URL = f"https://api-inference.huggingface.co/models/{HF_MODEL}"
 
 
-async def call_hf(system_prompt: str, user_prompt: str, api_key: str = None) -> dict:
+async def call_hf(system_prompt: str, user_prompt: str, api_key: str | None = None) -> dict:
     """
     Call HuggingFace Inference API and return parsed JSON dict.
     Raises on failure.

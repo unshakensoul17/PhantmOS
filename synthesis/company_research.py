@@ -19,7 +19,7 @@ logger = get_logger(__name__)
 def _get_realtime_news(company_name: str) -> str:
     """Fetch real-time news headlines to inject into the LLM prompt to overcome its 2-year knowledge lag."""
     try:
-        from duckduckgo_search import DDGS
+        from duckduckgo_search import DDGS  # type: ignore[import-untyped, import-not-found]
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")

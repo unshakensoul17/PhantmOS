@@ -184,7 +184,7 @@ def get_taxonomy_keywords(query: str) -> list[str]:
     return []
 
 
-def filter_jobs_by_relevance(jobs: list[dict], search_query: str = None) -> list[dict]:
+def filter_jobs_by_relevance(jobs: list[dict], search_query: str | None = None) -> list[dict]:
     """
     Taxonomy Expansion + Boolean Density pre-filter:
       1. Parse Query: Check taxonomy or extract core tokens.

@@ -18,20 +18,20 @@ logger = get_logger(__name__)
 PREFS_KEY = "scoring_adjustments"
 
 
-async def handle_apply(job_id: str, user_id: str = None) -> None:
+async def handle_apply(job_id: str, user_id: str | None = None) -> None:
     """Record that the user applied to this job."""
     store_feedback(job_id, "apply", user_id=user_id)
     update_job_lead(job_id, {"status": "Applied"}, user_id=user_id)
     logger.info(f"Feedback: applied to {job_id} (user={user_id}).")
 
 
-async def handle_review(job_id: str, user_id: str = None) -> None:
+async def handle_review(job_id: str, user_id: str | None = None) -> None:
     """Record that the user reviewed this job (no status change)."""
     store_feedback(job_id, "review", user_id=user_id)
     logger.info(f"Feedback: reviewed {job_id} (user={user_id}).")
 
 
-async def handle_skip(job_id: str, reason: str = "", user_id: str = None) -> None:
+async def handle_skip(job_id: str, reason: str = "", user_id: str | None = None) -> None:
     """
     Record a skip signal and adjust future scoring weights.
     reason should be one of: too_junior, wrong_stack, bad_company,

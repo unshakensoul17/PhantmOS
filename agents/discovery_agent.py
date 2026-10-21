@@ -32,7 +32,7 @@ logger = get_logger(__name__)
 class DiscoveryAgent:
     """Owns the entire job discovery pipeline (Stage 1)."""
 
-    async def run(self, search_query: str = None) -> list[dict]:
+    async def run(self, search_query: str | None = None) -> list[dict]:
         """
         Harvest jobs from all sources, apply keyword filter, return normalized list.
         Does NOT persist to DB — call save_leads() per user for that.
@@ -90,7 +90,7 @@ class DiscoveryAgent:
             logger.error(f"DiscoveryAgent: local search failed — {e}")
             return await self.run(search_query=search_query)
 
-    def save_leads(self, raw_jobs: list[dict], user_id: str) -> int:
+    def save_leads(self, raw_jobs: list[dict], user_id: str | None = None) -> int:
         """
         Deduplicate raw_jobs against this user's existing leads,
         build DB-ready dicts, and batch-upsert. Returns count saved.

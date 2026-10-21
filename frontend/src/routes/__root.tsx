@@ -20,22 +20,47 @@ function NotFoundComponent() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      const raw = decodeURIComponent(window.location.pathname || "").toLowerCase().trim();
-      const clean = raw.replace(/[_\s\+]+/g, "-").replace(/^\/+|\/+$/g, "");
+      const raw = decodeURIComponent(window.location.pathname || "")
+        .toLowerCase()
+        .trim();
+      const clean = raw.replace(/[_\s+]+/g, "-").replace(/^\/+|\/+$/g, "");
 
-      if (clean === "resume-studio" || clean === "resume" || clean === "resumes" || clean.includes("resume") || clean.includes("cv")) {
+      if (
+        clean === "resume-studio" ||
+        clean === "resume" ||
+        clean === "resumes" ||
+        clean.includes("resume") ||
+        clean.includes("cv")
+      ) {
         router.navigate({ to: "/resume-studio" });
         return;
       }
-      if (clean === "job-discovery" || clean === "jobs" || clean === "job" || clean.includes("job") || clean.includes("discover")) {
+      if (
+        clean === "job-discovery" ||
+        clean === "jobs" ||
+        clean === "job" ||
+        clean.includes("job") ||
+        clean.includes("discover")
+      ) {
         router.navigate({ to: "/job-discovery" });
         return;
       }
-      if (clean === "company-research" || clean === "companies" || clean === "company" || clean.includes("company") || clean.includes("intel")) {
+      if (
+        clean === "company-research" ||
+        clean === "companies" ||
+        clean === "company" ||
+        clean.includes("company") ||
+        clean.includes("intel")
+      ) {
         router.navigate({ to: "/company-research" });
         return;
       }
-      if (clean === "applications" || clean === "applied" || clean === "apps" || clean.includes("app")) {
+      if (
+        clean === "applications" ||
+        clean === "applied" ||
+        clean === "apps" ||
+        clean.includes("app")
+      ) {
         router.navigate({ to: "/applications" });
         return;
       }

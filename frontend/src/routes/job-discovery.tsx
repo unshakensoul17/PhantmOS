@@ -72,7 +72,9 @@ function JobDiscoveryPage() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
-  const [sortBy, setSortBy] = useState<"score_desc" | "score_asc" | "date_desc" | "date_asc">("score_desc");
+  const [sortBy, setSortBy] = useState<"score_desc" | "score_asc" | "date_desc" | "date_asc">(
+    "score_desc",
+  );
   const [showPipeline, setShowPipeline] = useState(false);
 
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
@@ -205,16 +207,26 @@ function JobDiscoveryPage() {
               {/* Sorting selector */}
               <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg glass text-xs text-muted-foreground border border-white/5">
                 <ArrowUpDown className="w-3.5 h-3.5 text-neon-cyan shrink-0" />
-                <span className="text-[11px] font-mono uppercase tracking-wider text-white/50">Sort:</span>
+                <span className="text-[11px] font-mono uppercase tracking-wider text-white/50">
+                  Sort:
+                </span>
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as any)}
                   className="bg-transparent text-white font-medium text-xs focus:outline-none cursor-pointer"
                 >
-                  <option value="score_desc" className="bg-[#0b0f19] text-white">Score: Highest first</option>
-                  <option value="score_asc" className="bg-[#0b0f19] text-white">Score: Lowest first</option>
-                  <option value="date_desc" className="bg-[#0b0f19] text-white">Date: Newest first</option>
-                  <option value="date_asc" className="bg-[#0b0f19] text-white">Date: Oldest first</option>
+                  <option value="score_desc" className="bg-[#0b0f19] text-white">
+                    Score: Highest first
+                  </option>
+                  <option value="score_asc" className="bg-[#0b0f19] text-white">
+                    Score: Lowest first
+                  </option>
+                  <option value="date_desc" className="bg-[#0b0f19] text-white">
+                    Date: Newest first
+                  </option>
+                  <option value="date_asc" className="bg-[#0b0f19] text-white">
+                    Date: Oldest first
+                  </option>
                 </select>
               </div>
 

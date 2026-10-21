@@ -54,9 +54,9 @@ def _scrape_ddg(company_name: str) -> str:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             try:
-                from duckduckgo_search import DDGS
+                from duckduckgo_search import DDGS  # type: ignore[import-untyped, import-not-found]
             except ImportError:
-                from ddgs import DDGS
+                from ddgs import DDGS  # type: ignore[import-untyped, import-not-found]
 
             with DDGS() as ddgs:
                 results = list(ddgs.text(query, max_results=4))

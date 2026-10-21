@@ -50,7 +50,7 @@ analytics_agent = AnalyticsAgent()
 # ─────────────────────────────────────────────────────────
 
 
-async def process_pipeline(manual_query: str = None, target_user_id: str = None) -> dict:
+async def process_pipeline(manual_query: str | None = None, target_user_id: str | None = None) -> dict:
     """
     Full end-to-end PhantmOS pipeline.
     Coordinates agents in sequence — contains no business logic itself.
@@ -71,10 +71,12 @@ async def process_pipeline(manual_query: str = None, target_user_id: str = None)
         raw_profiles = resp.data or []
         profiles = []
         for p in raw_profiles:
+            if not isinstance(p, dict):
+                continue
             resumes = p.pop("user_resumes", None)
             if resumes:
                 resume_obj = resumes[0] if isinstance(resumes, list) else resumes
-                p["resume_data"] = resume_obj.get("resume_data", {})
+                p["resume_data"] = resume_obj.get("resume_data", {}) if isinstance(resume_obj, dict) else {}
             elif "resume_data" not in p or p["resume_data"] is None:
                 p["resume_data"] = {}
             profiles.append(p)
@@ -130,20 +132,20 @@ async def process_pipeline(manual_query: str = None, target_user_id: str = None)
 
         # ── Check Credits & BYOK keys ─────────────────────────────────────────
         api_keys = _resolve_api_keys(profile)
-        credits = profile.get("credits", 0) or 0
+        user_credits = profile.get("credits", 0) or 0
         has_byok = bool(api_keys)
 
-        if credits <= 0 and not has_byok:
+        if user_credits <= 0 and not has_byok:
             logger.warning(f"User {user_id} has no credits and no BYOK — skipping LLM pipeline.")
 
             # BUG-13 fix: Alert the user via Telegram that they are out of credits
             try:
-                from interface.telegram_delivery import bot
+                from interface.telegram_delivery import send_direct_message
 
                 chat_id = profile.get("telegram_chat_id")
-                if bot and chat_id:
+                if chat_id:
                     msg = "⚠️ *Pipeline Paused: Out of Credits*\n\nYou have 0 credits remaining and no personal API keys configured. Please upgrade your plan or add your API keys in the dashboard to resume job discovery."
-                    await bot.send_message(chat_id=chat_id, text=msg, parse_mode="Markdown")
+                    await send_direct_message(chat_id=chat_id, text=msg, parse_mode="Markdown")
             except Exception as e:
                 logger.error(f"Failed to send credit alert to {user_id}: {e}")
 
@@ -159,7 +161,7 @@ async def process_pipeline(manual_query: str = None, target_user_id: str = None)
                 user_summary["status"] = "skipped_credit_deduction_failed"
                 summary["details"][user_id] = user_summary
                 continue
-            logger.info(f"User {user_id}: deducted 1 credit. Remaining: {credits - 1}")
+            logger.info(f"User {user_id}: deducted 1 credit. Remaining: {user_credits - 1}")
 
         # ── STAGE 1: Local Discovery Agent ──────────────────────────────────────────
         try:

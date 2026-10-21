@@ -24,8 +24,8 @@ async def run_waterfall(
     system_prompt: str,
     user_prompt: str,
     master_resume: dict,
-    api_keys: dict = None,
-    preferences: dict = None,
+    api_keys: dict | None = None,
+    preferences: dict | None = None,
     validator_fn=validate_output,
 ) -> dict | None:
     """

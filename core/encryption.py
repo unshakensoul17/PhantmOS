@@ -18,14 +18,14 @@ _fernet_key = base64.urlsafe_b64encode(_hasher)
 _fernet = Fernet(_fernet_key)
 
 
-def encrypt_key(value: str) -> str:
+def encrypt_key(value: str | None) -> str:
     """Encrypt a plaintext API key for DB storage."""
     if not value:
         return ""
     return _fernet.encrypt(value.encode()).decode()
 
 
-def decrypt_key(value: str) -> str:
+def decrypt_key(value: str | None) -> str:
     """Decrypt an API key from DB storage."""
     if not value:
         return ""

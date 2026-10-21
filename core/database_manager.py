@@ -266,7 +266,7 @@ def _flatten_lead(row: dict) -> dict:
     if raw_score is not None:
         try:
             score_f = float(raw_score)
-            score_val = int(round(score_f * 100)) if 0.0 < score_f <= 1.0 else int(round(score_f))
+            score_val = round(score_f * 100) if 0.0 < score_f <= 1.0 else round(score_f)
         except (ValueError, TypeError):
             score_val = 0
 
@@ -603,7 +603,9 @@ def store_company_context(company_name: str, context: str) -> None:
 # ─────────────────────────────────────────────────────────
 
 
-def queue_delivery(job_id: str, user_id: str) -> None:
+def queue_delivery(job_id: str, user_id: str | None = None) -> None:
+    if not job_id or not user_id:
+        return
     try:
         client = get_client()
         existing = (
@@ -625,7 +627,7 @@ def queue_delivery(job_id: str, user_id: str) -> None:
         logger.error(f"Error queuing delivery for job {job_id}: {e}")
 
 
-def get_pending_deliveries(max_attempts: int = 3, user_id: str = None) -> list[dict]:
+def get_pending_deliveries(max_attempts: int = 3, user_id: str | None = None) -> list[dict]:
     try:
         query = (
             get_client()
@@ -684,7 +686,7 @@ def update_delivery_status(delivery_id: str, status: str, increment_attempts: bo
 # ─────────────────────────────────────────────────────────
 
 
-def store_feedback(job_id: str, action: str, skip_reason: str = "", user_id: str = None) -> None:
+def store_feedback(job_id: str, action: str, skip_reason: str = "", user_id: str | None = None) -> None:
     try:
         payload = {
             "job_id": job_id,
@@ -785,15 +787,15 @@ def store_embeddings_bulk(items: list[dict]) -> None:
 # ─────────────────────────────────────────────────────────
 
 
-def log_stage_success(job_id: str, stage: str, message: str = "", user_id: str = None) -> None:
+def log_stage_success(job_id: str | None = None, stage: str = "", message: str = "", user_id: str | None = None) -> None:
     _log_stage(job_id, stage, "success", message, user_id=user_id)
 
 
-def log_stage_failure(job_id: str, stage: str, message: str = "", user_id: str = None) -> None:
+def log_stage_failure(job_id: str | None = None, stage: str = "", message: str = "", user_id: str | None = None) -> None:
     _log_stage(job_id, stage, "failure", message, user_id=user_id)
 
 
-def _log_stage(job_id: str, stage: str, status: str, message: str, user_id: str = None) -> None:
+def _log_stage(job_id: str | None, stage: str, status: str, message: str, user_id: str | None = None) -> None:
     try:
         payload = {
             "job_id": job_id or None,

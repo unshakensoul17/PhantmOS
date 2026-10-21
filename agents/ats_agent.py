@@ -37,14 +37,14 @@ logger = get_logger(__name__)
 class ATSAgent:
     """Owns ATS scoring, quality checks, and interview prep (read-only analysis)."""
 
-    async def evaluate(self, resume_data: dict, jd_text: str, api_keys: dict = None) -> dict:
+    async def evaluate(self, resume_data: dict, jd_text: str, api_keys: dict | None = None) -> dict:
         """
         Evaluate a single resume against a JD.
         Returns {ats_score, ats_feedback, interview_prep}.
         """
         return await evaluate_lead(resume_data, jd_text, api_keys)
 
-    async def run(self, profile: dict, api_keys: dict = None) -> dict:
+    async def run(self, profile: dict, api_keys: dict | None = None) -> dict:
         """
         Batch-evaluate all Tailored leads that don't yet have an ATS score.
         Writes results into the lead's notes JSON.

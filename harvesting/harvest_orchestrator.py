@@ -26,7 +26,7 @@ from harvesting.text_cleaner import clean_job_description
 logger = get_logger(__name__)
 
 
-async def run_harvest(include_hn: bool = False, search_query: str = None) -> list[dict]:
+async def run_harvest(include_hn: bool = False, search_query: str | None = None) -> list[dict]:
     """
     Execute the full Stage 1 pipeline:
       1. Fetch all sources + direct public ATS feeds in parallel

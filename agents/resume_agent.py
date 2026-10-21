@@ -35,7 +35,7 @@ logger = get_logger(__name__)
 class ResumeAgent:
     """Owns all LLM-based resume tailoring & cold email synthesis (Stage 3)."""
 
-    async def run(self, profile: dict, api_keys: dict = None) -> dict:
+    async def run(self, profile: dict, api_keys: dict | None = None) -> dict:
         """
         Tailor HOT/WARM/COLD leads for the user.
         Returns summary: {hot_tailored, warm_tailored, cold_queued, failed}.

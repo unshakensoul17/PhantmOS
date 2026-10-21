@@ -18,7 +18,7 @@ BASE_URL = "https://remoteok.com/api"
 DEFAULT_TAGS = ["machine-learning", "python", "ai", "data-science", "nlp", "deep-learning"]
 
 
-async def fetch_remoteok(search_query: str = None) -> list[dict]:
+async def fetch_remoteok(search_query: str | None = None) -> list[dict]:
     """
     Fetch jobs from RemoteOK for target tags or search query.
     Returns a normalised list of job dicts.
@@ -70,7 +70,7 @@ def _salary_str(job: dict) -> str:
     lo = job.get("salary_min")
     hi = job.get("salary_max")
     if lo and hi:
-        return f"${lo:,} – ${hi:,}"
+        return f"${lo:,} - ${hi:,}"
     if lo:
         return f"${lo:,}+"
     return ""

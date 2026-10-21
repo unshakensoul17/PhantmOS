@@ -24,7 +24,7 @@ DEFAULT_SEARCH_TERMS = [
 ]
 
 
-async def fetch_arbeitnow(search_query: str = None) -> list[dict]:
+async def fetch_arbeitnow(search_query: str | None = None) -> list[dict]:
     """
     Fetch remote jobs from Arbeitnow for search terms or specific search query.
     Returns normalised job dicts.

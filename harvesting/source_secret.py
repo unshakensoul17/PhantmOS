@@ -29,7 +29,7 @@ URL_PATTERNS = [
 ]
 
 
-async def fetch_secret(limit_per_query: int = 50, search_query: str = None) -> list[dict]:
+async def fetch_secret(limit_per_query: int = 50, search_query: str | None = None) -> list[dict]:
     """
     Fetch jobs from the Secret API. Search query acts as an optional filter.
     Returns a normalised list of job dicts.

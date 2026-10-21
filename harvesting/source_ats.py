@@ -42,7 +42,11 @@ async def fetch_greenhouse_board(board_token: str, client: httpx.AsyncClient) ->
             salary_str = normalize_salary("", fallback_desc=raw_content)
 
             # Extract salary or department if present
-            departments = [d.get("name") for d in j.get("departments", []) if isinstance(d, dict)]
+            departments = [
+                str(d.get("name"))
+                for d in j.get("departments", [])
+                if isinstance(d, dict) and d.get("name")
+            ]
             dept_str = ", ".join(departments) if departments else ""
 
             results.append(
@@ -192,7 +196,7 @@ FEATURED_ASHBY_COMPANIES = [
 ]
 
 
-async def fetch_all_ats_jobs(search_query: str = None) -> list[dict]:
+async def fetch_all_ats_jobs(search_query: str | None = None) -> list[dict]:
     """
     Parallel harvester across curated public Greenhouse, Lever, and Ashby boards.
     Filters relevant software, ML, and AI engineering roles.

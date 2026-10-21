@@ -27,10 +27,12 @@ async def run_global_harvest():
         raw_profiles = resp.data or []
         profiles = []
         for p in raw_profiles:
+            if not isinstance(p, dict):
+                continue
             resumes = p.pop("user_resumes", None)
             if resumes:
                 resume_obj = resumes[0] if isinstance(resumes, list) else resumes
-                p["resume_data"] = resume_obj.get("resume_data", {})
+                p["resume_data"] = resume_obj.get("resume_data", {}) if isinstance(resume_obj, dict) else {}
             elif "resume_data" not in p or p["resume_data"] is None:
                 p["resume_data"] = {}
             profiles.append(p)
@@ -45,12 +47,14 @@ async def run_global_harvest():
         scoring = prefs.get("scoring") or {}
         if scoring.get("target_roles"):
             for role in scoring.get("target_roles", []):
-                unique_queries.add(role.strip())
+                if isinstance(role, str) and role.strip():
+                    unique_queries.add(role.strip())
 
         # Fallback to resume_data
         resume = profile.get("resume_data") or {}
-        if resume.get("target_role"):
-            unique_queries.add(resume.get("target_role").strip())
+        target_role = resume.get("target_role")
+        if isinstance(target_role, str) and target_role.strip():
+            unique_queries.add(target_role.strip())
 
     if not unique_queries:
         logger.info("No target roles found in any user profiles. Defaulting to general harvest.")

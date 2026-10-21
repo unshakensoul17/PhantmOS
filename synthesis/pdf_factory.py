@@ -71,12 +71,12 @@ def _normalize_date(raw) -> str | None:
         return val
 
     # Range with dash like "2021-22", "2023-24" — take just the start year
-    m = _re.match(r"^((19|20)\d{2})\s*[-–]\s*\d{2}$", val)
+    m = _re.match(r"^((19|20)\d{2})\s*[-|\u2013]\s*\d{2}$", val)
     if m:
         return m.group(1)
 
     # Long range "2021-2022" or "2021 - 2022" — take the start year
-    m = _re.match(r"^((19|20)\d{2})\s*[-–]\s*(19|20)\d{2}$", val)
+    m = _re.match(r"^((19|20)\d{2})\s*[-|\u2013]\s*(19|20)\d{2}$", val)
     if m:
         return m.group(1)
 
@@ -87,9 +87,7 @@ def _normalize_date(raw) -> str | None:
     # Extract ANY 4-digit year from free-text like "Expected 2027", "Since 2020", "Batch 2025-26"
     matches = _YEAR_RE.findall(val)
     if matches:
-        return matches[0][
-            0
-        ]  # findall returns tuples due to capturing group; [0] = first match, [0] = full year
+        return matches[0][0]  # findall returns tuples due to capturing group; [0] = first match, [0] = full year
 
     # No year found at all — drop the field
     return None
@@ -129,8 +127,7 @@ def _sanitize_cv_data(cv: dict) -> dict:
 
     # 0.5. Remove unknown root fields that might have leaked into `cv`
     for unknown_key in ["target_role", "job_id", "status", "score"]:
-        if unknown_key in cv:
-            del cv[unknown_key]
+        cv.pop(unknown_key, None)
 
     # 1. Clean up social networks casing and username formats (RenderCV is strict)
     allowed_networks = {"LinkedIn", "GitHub", "GitLab", "Twitter", "Mastodon", "Website", "YouTube"}
@@ -385,7 +382,7 @@ def _has_missing_dates(cv: dict) -> bool:
 async def generate_and_upload_pdf(
     job_id: str,
     resume_data: dict,
-    user_id: str = None,
+    user_id: str | None = None,
     company_name: str = "",
     company_context: str = "",
 ) -> str | None:
@@ -400,8 +397,11 @@ async def generate_and_upload_pdf(
         try:
             client = get_client()
             res = client.table("user_profiles").select("preferences").eq("id", user_id).execute()
-            if res.data and res.data[0].get("preferences"):
-                theme = res.data[0]["preferences"].get("resume_template", "sb2nov")
+            data = res.data or []
+            if data and isinstance(data[0], dict):
+                user_prefs = data[0].get("preferences")
+                if isinstance(user_prefs, dict):
+                    theme = str(user_prefs.get("resume_template") or "sb2nov")
         except Exception as e:
             logger.warning(f"Could not fetch user preferences: {e}")
 

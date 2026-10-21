@@ -34,9 +34,9 @@ DEFAULT_COLD_EMAIL = (
 async def _tailor_hot(
     lead: dict,
     master_resume: dict,
-    api_keys: dict = None,
-    user_id: str = None,
-    preferences: dict = None,
+    api_keys: dict | None = None,
+    user_id: str | None = None,
+    preferences: dict | None = None,
 ) -> bool:
     """Full tailoring pipeline for a single HOT lead (on-demand)."""
     job_id = lead.get("job_id") or ""
@@ -90,9 +90,9 @@ async def _tailor_hot(
 async def _tailor_warm(
     lead: dict,
     master_resume: dict,
-    api_keys: dict = None,
-    user_id: str = None,
-    preferences: dict = None,
+    api_keys: dict | None = None,
+    user_id: str | None = None,
+    preferences: dict | None = None,
 ) -> bool:
     """Light tailoring (summary + generic email) for a single WARM lead (on-demand)."""
     job_id = lead.get("job_id") or ""
@@ -168,5 +168,6 @@ def _mark_tailored(
         }
     )
     update_job_lead(job_id, {"status": "Tailored", "notes": notes}, user_id=user_id)
-    queue_delivery(job_id, user_id)
+    if user_id:
+        queue_delivery(job_id, user_id)
     logger.info(f"Queued delivery for job {job_id}.")

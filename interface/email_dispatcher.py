@@ -16,9 +16,9 @@ async def send_cold_email(
     target_email: str,
     subject: str,
     body_text: str,
-    attachment_path: str = None,
-    gmail_user: str = None,
-    gmail_password: str = None,
+    attachment_path: str | None = None,
+    gmail_user: str | None = None,
+    gmail_password: str | None = None,
 ) -> bool:
     """
     Sends an email using the provided Gmail account via SMTP.

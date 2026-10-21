@@ -36,8 +36,10 @@ async def send_daily_digest() -> bool:
 
         sent_count = 0
         for p in profiles:
-            user_id = p["id"]
-            chat_id = p["telegram_chat_id"]
+            if not isinstance(p, dict):
+                continue
+            user_id = str(p.get("id") or "")
+            chat_id = p.get("telegram_chat_id")
             if not chat_id:
                 continue
 
@@ -47,7 +49,7 @@ async def send_daily_digest() -> bool:
                 health = _get_system_health()
                 message = _format_digest(stats, top_leads, health)
 
-                success = await _send_telegram(message, chat_id)
+                success = await _send_telegram(message, str(chat_id))
                 if success:
                     sent_count += 1
             except Exception as pe:
@@ -135,8 +137,10 @@ def _get_todays_top_leads(user_id: str | None = None) -> list[dict]:
 
         leads = []
         for row in resp.data or []:
-            global_job = row.pop("global_jobs", {})
-            leads.append({**global_job, **row})
+            if isinstance(row, dict):
+                raw_job = row.pop("global_jobs", {})
+                global_job = raw_job if isinstance(raw_job, dict) else {}
+                leads.append({**global_job, **row})
         return leads
     except Exception as e:
         logger.warning(f"Daily Digest: could not fetch top leads: {e}")
@@ -179,7 +183,7 @@ async def _send_telegram(message: str, chat_id: str) -> bool:
 
         def _send():
             return requests.post(
-                url, json=payload, timeout=20.0, proxies={"http": None, "https": None}
+                url, json=payload, timeout=20.0, proxies={"http": "", "https": ""}
             )
 
         resp = await asyncio.to_thread(_send)

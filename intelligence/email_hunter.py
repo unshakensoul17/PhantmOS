@@ -9,7 +9,7 @@ load_dotenv()
 APOLLO_API_KEY = os.getenv("APOLLO_API_KEY")
 
 
-def _search_apollo(company_name: str) -> str:
+def _search_apollo(company_name: str) -> str | None:
     if not APOLLO_API_KEY:
         return None
     search_url = "https://api.apollo.io/api/v1/mixed_people/api_search"
@@ -58,7 +58,7 @@ def _search_apollo(company_name: str) -> str:
     return None
 
 
-def _search_osint(company_name: str) -> str:
+def _search_osint(company_name: str) -> str | None:
     """Fallback: Scrape Google & DuckDuckGo for public emails associated with the company"""
     import re
 
@@ -127,7 +127,7 @@ def _search_osint(company_name: str) -> str:
     return None
 
 
-def _get_domain(company_name: str) -> str:
+def _get_domain(company_name: str) -> str | None:
     """Helper to extract domain via Clearbit free API"""
     try:
         # Better sanitization for company names
@@ -147,12 +147,14 @@ def _get_domain(company_name: str) -> str:
     return clean_name + ".com"
 
 
-def _search_smtp_alias(company_name: str) -> str:
+def _search_smtp_alias(company_name: str) -> str | None:
     """
     Zero-Cost SMTP Handshake Fallback Engine.
     Guesses aliases and verifies them silently via MX records.
     """
     domain = _get_domain(company_name)
+    if not domain:
+        return None
     aliases = [
         f"hr@{domain}",
         f"careers@{domain}",
@@ -192,7 +194,7 @@ def _search_smtp_alias(company_name: str) -> str:
                 return None
 
             for alias in aliases:
-                code, message = server.rcpt(alias)
+                code, _ = server.rcpt(alias)
                 # 250 means OK (Mailbox exists)
                 if code == 250:
                     server.quit()
@@ -210,7 +212,7 @@ def _search_smtp_alias(company_name: str) -> str:
     return None
 
 
-def _search_snov(company_name: str) -> str:
+def _search_snov(company_name: str) -> str | None:
     """
     Snov.io API requires OAuth2 and a domain.
     We use Clearbit's free autocomplete API to reliably look up the domain first.
@@ -262,7 +264,7 @@ def _search_snov(company_name: str) -> str:
     return None
 
 
-def find_company_email(company_name: str) -> str:
+def find_company_email(company_name: str) -> str | None:
     """
     WATERFALL APPROACH:
     1. Try Apollo.io (High quality, 600/mo)

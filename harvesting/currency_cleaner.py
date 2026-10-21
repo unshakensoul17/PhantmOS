@@ -10,7 +10,7 @@ High-End Multi-Currency & Compensation Parser:
 import re
 
 
-def parse_single_number(token: str) -> float | None:
+def parse_single_number(token: str | None) -> float | None:
     """Parse a string like '175,000', '175k', '$150', '25.5' into a numeric value."""
     if not token:
         return None
@@ -89,7 +89,7 @@ def normalize_salary(salary_input: str | dict | None, fallback_desc: str = "") -
 
     # Check for LPA / Indian Lakhs format (e.g. 25 - 40 LPA or ₹25L - ₹40L)
     lpa_match = re.search(
-        r"(?i)(?:₹|INR|Rs\.?|\b)\s*(\d{1,3}(?:\.\d+)?)\s*(?:-|–|to)\s*(\d{1,3}(?:\.\d+)?)\s*(?:LPA|Lakhs|L\b)",
+        r"(?i)(?:₹|INR|Rs\.?|\b)\s*(\d{1,3}(?:\.\d+)?)\s*(?:-|\u2013|to)\s*(\d{1,3}(?:\.\d+)?)\s*(?:LPA|Lakhs|L\b)",
         raw,
     )
     if lpa_match:
@@ -147,8 +147,8 @@ def extract_salary_from_text(text: str) -> str:
         return ""
 
     patterns = [
-        r"(?i)(?:salary|compensation|base\s+pay|pay\s+range)[^\.\n]{0,80}?([\$€£₹]|USD|EUR|GBP|INR)?\s*([0-9,]+(?:\.\d+)?\s*[kK]?)\s*(?:-|–|to)\s*([\$€£₹]|USD|EUR|GBP|INR)?\s*([0-9,]+(?:\.\d+)?\s*[kK]?)",
-        r"(?i)([\$€£₹])\s*([0-9,]+(?:\.\d+)?\s*[kK]?)\s*(?:-|–|to)\s*([\$€£₹])?\s*([0-9,]+(?:\.\d+)?\s*[kK]?)\s*(?:usd|eur|gbp|inr)?\s*(?:per\s+year|/yr|annually|a\s+year)",
+        r"(?i)(?:salary|compensation|base\s+pay|pay\s+range)[^\.\n]{0,80}?([\$€£₹]|USD|EUR|GBP|INR)?\s*([0-9,]+(?:\.\d+)?\s*[kK]?)\s*(?:-|\u2013|to)\s*([\$€£₹]|USD|EUR|GBP|INR)?\s*([0-9,]+(?:\.\d+)?\s*[kK]?)",
+        r"(?i)([\$€£₹])\s*([0-9,]+(?:\.\d+)?\s*[kK]?)\s*(?:-|\u2013|to)\s*([\$€£₹])?\s*([0-9,]+(?:\.\d+)?\s*[kK]?)\s*(?:usd|eur|gbp|inr)?\s*(?:per\s+year|/yr|annually|a\s+year)",
     ]
 
     for pat in patterns:

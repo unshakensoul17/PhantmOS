@@ -6,7 +6,7 @@ Multi-signal job scoring engine:
   Signal 2 — Keyword overlap      (30%) fast word-set intersection
   Signal 3 — Title match          (20%) target title list check
 
-Final score is 0–100. Band assigned as HOT / WARM / COLD / REJECT.
+Final score is 0-100. Band assigned as HOT / WARM / COLD / REJECT.
 """
 
 import json
@@ -238,7 +238,7 @@ async def score_job(
         logger.info(f"Scored [{band:6s} {final_score:5.1f}%] {title[:50]!r}")
 
         return {
-            "match_score": final_score / 100.0,  # keep legacy column 0–1
+            "match_score": final_score / 100.0,  # keep legacy column 0-1
             "score_band": band,
             "score_breakdown": json.dumps(breakdown),
         }
@@ -254,7 +254,7 @@ async def score_job(
 # ─────────────────────────────────────────────────────────
 
 
-async def run_scoring(profile: dict, manual_query: str = None) -> dict:
+async def run_scoring(profile: dict, manual_query: str | None = None) -> dict:
     """
     Score all leads with status='Found'.
     Stage 2A: Hybrid Recall (FastBM25 + BGE-small calibrated embedding)
@@ -266,7 +266,8 @@ async def run_scoring(profile: dict, manual_query: str = None) -> dict:
     resume_skills = _extract_skills(resume_data)
     logger.info(f"Scoring with {len(resume_skills)} resume skill keywords.")
 
-    user_id = profile.get("id")
+    raw_user_id = profile.get("id")
+    user_id = str(raw_user_id) if raw_user_id else None
 
     # Generate high-signal semantic text for dense embedding (cleans json.dumps syntax noise)
     semantic_profile_text = build_candidate_semantic_text(profile, resume_skills)

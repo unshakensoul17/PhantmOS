@@ -36,7 +36,7 @@ logger = get_logger(__name__)
 class AnalyticsAgent:
     """Owns pipeline statistics, daily digests, and metrics reporting."""
 
-    def get_stats(self, user_id: str = None) -> dict:
+    def get_stats(self, user_id: str | None = None) -> dict:
         """Return aggregated pipeline stats for the dashboard."""
         return get_all_stats(user_id)
 
