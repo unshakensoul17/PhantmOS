@@ -142,23 +142,44 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "PhantmOS Engine — Autonomous AI Job Search Command Center" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=5" },
+      { title: "PhantmOS — Autonomous AI Job Search & Career Operating System" },
       {
         name: "description",
         content:
-          "Enterprise-grade autonomous AI job search ecosystem. Multi-agent discovery, ranking, resume tailoring, and application automation.",
+          "PhantmOS (phantmos) is the autonomous AI operating system for job search, résumé optimization, cold outreach, and career intelligence. Automate your job hunt end-to-end.",
       },
+      { name: "keywords", content: "PhantmOS, phantmos, Phantm OS, phantm os, AI job search, autonomous career OS, resume studio, AI resume builder, job tracker, automated job application, ATS resume checker, AI career assistant" },
       { name: "author", content: "PhantmOS" },
-      { property: "og:title", content: "PhantmOS Engine" },
+      { name: "google-site-verification", content: "SqNpJbvJt7FpmZApqtkJ5JVkiqmMyhH0OMRzovetuRY" },
+      { name: "robots", content: "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" },
+      { name: "googlebot", content: "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" },
+      { name: "bingbot", content: "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" },
+      { name: "theme-color", content: "#000000" },
+      { property: "og:site_name", content: "PhantmOS" },
+      { property: "og:title", content: "PhantmOS — Autonomous AI Job Search & Career Operating System" },
       {
         property: "og:description",
-        content: "Autonomous AI Job Search Command Center — multi-agent recruitment automation.",
+        content: "PhantmOS (phantmos) finds jobs, improves your resume, automates applications, and runs your job search 24/7 on autopilot.",
       },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://unshakensoul17-phantmos.hf.space/" },
+      { property: "og:image", content: "https://unshakensoul17-phantmos.hf.space/logo.png" },
+      { property: "og:locale", content: "en_US" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:site", content: "@phantmos" },
+      { name: "twitter:creator", content: "@phantmos" },
+      { name: "twitter:title", content: "PhantmOS — Autonomous AI Job Search & Career Operating System" },
+      {
+        name: "twitter:description",
+        content: "PhantmOS (phantmos) finds jobs, improves your resume, automates applications, and runs your job search 24/7 on autopilot.",
+      },
+      { name: "twitter:image", content: "https://unshakensoul17-phantmos.hf.space/logo.png" },
     ],
     links: [
+      { rel: "canonical", href: "https://unshakensoul17-phantmos.hf.space/" },
+      { rel: "manifest", href: "/manifest.json" },
+      { rel: "apple-touch-icon", href: "/logo.png" },
       { rel: "stylesheet", href: appCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
@@ -176,10 +197,48 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 function RootShell({ children }: { children: ReactNode }) {
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "https://unshakensoul17-phantmos.hf.space/#website",
+        "name": "PhantmOS",
+        "alternateName": ["phantmos", "Phantm OS", "phantm os", "PhantmOS AI"],
+        "url": "https://unshakensoul17-phantmos.hf.space/",
+        "description": "PhantmOS is an autonomous AI career operating system that finds jobs, optimizes resumes, and automates applications."
+      },
+      {
+        "@type": "WebApplication",
+        "@id": "https://unshakensoul17-phantmos.hf.space/#webapp",
+        "name": "PhantmOS",
+        "alternateName": ["phantmos", "Phantm OS"],
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "All",
+        "url": "https://unshakensoul17-phantmos.hf.space/",
+        "description": "Autonomous AI job search and career intelligence platform."
+      },
+      {
+        "@type": "Organization",
+        "@id": "https://unshakensoul17-phantmos.hf.space/#organization",
+        "name": "PhantmOS",
+        "alternateName": "phantmos",
+        "url": "https://unshakensoul17-phantmos.hf.space/",
+        "logo": "https://unshakensoul17-phantmos.hf.space/logo.png",
+        "sameAs": ["https://github.com/unshakensoul17/PhantmOS"]
+      }
+    ]
+  };
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <meta name="google-site-verification" content="SqNpJbvJt7FpmZApqtkJ5JVkiqmMyhH0OMRzovetuRY" />
         <HeadContent />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
         <script src="https://telegram.org/js/telegram-web-app.js" async></script>
       </head>
       <body suppressHydrationWarning>
