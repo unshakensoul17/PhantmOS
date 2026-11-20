@@ -198,6 +198,10 @@ function Nav() {
   }, []);
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_JSON_LD) }}
+      />
       <motion.nav
         className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-6 md:px-8 py-5 transition-all duration-500"
         style={scrolled ? { background: "rgba(0,0,0,0.85)", backdropFilter: "blur(24px)", borderBottom: "1px solid rgba(255,255,255,0.06)" } : {}}
@@ -217,6 +221,7 @@ function Nav() {
             { label: "Workflow", href: "#workflow" },
             { label: "Intelligence", href: "#intelligence" },
             { label: "Outcomes", href: "#outcomes" },
+            { label: "FAQ", href: "#faq" },
           ].map(l => (
             <a 
               key={l.label} 
@@ -255,6 +260,7 @@ function Nav() {
             { label: "Workflow", href: "#workflow" },
             { label: "Intelligence", href: "#intelligence" },
             { label: "Outcomes", href: "#outcomes" },
+            { label: "FAQ", href: "#faq" },
           ].map(l => (
             <a 
               key={l.label} 
@@ -468,6 +474,38 @@ const FEATURES = [
   { title: "Telegram + Gmail Delivery", desc: "HOT/WARM leads trigger Telegram job cards above your custom score threshold. The Phantm Writer endpoint drafts a personalized follow-up email, hunts the recruiter's address via OSINT, and dispatches via Gmail SMTP with the PDF attached." },
 ];
 
+const FAQS = [
+  {
+    q: "What is PhantmOS?",
+    a: "PhantmOS (phantmos) is an autonomous AI career operating system that discovers matching job listings, analyzes ATS compatibility, tailors resumes, and automates career outreach."
+  },
+  {
+    q: "How does PhantmOS help me land jobs faster?",
+    a: "PhantmOS continuously monitors tech company job boards, calculates a 3-signal match score, adapts your resume bullet points for maximum impact, and manages application tracking without manual effort."
+  },
+  {
+    q: "Is PhantmOS ATS friendly?",
+    a: "Yes. PhantmOS includes ATS evaluation agents that test resumes against job descriptions, eliminating keyword gaps and generating clean, professional PDFs."
+  },
+  {
+    q: "How do I start using PhantmOS?",
+    a: "Getting started is simple: sign up, set your target job titles and skills, and let PhantmOS autonomously scan and rank relevant opportunities."
+  }
+];
+
+const FAQ_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: FAQS.map((faq) => ({
+    "@type": "Question",
+    name: faq.q,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: faq.a,
+    },
+  })),
+};
+
 /* ─── App ─────────────────────────────────────────────────────────────────── */
 function App() {
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
@@ -525,21 +563,21 @@ function App() {
           <div>
             <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2, duration: 0.7 }} className="mb-7">
-              <span className="glass inline-block text-white/60 text-xs px-4 py-1.5 rounded-full font-medium">
-                Simple Job Search
+              <span className="glass inline-block text-white/75 text-xs px-4 py-1.5 rounded-full font-medium border border-white/10">
+                PhantmOS • Autonomous Career Intelligence
               </span>
             </motion.div>
 
             <motion.h1 initial={{ opacity: 0, y: 36 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.32, duration: 1, ease: [0.16, 1, 0.3, 1] }}
               className="text-white text-3xl sm:text-5xl lg:text-6xl font-bold leading-tight tracking-tight mb-6">
-              Find a Job Without the Headache
+              PhantmOS — Find a Job Without the Headache
             </motion.h1>
 
             <motion.p initial={{ opacity: 0, y: 22 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.52, duration: 0.85 }}
               className="text-zinc-300 text-base sm:text-lg leading-relaxed max-w-[540px] mb-8">
-              PhantmOS finds jobs, improves your resume, helps you apply, and keeps everything in one place.
+              PhantmOS (phantmos) finds jobs, optimizes your resume for ATS, helps you apply, and keeps your career pipeline moving 24/7.
             </motion.p>
 
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
@@ -871,6 +909,30 @@ function App() {
         </div>
       </section>
 
+      {/* ── FAQ SECTION ──────────────────────────────────────────────────────── */}
+      <section id="faq" className="relative py-28 px-6 max-w-4xl mx-auto">
+        <RevealBlock>
+          <div className="text-white/30 text-[10px] tracking-[0.32em] uppercase mb-4 text-center"
+            style={{ fontFamily: "JetBrains Mono, monospace" }}>Knowledge Base</div>
+          <h2 className="heading-gradient text-[clamp(2.2rem,5vw,3.5rem)] font-black tracking-tight text-center mb-12"
+            style={{ fontFamily: "Unbounded, sans-serif" }}>
+            Frequently Asked Questions
+          </h2>
+          <div className="space-y-4">
+            {FAQS.map((faq, i) => (
+              <div key={i} className="glass rounded-2xl p-7 transition duration-300">
+                <h3 className="text-white text-base sm:text-lg font-semibold mb-2">
+                  {faq.q}
+                </h3>
+                <p className="text-white/60 text-sm leading-relaxed">
+                  {faq.a}
+                </p>
+              </div>
+            ))}
+          </div>
+        </RevealBlock>
+      </section>
+
       {/* ── CTA ──────────────────────────────────────────────────────────────── */}
       <section className="relative py-44 px-6 overflow-hidden">
         <ParticleCanvas count={65} />
@@ -952,5 +1014,14 @@ function RevealBlock({ children, delay = 0, className = "" }: { children: ReactN
 }
 
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "PhantmOS — Autonomous AI Job Search & Career Operating System" },
+      { name: "description", content: "PhantmOS (phantmos) is the autonomous AI operating system for job search, résumé optimization, cold outreach, and career intelligence. Automate your job hunt end-to-end with PhantmOS." },
+      { property: "og:title", content: "PhantmOS — Autonomous AI Job Search & Career Operating System" },
+      { property: "og:description", content: "PhantmOS (phantmos) finds jobs, improves your resume, automates applications, and runs your job search 24/7 on autopilot." },
+      { property: "og:url", content: "https://unshakensoul17-phantmos.hf.space/" },
+    ],
+  }),
   component: App,
 });

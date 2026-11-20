@@ -8,6 +8,12 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/company-research")({
+  head: () => ({
+    meta: [
+      { title: "Company Research & Deep Intelligence — PhantmOS" },
+      { name: "description", content: "Real-time deep company research, interview prep playbooks, and insights powered by PhantmOS." },
+    ],
+  }),
   component: CompanyResearchPage,
 });
 

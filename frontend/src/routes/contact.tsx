@@ -3,6 +3,12 @@ import { Layout } from "../components/Layout";
 import { Github, Linkedin, Mail } from "lucide-react";
 
 export const Route = createFileRoute("/contact")({
+  head: () => ({
+    meta: [
+      { title: "Contact Us — PhantmOS" },
+      { name: "description", content: "Get in touch with the PhantmOS engineering and leadership team." },
+    ],
+  }),
   component: ContactPage,
 });
 

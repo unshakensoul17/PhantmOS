@@ -10,6 +10,12 @@ import {
 import { useState } from "react";
 
 export const Route = createFileRoute("/job-discovery")({
+  head: () => ({
+    meta: [
+      { title: "AI Job Discovery — PhantmOS" },
+      { name: "description", content: "Discover and rank high-match tech and remote jobs with PhantmOS autonomous intelligence." },
+    ],
+  }),
   component: JobDiscoveryPage,
 });
 

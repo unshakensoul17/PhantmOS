@@ -2,6 +2,12 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Shield, Lock, Eye, FileText } from "lucide-react";
 
 export const Route = createFileRoute("/privacy")({
+  head: () => ({
+    meta: [
+      { title: "Privacy Policy — PhantmOS" },
+      { name: "description", content: "Privacy Policy and security practices for PhantmOS users." },
+    ],
+  }),
   component: PrivacyPolicyPage,
 });
 
