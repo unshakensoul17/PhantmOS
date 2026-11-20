@@ -166,6 +166,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "googlebot", content: "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" },
       { name: "bingbot", content: "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" },
       { name: "theme-color", content: "#000000" },
+      { name: "google-site-verification", content: "SqNpJbvJt7FpmZApqtkJ5JVkiqmMyhH0OMRzovetuRY" },
       { property: "og:site_name", content: "PhantmOS" },
       { property: "og:title", content: "PhantmOS — Autonomous AI Job Search & Career Operating System" },
       { property: "og:description", content: "PhantmOS (phantmos) finds jobs, improves your resume, automates applications, and runs your job search 24/7 on autopilot." },
@@ -234,6 +235,7 @@ function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <meta name="google-site-verification" content="SqNpJbvJt7FpmZApqtkJ5JVkiqmMyhH0OMRzovetuRY" />
         <HeadContent />
         <script
           type="application/ld+json"
