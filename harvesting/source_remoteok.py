@@ -6,7 +6,9 @@ Endpoint: https://remoteok.com/api
 Free tier: unlimited.
 Best for: Dev / AI / ML remote roles.
 """
+
 import httpx
+
 from core.logger import get_logger
 
 logger = get_logger(__name__)
@@ -16,13 +18,17 @@ BASE_URL = "https://remoteok.com/api"
 DEFAULT_TAGS = ["machine-learning", "python", "ai", "data-science", "nlp", "deep-learning"]
 
 
-async def fetch_remoteok(search_query: str = None) -> list[dict]:
+async def fetch_remoteok(search_query: str | None = None) -> list[dict]:
     """
     Fetch jobs from RemoteOK for target tags or search query.
     Returns a normalised list of job dicts.
     """
     results: list[dict] = []
-    tags = [search_query.strip().lower().replace(" ", "-")] if search_query and search_query.strip() else DEFAULT_TAGS
+    tags = (
+        [search_query.strip().lower().replace(" ", "-")]
+        if search_query and search_query.strip()
+        else DEFAULT_TAGS
+    )
 
     async with httpx.AsyncClient(
         timeout=20.0,
@@ -49,14 +55,14 @@ def _normalise(job: dict) -> dict:
     """Map RemoteOK fields → PhantmOS standard schema."""
     tags = job.get("tags") or []
     return {
-        "title":           job.get("position", ""),
-        "company":         job.get("company", ""),
-        "job_url":         job.get("url", ""),
+        "title": job.get("position", ""),
+        "company": job.get("company", ""),
+        "job_url": job.get("url", ""),
         "raw_description": job.get("description", ""),
-        "source":          "remoteok",
-        "location":        job.get("location") or "Remote",
-        "salary":          _salary_str(job),
-        "tags":            ", ".join(tags) if isinstance(tags, list) else str(tags),
+        "source": "remoteok",
+        "location": job.get("location") or "Remote",
+        "salary": _salary_str(job),
+        "tags": ", ".join(tags) if isinstance(tags, list) else str(tags),
     }
 
 
@@ -64,7 +70,7 @@ def _salary_str(job: dict) -> str:
     lo = job.get("salary_min")
     hi = job.get("salary_max")
     if lo and hi:
-        return f"${lo:,} – ${hi:,}"
+        return f"${lo:,} - ${hi:,}"
     if lo:
         return f"${lo:,}+"
     return ""

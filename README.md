@@ -386,8 +386,8 @@ SCORE_WEIGHTS = {"semantic": 0.50, "keyword": 0.30, "title": 0.20}
 BAND_THRESHOLDS = {"HOT": 85.0, "WARM": 60.0, "COLD": 40.0}
 
 # Scheduler — runs every hour; skips users whose frequency_hours hasn't elapsed
-HARVEST_HOURS   = [10, 14]   # IST
-DIGEST_HOUR     = 9          # IST daily
+HARVEST_HOURS = [10, 14]  # IST
+DIGEST_HOUR = 9  # IST daily
 
 # Retry backoff (seconds)
 RETRY_WAITS = [5, 15, 30]

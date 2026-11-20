@@ -71,12 +71,12 @@ def _normalize_date(raw) -> str | None:
         return val
 
     # Range with dash like "2021-22", "2023-24" — take just the start year
-    m = _re.match(r"^((19|20)\d{2})\s*[-–]\s*\d{2}$", val)
+    m = _re.match(r"^((19|20)\d{2})\s*[-|\u2013]\s*\d{2}$", val)
     if m:
         return m.group(1)
 
     # Long range "2021-2022" or "2021 - 2022" — take the start year
-    m = _re.match(r"^((19|20)\d{2})\s*[-–]\s*(19|20)\d{2}$", val)
+    m = _re.match(r"^((19|20)\d{2})\s*[-|\u2013]\s*(19|20)\d{2}$", val)
     if m:
         return m.group(1)
 
@@ -87,9 +87,7 @@ def _normalize_date(raw) -> str | None:
     # Extract ANY 4-digit year from free-text like "Expected 2027", "Since 2020", "Batch 2025-26"
     matches = _YEAR_RE.findall(val)
     if matches:
-        return matches[0][
-            0
-        ]  # findall returns tuples due to capturing group; [0] = first match, [0] = full year
+        return matches[0][0]  # findall returns tuples due to capturing group; [0] = first match, [0] = full year
 
     # No year found at all — drop the field
     return None
@@ -129,20 +127,46 @@ def _sanitize_cv_data(cv: dict) -> dict:
 
     # 0.5. Remove unknown root fields that might have leaked into `cv`
     for unknown_key in ["target_role", "job_id", "status", "score"]:
-        if unknown_key in cv:
-            del cv[unknown_key]
+        cv.pop(unknown_key, None)
 
-    # 1. Clean up social networks casing (RenderCV is strict)
+    # 1. Clean up social networks casing and username formats (RenderCV is strict)
     allowed_networks = {"LinkedIn", "GitHub", "GitLab", "Twitter", "Mastodon", "Website", "YouTube"}
-    if "social_networks" in cv:
+    if "social_networks" in cv and isinstance(cv["social_networks"], list):
         valid_socials = []
         for s in cv["social_networks"]:
-            net = s.get("network", "")
+            if not isinstance(s, dict):
+                continue
+            net = str(s.get("network", "")).strip()
+            raw_uname = str(s.get("username") or s.get("url") or "").strip()
+            # Extract handle if a full URL was provided
+            for prefix in [
+                "https://www.linkedin.com/in/",
+                "http://www.linkedin.com/in/",
+                "https://linkedin.com/in/",
+                "http://linkedin.com/in/",
+                "https://github.com/",
+                "http://github.com/",
+                "https://gitlab.com/",
+                "http://gitlab.com/",
+                "https://twitter.com/",
+                "https://x.com/",
+            ]:
+                if prefix in raw_uname.lower():
+                    # Preserve exact casing of handle
+                    idx = raw_uname.lower().find(prefix) + len(prefix)
+                    raw_uname = raw_uname[idx:].strip("/")
+            if raw_uname.startswith("http"):
+                raw_uname = raw_uname.split("/")[-1].strip("/")
+
+            matched_net = None
             for allowed in allowed_networks:
                 if allowed.lower() == net.lower():
-                    s["network"] = allowed
-                    valid_socials.append(s)
+                    matched_net = allowed
                     break
+
+            if matched_net and raw_uname:
+                # RenderCV 2.x only accepts network and username
+                valid_socials.append({"network": matched_net, "username": raw_uname})
         cv["social_networks"] = valid_socials
 
     # 2. Normalize ALL date fields and clean short string fields
@@ -210,27 +234,43 @@ def _sanitize_cv_data(cv: dict) -> dict:
         for sec in [s for s, e in list(cv["sections"].items()) if isinstance(e, list) and not e]:
             del cv["sections"][sec]
 
-    # 4. Fix phone number validation (RenderCV requires +countrycode)
+    # 4. Fix phone number validation (RenderCV requires valid E.164 +countrycode)
     if "phone" in cv:
         phone_str = str(cv["phone"]).strip()
         digits = "".join(filter(str.isdigit, phone_str))
         if "X" in phone_str.upper() or "x" in phone_str.lower() or len(digits) < 7:
             del cv["phone"]
-        elif phone_str.startswith("+"):
-            safe_phone = "+" + "".join(c for c in phone_str[1:] if c.isdigit() or c in " -()")
-            cv["phone"] = safe_phone
-        elif len(digits) == 10:
-            loc = str(cv.get("location", "")).upper()
-            if any(k in loc for k in ["US", "USA", "UNITED STATES", "CA", "NY", "SF", "TX", "WA"]):
-                cv["phone"] = f"+1{digits}"
-            elif any(
-                k in loc for k in ["INDIA", "IN", "BANGALORE", "HYDERABAD", "DELHI", "MUMBAI"]
-            ):
-                cv["phone"] = f"+91{digits}"
-            else:
-                cv["phone"] = f"+1{digits}"
         else:
-            cv["phone"] = f"+{digits}"
+            if digits.startswith("0") and len(digits) == 11:
+                digits = digits[1:]  # strip trunk prefix 0 (e.g. 07772074181 -> 7772074181)
+
+            if phone_str.startswith("+") and not phone_str.startswith("+0"):
+                safe_phone = "+" + "".join(c for c in phone_str[1:] if c.isdigit() or c in " -()")
+                cv["phone"] = safe_phone
+            elif len(digits) == 10:
+                loc = str(cv.get("location", "")).upper()
+                if any(
+                    k in loc for k in ["US", "USA", "UNITED STATES", "CA", "NY", "SF", "TX", "WA"]
+                ):
+                    cv["phone"] = f"+1{digits}"
+                elif any(
+                    k in loc
+                    for k in [
+                        "INDIA",
+                        "IN",
+                        "BANGALORE",
+                        "HYDERABAD",
+                        "DELHI",
+                        "MUMBAI",
+                        "INDORE",
+                        "PUNE",
+                    ]
+                ):
+                    cv["phone"] = f"+91{digits}"
+                else:
+                    cv["phone"] = f"+91{digits}"
+            else:
+                cv["phone"] = f"+{digits}"
 
     return cv
 
@@ -258,7 +298,11 @@ def _adapt_and_render_sync(resume_data: dict, theme: str) -> bytes:
         import shutil
         import sys
 
-        cmd = ["rendercv", "render", str(tmp_path)] if shutil.which("rendercv") else [sys.executable, "-m", "rendercv", "render", str(tmp_path)]
+        cmd = (
+            ["rendercv", "render", str(tmp_path)]
+            if shutil.which("rendercv")
+            else [sys.executable, "-m", "rendercv", "render", str(tmp_path)]
+        )
 
         res = subprocess.run(
             cmd,
@@ -338,7 +382,7 @@ def _has_missing_dates(cv: dict) -> bool:
 async def generate_and_upload_pdf(
     job_id: str,
     resume_data: dict,
-    user_id: str = None,
+    user_id: str | None = None,
     company_name: str = "",
     company_context: str = "",
 ) -> str | None:
@@ -353,8 +397,11 @@ async def generate_and_upload_pdf(
         try:
             client = get_client()
             res = client.table("user_profiles").select("preferences").eq("id", user_id).execute()
-            if res.data and res.data[0].get("preferences"):
-                theme = res.data[0]["preferences"].get("resume_template", "sb2nov")
+            data = res.data or []
+            if data and isinstance(data[0], dict):
+                user_prefs = data[0].get("preferences")
+                if isinstance(user_prefs, dict):
+                    theme = str(user_prefs.get("resume_template") or "sb2nov")
         except Exception as e:
             logger.warning(f"Could not fetch user preferences: {e}")
 

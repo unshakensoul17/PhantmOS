@@ -35,7 +35,7 @@ If you want to add a new job board (e.g., LinkedIn, Indeed):
        "title": "Job Title",
        "description": "Full HTML or Text description",
        "url": "https://apply.url",
-       "source": "NewBoard"
+       "source": "NewBoard",
    }
    ```
 4. Import and append your fetcher to the `run_harvest()` tasks in `harvesting/harvest_orchestrator.py`.

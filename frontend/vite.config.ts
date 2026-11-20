@@ -1,4 +1,3 @@
-
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 export default defineConfig({
@@ -24,8 +23,8 @@ export default defineConfig({
   nitro: {
     preset: "node-server",
     routeRules: {
-      '/api/**': { proxy: 'http://127.0.0.1:8080/api/**' },
-      '/telegram/**': { proxy: 'http://127.0.0.1:8080/telegram/**' }
-    }
-  }
+      "/api/**": { proxy: "http://127.0.0.1:8080/api/**" },
+      "/telegram/**": { proxy: "http://127.0.0.1:8080/telegram/**" },
+    },
+  } as any,
 });

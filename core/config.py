@@ -38,14 +38,11 @@ HF_API_KEY: str = "" if (_raw_hf.startswith("your-") or "placeholder" in _raw_hf
 HF_MODEL: str = "mistralai/Mistral-7B-Instruct-v0.3"
 
 # ─────────────────────────────────────────────────────────
-#  EMBEDDINGS
+#  LOCAL EMBEDDINGS & RERANKING ($0 Cost, Zero External API)
 # ─────────────────────────────────────────────────────────
-JINA_API_KEY: str = os.getenv("JINA_API_KEY", "").strip()
-JINA_EMBED_URL: str = "https://api.jina.ai/v1/embeddings"
-JINA_MODEL: str = "jina-embeddings-v3"
-
-# Local fallback model (50MB, no GPU required)
-LOCAL_EMBED_MODEL: str = "paraphrase-MiniLM-L3-v2"
+# Primary local embedding model (BAAI/bge-small-en-v1.5, 33M params, 384d, #1 MTEB lightweight CPU)
+LOCAL_EMBED_MODEL: str = os.getenv("LOCAL_EMBED_MODEL", "BAAI/bge-small-en-v1.5")
+LOCAL_RERANK_MODEL: str = os.getenv("LOCAL_RERANK_MODEL", "ms-marco-TinyBERT-L-2-v2")
 
 # ─────────────────────────────────────────────────────────
 #  TELEGRAM
@@ -60,6 +57,12 @@ TELEGRAM_API_BASE_URL: str = os.getenv("TELEGRAM_API_BASE_URL", "https://api.tel
 # ─────────────────────────────────────────────────────────
 GMAIL_USER: str = os.getenv("GMAIL_USER", "").strip()
 GMAIL_APP_PASSWORD: str = os.getenv("GMAIL_APP_PASSWORD", "").strip()
+
+# ─────────────────────────────────────────────────────────
+#  WHATSAPP (CallMeBot fallback)
+# ─────────────────────────────────────────────────────────
+CALLMEBOT_API_KEY: str = os.getenv("CALLMEBOT_API_KEY", "").strip()
+CALLMEBOT_PHONE: str = os.getenv("CALLMEBOT_PHONE", "").strip()
 
 # ─────────────────────────────────────────────────────────
 #  SCHEDULER

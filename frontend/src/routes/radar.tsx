@@ -276,12 +276,14 @@ function RadarPage() {
     staleTime: 30000,
   });
 
-  const activeLead = leads[currentIndex] || null;
+  const clampedIndex = leads.length > 0 ? Math.min(Math.max(0, currentIndex), leads.length - 1) : 0;
+  const activeLead = leads[clampedIndex] || null;
 
   // Auto-advance helper
   const advanceToNext = (dir: number = 1) => {
     setTailoredLead(null);
-    setPageIndex([currentIndex + dir, dir]);
+    const nextIdx = Math.max(0, currentIndex + dir);
+    setPageIndex([nextIdx, dir]);
   };
 
   // Status mutation
@@ -826,7 +828,9 @@ function CompactDecisionCard({
                 <Loader2 className="w-4 h-4 animate-spin text-neon-cyan shrink-0" />
                 <div className="text-[11px] text-neon-cyan font-mono leading-tight">
                   <span className="font-bold">Tailoring ATS resume in background...</span>
-                  <div className="text-[10px] text-white/70">You can continue deciding on other jobs!</div>
+                  <div className="text-[10px] text-white/70">
+                    You can continue deciding on other jobs!
+                  </div>
                 </div>
               </div>
             )}

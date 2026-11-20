@@ -24,6 +24,7 @@ Public Methods:
 Dependencies:
     synthesis.evaluator, core.database_manager
 """
+
 import json
 
 from core.database_manager import get_leads_by_status, update_job_lead
@@ -36,16 +37,14 @@ logger = get_logger(__name__)
 class ATSAgent:
     """Owns ATS scoring, quality checks, and interview prep (read-only analysis)."""
 
-    async def evaluate(
-        self, resume_data: dict, jd_text: str, api_keys: dict = None
-    ) -> dict:
+    async def evaluate(self, resume_data: dict, jd_text: str, api_keys: dict | None = None) -> dict:
         """
         Evaluate a single resume against a JD.
         Returns {ats_score, ats_feedback, interview_prep}.
         """
         return await evaluate_lead(resume_data, jd_text, api_keys)
 
-    async def run(self, profile: dict, api_keys: dict = None) -> dict:
+    async def run(self, profile: dict, api_keys: dict | None = None) -> dict:
         """
         Batch-evaluate all Tailored leads that don't yet have an ATS score.
         Writes results into the lead's notes JSON.
@@ -75,15 +74,11 @@ class ATSAgent:
                 notes["ats_score"] = result.get("ats_score", 70)
                 notes["ats_feedback"] = result.get("ats_feedback", [])
                 notes["interview_prep"] = result.get("interview_prep", [])
-                update_job_lead(
-                    lead["job_id"], {"notes": json.dumps(notes)}, user_id=user_id
-                )
+                update_job_lead(lead["job_id"], {"notes": json.dumps(notes)}, user_id=user_id)
                 evaluated += 1
             except Exception as e:
                 logger.error(f"ATSAgent: evaluation failed for {lead.get('job_id')}: {e}")
                 failed += 1
 
-        logger.info(
-            f"ATSAgent: evaluated={evaluated} skipped={skipped} failed={failed}"
-        )
+        logger.info(f"ATSAgent: evaluated={evaluated} skipped={skipped} failed={failed}")
         return {"evaluated": evaluated, "skipped": skipped, "failed": failed}

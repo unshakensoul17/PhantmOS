@@ -27,12 +27,11 @@ python-telegram-bot
 ddgs                   # context researcher + genuity checker
 beautifulsoup4         # html parsing for web scraping
 
-# ── Stage 2: Embeddings ───────────────────────────────────
+# ── Stage 2: 100% Local Embeddings & Reranking ($0 Cost, <50MB RAM) ──
 numpy
-sentence-transformers  # local fallback model (paraphrase-MiniLM-L3-v2, ~50MB)
-# Jina AI: called via httpx — no package needed
-# NOTE: sentence-transformers pulls torch; if RAM is tight on HF Spaces,
-#       set JINA_API_KEY and the local model is never loaded.
+fastembed>=0.8.0       # ONNX-quantized BAAI/bge-small-en-v1.5 (zero PyTorch overhead)
+flashrank>=0.2.0       # ultra-lightweight ms-marco-TinyBERT-L-2-v2 reranker (~3MB model)
+onnxruntime>=1.18.0    # high-speed CPU execution runtime bound to 2 threads
 
 # ── Stage 3: LLM providers ────────────────────────────────
 # Groq: called via httpx — no package needed

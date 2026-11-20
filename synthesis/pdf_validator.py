@@ -4,13 +4,13 @@ synthesis/pdf_validator.py — PhantmOS v2.0
 Post-generation PDF validation.
 Checks file integrity, required sections, and page count.
 """
-import io
+
 from core.logger import get_logger
 
 logger = get_logger(__name__)
 
-MIN_SIZE_BYTES = 5_000     # < 5KB = almost certainly broken
-MAX_PAGES      = 2         # target 1 page, allow 2 as safety
+MIN_SIZE_BYTES = 5_000  # < 5KB = almost certainly broken
+MAX_PAGES = 2  # target 1 page, allow 2 as safety
 
 
 def validate_pdf(pdf_bytes: bytes, candidate_name: str = "") -> bool:
@@ -31,9 +31,7 @@ def validate_pdf(pdf_bytes: bytes, candidate_name: str = "") -> bool:
 
     # Check 1: Minimum size
     if len(pdf_bytes) < MIN_SIZE_BYTES:
-        logger.error(
-            f"PDF Validator: file too small ({len(pdf_bytes)} bytes < {MIN_SIZE_BYTES})."
-        )
+        logger.error(f"PDF Validator: file too small ({len(pdf_bytes)} bytes < {MIN_SIZE_BYTES}).")
         return False
 
     # Check 2: PDF magic bytes
@@ -67,9 +65,7 @@ def validate_pdf(pdf_bytes: bytes, candidate_name: str = "") -> bool:
     except Exception as e:
         logger.warning(f"PDF Validator: could not count pages: {e}")
 
-    logger.info(
-        f"PDF Validator: PASS ({len(pdf_bytes):,} bytes)."
-    )
+    logger.info(f"PDF Validator: PASS ({len(pdf_bytes):,} bytes).")
     return True
 
 
@@ -85,4 +81,4 @@ def _count_pdf_pages(pdf_bytes: bytes) -> int:
     # Subtract the /Pages (plural) container entries
     count -= pdf_bytes.count(b"/Type /Pages")
     count -= pdf_bytes.count(b"/Type/Pages")
-    return max(count, 1)   # minimum 1
+    return max(count, 1)  # minimum 1

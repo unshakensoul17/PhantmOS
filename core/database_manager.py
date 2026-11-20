@@ -42,6 +42,7 @@ def get_client() -> Client:
 
 def get_profile(user_id: str | None = None) -> dict | None:
     """Retrieve user profile by user_id, including external resume_data."""
+
     try:
         # OPTIMIZATION 2: Join with partitioned user_resumes table
         q = get_client().table("user_profiles").select("*, user_resumes(resume_data)")
@@ -293,6 +294,30 @@ def _flatten_lead(row: dict) -> dict:
     flat["raw_description"] = flat.get("description")
     flat["job_url"] = flat.get("url")
     flat["source_platform"] = flat.get("source")
+
+    # Ensure match_score, score_total, and score are always set and calibrated as 0-100 integers
+    raw_score = flat.get("match_score")
+    score_val = 0
+    if raw_score is not None:
+        try:
+            score_f = float(raw_score)
+            score_val = round(score_f * 100) if 0.0 < score_f <= 1.0 else round(score_f)
+        except (ValueError, TypeError):
+            score_val = 0
+
+    flat["score_total"] = score_val
+    flat["score"] = score_val
+
+    # Ensure score_band is populated
+    if not flat.get("score_band"):
+        if score_val >= 85:
+            flat["score_band"] = "HOT"
+        elif score_val >= 60:
+            flat["score_band"] = "WARM"
+        elif score_val >= 40:
+            flat["score_band"] = "COLD"
+        else:
+            flat["score_band"] = "REJECT"
 
     notes_raw = flat.get("notes")
     if notes_raw and isinstance(notes_raw, str):
@@ -619,16 +644,31 @@ def store_company_context(company_name: str, context: str) -> None:
 # ─────────────────────────────────────────────────────────
 
 
-def queue_delivery(job_id: str, user_id: str) -> None:
+def queue_delivery(job_id: str, user_id: str | None = None) -> None:
+    if not job_id or not user_id:
+        return
     try:
-        get_client().table("delivery_queue").insert(
+        client = get_client()
+        existing = (
+            client.table("delivery_queue")
+            .select("id")
+            .eq("job_id", job_id)
+            .eq("user_id", user_id)
+            .eq("status", "pending")
+            .limit(1)
+            .execute()
+        )
+        if existing.data:
+            return
+
+        client.table("delivery_queue").insert(
             {"job_id": job_id, "user_id": user_id, "status": "pending", "attempts": 0}
         ).execute()
     except Exception as e:
         logger.error(f"Error queuing delivery for job {job_id}: {e}")
 
 
-def get_pending_deliveries(max_attempts: int = 3, user_id: str = None) -> list[dict]:
+def get_pending_deliveries(max_attempts: int = 3, user_id: str | None = None) -> list[dict]:
     try:
         query = (
             get_client()
@@ -687,7 +727,7 @@ def update_delivery_status(delivery_id: str, status: str, increment_attempts: bo
 # ─────────────────────────────────────────────────────────
 
 
-def store_feedback(job_id: str, action: str, skip_reason: str = "", user_id: str = None) -> None:
+def store_feedback(job_id: str, action: str, skip_reason: str = "", user_id: str | None = None) -> None:
     try:
         payload = {
             "job_id": job_id,
@@ -737,20 +777,66 @@ def store_embedding(key: str, embedding: list[float]) -> None:
         logger.error(f"Error storing embedding for {key}: {e}")
 
 
+def get_cached_embeddings_bulk(keys: list[str]) -> dict[str, list[float]]:
+    """Fetch multiple cached embeddings in batches via single SQL in_ queries."""
+    if not keys:
+        return {}
+    results = {}
+    client = get_client()
+    # Chunk into batches of 100 to stay well under query parameter limits
+    chunk_size = 100
+    for i in range(0, len(keys), chunk_size):
+        chunk = keys[i : i + chunk_size]
+        try:
+            resp = (
+                client.table("embedding_cache")
+                .select("key, embedding")
+                .in_("key", chunk)
+                .execute()
+            )
+            for row in resp.data or []:
+                k = row.get("key")
+                raw = row.get("embedding")
+                if isinstance(raw, str):
+                    try:
+                        raw = json.loads(raw)
+                    except Exception:
+                        pass
+                if k and isinstance(raw, list):
+                    results[k] = raw
+        except Exception as e:
+            logger.error(f"Error fetching bulk cached embeddings: {e}")
+    return results
+
+
+def store_embeddings_bulk(items: list[dict]) -> None:
+    """Store multiple embeddings in bulk chunks."""
+    if not items:
+        return
+    client = get_client()
+    chunk_size = 100
+    for i in range(0, len(items), chunk_size):
+        chunk = items[i : i + chunk_size]
+        try:
+            client.table("embedding_cache").upsert(chunk, on_conflict="key").execute()
+        except Exception as e:
+            logger.error(f"Error storing bulk embeddings: {e}")
+
+
 # ─────────────────────────────────────────────────────────
 #  STAGE LOGS
 # ─────────────────────────────────────────────────────────
 
 
-def log_stage_success(job_id: str, stage: str, message: str = "", user_id: str = None) -> None:
+def log_stage_success(job_id: str | None = None, stage: str = "", message: str = "", user_id: str | None = None) -> None:
     _log_stage(job_id, stage, "success", message, user_id=user_id)
 
 
-def log_stage_failure(job_id: str, stage: str, message: str = "", user_id: str = None) -> None:
+def log_stage_failure(job_id: str | None = None, stage: str = "", message: str = "", user_id: str | None = None) -> None:
     _log_stage(job_id, stage, "failure", message, user_id=user_id)
 
 
-def _log_stage(job_id: str, stage: str, status: str, message: str, user_id: str = None) -> None:
+def _log_stage(job_id: str | None, stage: str, status: str, message: str, user_id: str | None = None) -> None:
     try:
         payload = {
             "job_id": job_id or None,

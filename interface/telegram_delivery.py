@@ -35,6 +35,7 @@ logger = get_logger(__name__)
 _SEND_LOCK = None
 _LAST_SEND_TIME: float = 0.0
 _MIN_SEND_INTERVAL: float = 1.5  # seconds
+_BACKGROUND_TASKS: set[asyncio.Task] = set()
 
 # ── Endpoint resolution ────────────────────────────────────────────────────────
 # Try api.telegram.org directly first (fastest, no proxy hop).
@@ -49,13 +50,12 @@ _TELEGRAM_ENDPOINTS: list[str] = list(
 app = FastAPI(title="PhantmOS Webhook")
 
 # Telegram bot + application
+bot: Bot | None = None
+application: Application | None = None
 if TELEGRAM_BOT_TOKEN and "your-" not in TELEGRAM_BOT_TOKEN and "placeholder" not in TELEGRAM_BOT_TOKEN:
     base_url = f"{TELEGRAM_API_BASE_URL}/bot"
     bot = Bot(token=TELEGRAM_BOT_TOKEN, base_url=base_url)
     application = Application.builder().bot(bot).build()
-else:
-    bot = None
-    application = None
 
 
 # ── Button callback handler ────────────────────────────────────────────────────
@@ -220,7 +220,7 @@ async def _post_to_telegram(path: str, payload: dict):
 
             def _send(target_url=url):
                 return requests.post(
-                    target_url, json=payload, timeout=30.0, proxies={"http": None, "https": None}
+                    target_url, json=payload, timeout=30.0, proxies={"http": "", "https": ""}
                 )
 
             resp = await asyncio.to_thread(_send)
@@ -312,7 +312,7 @@ async def send_job_card(lead: dict) -> bool:
             _LAST_SEND_TIME = asyncio.get_event_loop().time()
             logger.error(
                 f"Telegram: error sending card for {job_id} to chat {chat_id}: "
-                f"[{type(e).__name__}] {repr(e)}"
+                f"[{type(e).__name__}] {e!r}"
             )
             return False
 
@@ -356,9 +356,28 @@ async def send_triage_deck(profile: dict, chat_id: int | str) -> bool:
         return False
 
 
-async def send_webapp_digest(chat_id: int, count: int, email: str = None) -> bool:
+async def send_webapp_digest(chat_id: int, count: int, email: str | None = None) -> bool:
     """Fallback digest sender."""
     return await send_triage_deck(profile={"telegram_chat_id": chat_id}, chat_id=chat_id)
+
+
+async def send_direct_message(chat_id: int | str, text: str, parse_mode: str = "Markdown") -> bool:
+    """Send a direct text message to a chat using configured endpoints."""
+    if not TELEGRAM_BOT_TOKEN:
+        logger.warning("Telegram: bot token not configured.")
+        return False
+    payload = {
+        "chat_id": str(chat_id),
+        "text": text,
+        "parse_mode": parse_mode,
+        "disable_web_page_preview": True,
+    }
+    try:
+        resp = await _post_to_telegram("sendMessage", payload)
+        return resp is not None and resp.status_code == 200
+    except Exception as e:
+        logger.error(f"Failed to send direct message to {chat_id}: {e}")
+        return False
 
 
 # ── Action handlers ────────────────────────────────────────────────────────────
@@ -401,17 +420,18 @@ async def _on_create_resume(context, chat_id: int, job_id: str, query):
             lead, master_resume, user_id=user_id, preferences=preferences
         )
         if success:
-            lead = get_lead_by_id(job_id)
+            lead = get_lead_by_id(job_id) or lead
             notes = {}
-            try:
-                notes = json.loads(lead.get("notes") or "{}")
-            except Exception:
-                pass
+            if lead:
+                try:
+                    notes = json.loads(lead.get("notes") or "{}")
+                except Exception:
+                    pass
             resume_data = notes.get("updated_resume_json") or master_resume
             url = await generate_and_upload_pdf(
                 job_id=job_id, resume_data=resume_data, user_id=user_id
             )
-            if url:
+            if url and lead:
                 update_job_lead(job_id, {"resume_url": url}, user_id=user_id)
                 lead["resume_url"] = url
                 lead["status"] = "Tailored"
@@ -422,12 +442,13 @@ async def _on_create_resume(context, chat_id: int, job_id: str, query):
                     chat_id=chat_id, text="⚠️ PDF generation failed. Please try again."
                 )
                 return
-            await query.edit_message_text(
-                text=format_job_card(lead),
-                parse_mode="Markdown",
-                reply_markup=_build_main_keyboard(job_id, "Tailored"),
-                disable_web_page_preview=True,
-            )
+            if lead:
+                await query.edit_message_text(
+                    text=format_job_card(lead),
+                    parse_mode="Markdown",
+                    reply_markup=_build_main_keyboard(job_id, "Tailored"),
+                    disable_web_page_preview=True,
+                )
             if url.startswith(("http://", "https://")):
                 await context.bot.send_message(
                     chat_id=chat_id,
@@ -710,21 +731,28 @@ async def _on_triage_tailor(context, chat_id: int, payload: str, query):
         return
 
     company_name = lead.get("company", "Company")
-    title_name = lead.get("title", "Role")
 
     # Acknowledge immediately so UI doesn't hang
     await query.answer(f"⚡ Tailoring resume for {company_name}...", show_alert=False)
 
-    # Send dedicated progress message below the deck
-    progress_msg = await context.bot.send_message(
-        chat_id=chat_id,
-        text=(
-            f"⏳ *Tailoring Resume for {company_name}*\n"
-            f"💼 *{title_name}*\n\n"
-            f"⚙️ _Analyzing JD, optimizing bullet points & compiling ATS PDF..._"
-        ),
-        parse_mode="Markdown",
-    )
+    _, leads = _get_cached_triage_leads(chat_id)
+    total_count = len(leads) if leads else 1
+
+    # Update the card in-place to show tailoring state
+    try:
+        lead_copy = dict(lead)
+        lead_copy["status"] = "Tailoring"
+        card_text_tailoring = format_triage_card(lead_copy, idx, total_count)
+        # Temporarily show tailoring indicator on the keyboard
+        tailoring_kb = _build_triage_keyboard(lead_copy, idx, total_count)
+        await query.edit_message_text(
+            text=card_text_tailoring,
+            parse_mode="Markdown",
+            reply_markup=tailoring_kb,
+            disable_web_page_preview=True,
+        )
+    except Exception as edit_err:
+        logger.debug(f"Could not update card in-place for tailoring: {edit_err}")
 
     async def _async_tailor_task():
         try:
@@ -741,65 +769,76 @@ async def _on_triage_tailor(context, chat_id: int, payload: str, query):
                     pass
                 resume_data = notes.get("updated_resume_json") or master_resume
                 url = await generate_and_upload_pdf(
-                    job_id=job_id, resume_data=resume_data, user_id=user_id
+                    job_id=job_id,
+                    resume_data=resume_data,
+                    user_id=user_id,
+                    company_name=company_name,
                 )
                 if url:
-                    update_job_lead(job_id, {"resume_url": url, "status": "Tailored"}, user_id=user_id)
+                    update_job_lead(
+                        job_id, {"resume_url": url, "status": "Tailored"}, user_id=user_id
+                    )
                     updated_lead["resume_url"] = url
                     updated_lead["status"] = "Tailored"
-                    _update_lead_in_cache(chat_id, job_id, {"resume_url": url, "status": "Tailored"})
+                    _update_lead_in_cache(
+                        chat_id, job_id, {"resume_url": url, "status": "Tailored"}
+                    )
                     try:
                         get_client().table("delivery_queue").delete().eq("job_id", job_id).execute()
                     except Exception:
                         pass
 
-                    # Edit progress message to completed state with download button
-                    ready_kb = InlineKeyboardMarkup([
-                        [
-                            InlineKeyboardButton("📥 Download PDF", callback_data=f"triage_pdf_{job_id}"),
-                            InlineKeyboardButton("✉️ Cold Email", callback_data=f"triage_email_{job_id}_{idx}"),
-                        ]
-                    ])
-                    await progress_msg.edit_text(
-                        text=(
-                            f"✅ *Tailored Resume Ready!*\n"
-                            f"🏢 *{company_name}* · {title_name}\n\n"
-                            f"📄 PDF compiled with RenderCV & ATS optimized."
-                        ),
-                        parse_mode="Markdown",
-                        reply_markup=ready_kb,
-                    )
-
-                    # Send PDF document directly to Telegram chat
+                    # Edit the card in-place to show completed state with Download button
                     try:
-                        await context.bot.send_document(
-                            chat_id=chat_id,
-                            document=url,
-                            filename=f"Resume_{company_name}.pdf",
-                            caption=f"📄 *Tailored Resume PDF*\n🏢 *{company_name}* · {title_name}\n\n[Direct Link]({url})",
+                        final_card_text = format_triage_card(updated_lead, idx, total_count)
+                        final_kb = _build_triage_keyboard(updated_lead, idx, total_count)
+                        await query.edit_message_text(
+                            text=final_card_text,
                             parse_mode="Markdown",
+                            reply_markup=final_kb,
+                            disable_web_page_preview=True,
                         )
-                    except Exception as doc_err:
-                        logger.warning(f"Could not send PDF as document: {doc_err}")
+                    except Exception as fin_err:
+                        logger.debug(f"Could not edit card on completion: {fin_err}")
                 else:
-                    await progress_msg.edit_text(
-                        f"⚠️ PDF compile failed for *{company_name}*. Please try again.",
-                        parse_mode="Markdown",
-                    )
+                    try:
+                        await query.edit_message_text(
+                            text=format_triage_card(lead, idx, total_count)
+                            + "\n\n⚠️ _PDF compilation failed. Please try again._",
+                            parse_mode="Markdown",
+                            reply_markup=_build_triage_keyboard(lead, idx, total_count),
+                            disable_web_page_preview=True,
+                        )
+                    except Exception:
+                        pass
             else:
-                await progress_msg.edit_text(
-                    f"❌ LLM tailoring failed for *{company_name}*. Please try again.",
-                    parse_mode="Markdown",
-                )
+                try:
+                    await query.edit_message_text(
+                        text=format_triage_card(lead, idx, total_count)
+                        + "\n\n⚠️ _Resume tailoring failed. Please try again._",
+                        parse_mode="Markdown",
+                        reply_markup=_build_triage_keyboard(lead, idx, total_count),
+                        disable_web_page_preview=True,
+                    )
+                except Exception:
+                    pass
         except Exception as e:
             logger.error(f"Error in async tailoring task: {e}")
             try:
-                await progress_msg.edit_text(f"❌ Error generating resume for {company_name}: {e}")
+                await query.edit_message_text(
+                    text=format_triage_card(lead, idx, total_count)
+                    + f"\n\n❌ _Error generating resume for {company_name}: {e}_",
+                    parse_mode="Markdown",
+                    reply_markup=_build_triage_keyboard(lead, idx, total_count),
+                    disable_web_page_preview=True,
+                )
             except Exception:
                 pass
 
     # Launch tailoring in background task so user can continue navigating immediately
-    asyncio.create_task(_async_tailor_task())
+    _tailor_task = asyncio.create_task(_async_tailor_task())
+    _BACKGROUND_TASKS.add(_tailor_task)
+    _tailor_task.add_done_callback(_BACKGROUND_TASKS.discard)
 
 
 async def _on_triage_pdf(context, chat_id: int, job_id: str, query):
@@ -951,6 +990,6 @@ def _build_main_keyboard(job_id: str, status: str) -> InlineKeyboardMarkup:
 if __name__ == "__main__":
     if not TELEGRAM_BOT_TOKEN:
         print("Error: TELEGRAM_BOT_TOKEN is missing in .env")
-    else:
+    elif application:
         print("Starting Telegram Bot in Polling Mode (Local Development)...")
         application.run_polling(drop_pending_updates=True)

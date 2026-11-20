@@ -1,0 +1,69 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "siro"
+version = "3.0.0"
+description = "PhantmOS / Siro autonomous job pipeline"
+readme = "README.md"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "frontend",
+    "data",
+    "dist",
+    ".output",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort (imports sorting)
+    "UP",  # pyupgrade (modern Python syntax)
+    "B",   # flake8-bugbear (common bug patterns)
+    "SIM", # flake8-simplify
+    "S",   # flake8-bandit (security checks)
+]
+ignore = [
+    "E501", # Line too long (handled by formatter)
+    "S104", # Possible binding to all interfaces (0.0.0.0)
+    "S105", # False positive on token_url variable names
+    "S108", # Probable insecure usage of temp file/dir
+    "S110", # try-except-pass
+    "S324", # Insecure hash (MD5 used only for job ID deduplication and caching)
+    "S603", # subprocess call
+    "S607", # Starting a process with a partial executable path
+    "B008", # Do not perform function call in argument defaults (FastAPI Depends)
+    "B904", # Within an except clause, raise exceptions with raise ... from
+    "SIM105", # Use contextlib.suppress instead of try-except-pass
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"] # allow assert in tests
+"scripts/*" = ["S101", "T201", "E402"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+exclude = ["frontend", "data", "dist"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+asyncio_mode = "auto"
