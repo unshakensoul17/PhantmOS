@@ -1,0 +1,22 @@
+{
+  "short_name": "PhantmOS",
+  "name": "PhantmOS - Autonomous AI Career Operating System",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/logo.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "display": "standalone",
+  "scope": "/",
+  "description": "PhantmOS finds jobs, optimizes your resume, automates applications, and manages your career search pipeline autonomously."
+}

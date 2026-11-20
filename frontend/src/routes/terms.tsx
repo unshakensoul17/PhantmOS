@@ -2,6 +2,12 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, FileText, CheckCircle } from "lucide-react";
 
 export const Route = createFileRoute("/terms")({
+  head: () => ({
+    meta: [
+      { title: "Terms of Service — PhantmOS" },
+      { name: "description", content: "Terms of service and acceptable usage policy for PhantmOS." },
+    ],
+  }),
   component: TermsAndConditionsPage,
 });
 

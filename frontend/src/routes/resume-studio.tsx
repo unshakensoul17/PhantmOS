@@ -7,6 +7,12 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/resume-studio")({
+  head: () => ({
+    meta: [
+      { title: "AI Resume Studio & ATS Builder — PhantmOS" },
+      { name: "description", content: "Build, tailor, and compile ATS-compliant resumes with PhantmOS RenderCV engine." },
+    ],
+  }),
   component: ResumeStudioPage,
 });
 
