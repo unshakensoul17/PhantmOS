@@ -1,0 +1,13 @@
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /settings
+Disallow: /applications
+
+# Host
+Host: https://unshakensoul17-phantmos.hf.space
+
+# Sitemaps
+Sitemap: https://unshakensoul17-phantmos.hf.space/sitemap.xml
